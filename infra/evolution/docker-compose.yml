@@ -1,0 +1,57 @@
+services:
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.3
+    container_name: evolution-api
+    restart: unless-stopped
+    depends_on:
+      - evolution-postgres
+      - evolution-redis
+    environment:
+      SERVER_URL: ${EVOLUTION_SERVER_URL}
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${EVOLUTION_DB_USER}:${EVOLUTION_DB_PASSWORD}@evolution-postgres:5432/${EVOLUTION_DB_NAME}
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://evolution-redis:6379/6
+      LOG_LEVEL: ERROR
+    ports:
+      - "127.0.0.1:${EVOLUTION_PORT:-8081}:8080"
+    networks:
+      - homepit_net
+
+  evolution-postgres:
+    image: postgres:16.9-alpine
+    container_name: evolution-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${EVOLUTION_DB_USER}
+      POSTGRES_PASSWORD: ${EVOLUTION_DB_PASSWORD}
+      POSTGRES_DB: ${EVOLUTION_DB_NAME}
+    volumes:
+      - evolution_postgres_data:/var/lib/postgresql/data
+    networks:
+      - homepit_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${EVOLUTION_DB_USER} -d ${EVOLUTION_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  evolution-redis:
+    image: redis:7.4.4-alpine
+    container_name: evolution-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - evolution_redis_data:/data
+    networks:
+      - homepit_net
+
+volumes:
+  evolution_postgres_data:
+  evolution_redis_data:
+
+networks:
+  homepit_net:
+    external: true

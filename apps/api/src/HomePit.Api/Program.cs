@@ -1,0 +1,227 @@
+using System.Text;
+using System.Text.Json.Serialization;
+using HomePit.Api.Security;
+using HomePit.Application;
+using HomePit.Application.Auth;
+using HomePit.Application.Common;
+using HomePit.Application.Households;
+using HomePit.Application.Projects;
+using HomePit.Infrastructure;
+using HomePit.Infrastructure.Auth;
+using HomePit.Infrastructure.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IUserContext, HttpUserContext>();
+builder.Services.AddHomePitApplication();
+builder.Services.AddHomePitInfrastructure(builder.Configuration);
+
+var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateIssuerSigningKey = true,
+            ValidateLifetime = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidAudience = jwtOptions.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+            ClockSkew = TimeSpan.FromMinutes(1)
+        };
+    });
+
+builder.Services.AddAuthorization();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("web", policy =>
+    {
+        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+        if (origins.Length == 0)
+        {
+            policy.AllowAnyOrigin();
+        }
+        else
+        {
+            policy.WithOrigins(origins);
+        }
+
+        policy.AllowAnyHeader().AllowAnyMethod();
+    });
+});
+
+var app = builder.Build();
+
+app.UseHomePitErrors();
+app.UseCors("web");
+app.UseAuthentication();
+app.UseAuthorization();
+
+if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true))
+{
+    await app.Services.MigrateHomePitDatabaseAsync();
+}
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/api/system/info", () => Results.Ok(new
+{
+    name = "HomePit API",
+    version = "0.1.0",
+    timezone = "America/Sao_Paulo"
+}));
+
+var auth = app.MapGroup("/api/auth");
+auth.MapPost("/register", async (RegisterRequest request, AuthService service, CancellationToken cancellationToken) =>
+    Results.Created("/api/households", await service.RegisterAsync(request, cancellationToken)));
+auth.MapPost("/login", async (LoginRequest request, AuthService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.LoginAsync(request, cancellationToken)));
+auth.MapPost("/refresh", async (RefreshRequest request, AuthService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.RefreshAsync(request, cancellationToken)));
+
+var api = app.MapGroup("/api").RequireAuthorization();
+
+api.MapGet("/households", async (HouseholdService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListAsync(cancellationToken)));
+api.MapPost("/households", async (CreateHouseholdRequest request, HouseholdService service, CancellationToken cancellationToken) =>
+    Results.Created("/api/households", await service.CreateAsync(request, cancellationToken)));
+api.MapPut("/households/{id:guid}", async (
+    Guid id,
+    UpdateHouseholdRequest request,
+    HouseholdService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateAsync(id, request, cancellationToken)));
+api.MapDelete("/households/{id:guid}", async (
+    Guid id,
+    HouseholdService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+api.MapGet("/households/members", async (HouseholdService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListMembersAsync(cancellationToken)));
+api.MapPost("/households/share", async (ShareHouseholdRequest request, HouseholdService service, CancellationToken cancellationToken) =>
+    Results.Created("/api/households/members", await service.ShareAsync(request, cancellationToken)));
+api.MapPut("/users/me", async (UpdateProfileRequest request, AuthService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateProfileAsync(request, cancellationToken)));
+
+api.MapGet("/universes", async (ProjectService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListUniversesAsync(cancellationToken)));
+api.MapPost("/universes", async (CreateUniverseRequest request, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Created("/api/universes", await service.CreateUniverseAsync(request, cancellationToken)));
+api.MapPut("/universes/{id:guid}", async (
+    Guid id,
+    UpdateUniverseRequest request,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateUniverseAsync(id, request, cancellationToken)));
+api.MapDelete("/universes/{id:guid}", async (
+    Guid id,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteUniverseAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+
+api.MapGet("/projects", async (Guid? universeId, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListProjectsAsync(universeId, cancellationToken)));
+api.MapPost("/projects", async (CreateProjectRequest request, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Created("/api/projects", await service.CreateProjectAsync(request, cancellationToken)));
+api.MapPut("/projects/{id:guid}", async (
+    Guid id,
+    UpdateProjectRequest request,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateProjectAsync(id, request, cancellationToken)));
+api.MapDelete("/projects/{id:guid}", async (
+    Guid id,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteProjectAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+
+api.MapGet("/activities", async (
+    Guid? projectId,
+    HomePit.Domain.Projects.ActivityStatus? status,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListActivitiesAsync(projectId, status, cancellationToken)));
+api.MapPost("/activities", async (CreateActivityRequest request, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Created("/api/activities", await service.CreateActivityAsync(request, cancellationToken)));
+api.MapPut("/activities/{id:guid}", async (
+    Guid id,
+    UpdateActivityRequest request,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateActivityAsync(id, request, cancellationToken)));
+api.MapDelete("/activities/{id:guid}", async (
+    Guid id,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteActivityAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+api.MapPatch("/activities/{id:guid}/status", async (
+    Guid id,
+    UpdateActivityStatusRequest request,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateActivityStatusAsync(id, request, cancellationToken)));
+api.MapGet("/activities/{id:guid}/comments", async (
+    Guid id,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListActivityCommentsAsync(id, cancellationToken)));
+api.MapPost("/activities/{id:guid}/comments", async (
+    Guid id,
+    CreateActivityCommentRequest request,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Created($"/api/activities/{id}/comments", await service.CreateActivityCommentAsync(id, request, cancellationToken)));
+api.MapPut("/activities/{activityId:guid}/comments/{commentId:guid}", async (
+    Guid activityId,
+    Guid commentId,
+    UpdateActivityCommentRequest request,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateActivityCommentAsync(activityId, commentId, request, cancellationToken)));
+api.MapDelete("/activities/{activityId:guid}/comments/{commentId:guid}", async (
+    Guid activityId,
+    Guid commentId,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteActivityCommentAsync(activityId, commentId, cancellationToken);
+    return Results.NoContent();
+});
+
+api.MapGet("/activities/{id:guid}/pending-items", async (
+    Guid id,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListPendingItemsAsync(id, cancellationToken)));
+api.MapPost("/activities/{id:guid}/pending-items", async (
+    Guid id,
+    CreatePendingItemRequest request,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Created($"/api/activities/{id}/pending-items", await service.CreatePendingItemAsync(id, request, cancellationToken)));
+
+await app.RunAsync();
+
+public partial class Program;

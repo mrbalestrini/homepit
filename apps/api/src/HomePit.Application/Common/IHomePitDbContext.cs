@@ -1,0 +1,23 @@
+using HomePit.Domain.Households;
+using HomePit.Domain.Notifications;
+using HomePit.Domain.Projects;
+using Microsoft.EntityFrameworkCore;
+
+namespace HomePit.Application.Common;
+
+public interface IHomePitDbContext
+{
+    DbSet<AppUser> Users { get; }
+    DbSet<Household> Households { get; }
+    DbSet<HouseholdMember> HouseholdMembers { get; }
+    DbSet<RefreshToken> RefreshTokens { get; }
+    DbSet<Universe> Universes { get; }
+    DbSet<Project> Projects { get; }
+    DbSet<Activity> Activities { get; }
+    DbSet<ActivityComment> ActivityComments { get; }
+    DbSet<PendingItem> PendingItems { get; }
+    DbSet<NotificationPreference> NotificationPreferences { get; }
+    DbSet<NotificationRun> NotificationRuns { get; }
+
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+}

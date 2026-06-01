@@ -1,0 +1,677 @@
+openapi: 3.1.0
+info:
+  title: HomePit API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      security: []
+      responses:
+        "200":
+          description: API healthy
+  /api/auth/register:
+    post:
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /api/auth/login:
+    post:
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /api/auth/refresh:
+    post:
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Token refreshed
+  /api/households:
+    get:
+      responses:
+        "200":
+          description: User households
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Household"
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        "201":
+          description: Household created
+  /api/households/members:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      responses:
+        "200":
+          description: Household members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HouseholdMember"
+  /api/households/share:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShareHouseholdRequest"
+      responses:
+        "201":
+          description: Household shared with existing user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HouseholdMember"
+  /api/users/me:
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Current user updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+  /api/universes:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      responses:
+        "200":
+          description: Universes
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUniverseRequest"
+      responses:
+        "201":
+          description: Universe created
+  /api/universes/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUniverseRequest"
+      responses:
+        "200":
+          description: Universe updated
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Universe deleted
+  /api/projects:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: universeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Projects
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "201":
+          description: Project created
+  /api/projects/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: Project updated
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Project deleted
+  /api/activities:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: projectId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActivityStatus"
+      responses:
+        "200":
+          description: Activities
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityRequest"
+      responses:
+        "201":
+          description: Activity created
+  /api/activities/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActivityRequest"
+      responses:
+        "200":
+          description: Activity updated
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Activity deleted
+  /api/activities/{id}/status:
+    patch:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: "#/components/schemas/ActivityStatus"
+      responses:
+        "200":
+          description: Activity status updated
+  /api/activities/{id}/comments:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Activity comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityComment"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityCommentRequest"
+      responses:
+        "201":
+          description: Activity comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityComment"
+  /api/activities/{activityId}/comments/{commentId}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActivityCommentRequest"
+      responses:
+        "200":
+          description: Activity comment updated
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Activity comment deleted
+  /api/activities/{id}/pending-items:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Pending items
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePendingItemRequest"
+      responses:
+        "201":
+          description: Pending item created
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    HouseholdHeader:
+      name: X-Household-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, displayName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        displayName:
+          type: string
+        householdName:
+          type: string
+          nullable: true
+        phoneNumber:
+          type: string
+          nullable: true
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+    AuthResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresAt, user, households]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        user:
+          type: object
+        households:
+          type: array
+          items:
+            $ref: "#/components/schemas/Household"
+    Household:
+      type: object
+      required: [id, name, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          enum: [Owner, Admin, Member]
+    HouseholdMember:
+      type: object
+      required: [id, userId, displayName, email, role, isCurrentUser]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        email:
+          type: string
+          format: email
+        phoneNumber:
+          type: string
+          nullable: true
+        role:
+          enum: [Owner, Admin, Member]
+        isCurrentUser:
+          type: boolean
+    ShareHouseholdRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          enum: [Admin, Member]
+    CreateUniverseRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+    UpdateUniverseRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+    UpdateProfileRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+        phoneNumber:
+          type: string
+          nullable: true
+    UserProfile:
+      type: object
+      required: [id, email, displayName, systemRole]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        phoneNumber:
+          type: string
+          nullable: true
+        systemRole:
+          enum: [User, Admin]
+    CreateProjectRequest:
+      type: object
+      required: [universeId, name]
+      properties:
+        universeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+    UpdateProjectRequest:
+      type: object
+      required: [universeId, name]
+      properties:
+        universeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+    ActivityStatus:
+      type: string
+      enum: [NaoIniciada, EmAndamento, Concluido]
+    Priority:
+      type: string
+      enum: [Baixa, Media, Alta, Urgente]
+    CreateActivityRequest:
+      type: object
+      required: [projectId, title, priority]
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        priority:
+          $ref: "#/components/schemas/Priority"
+        size:
+          type: number
+          nullable: true
+        responsibleMemberId:
+          type: string
+          format: uuid
+          nullable: true
+    UpdateActivityRequest:
+      type: object
+      required: [projectId, title, status, priority]
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ActivityStatus"
+        priority:
+          $ref: "#/components/schemas/Priority"
+        size:
+          type: number
+          nullable: true
+        responsibleMemberId:
+          type: string
+          format: uuid
+          nullable: true
+    CreateActivityCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+    UpdateActivityCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+    ActivityComment:
+      type: object
+      required: [id, activityId, authorMemberId, authorName, body, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        authorMemberId:
+          type: string
+          format: uuid
+        authorName:
+          type: string
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    CreatePendingItemRequest:
+      type: object
+      required: [title, priority]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        priority:
+          $ref: "#/components/schemas/Priority"
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        snoozeDays:
+          type: integer
+          nullable: true

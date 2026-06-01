@@ -1,0 +1,22 @@
+services:
+  homepit-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: homepit-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:${API_PORT:-5081}:8080"
+    networks:
+      - homepit_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks:
+  homepit_net:
+    external: true

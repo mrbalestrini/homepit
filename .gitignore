@@ -1,0 +1,33 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.log
+.playwright-mcp/
+homepit-login.png
+
+# .NET
+bin/
+obj/
+TestResults/
+*.user
+*.suo
+
+# Node/Next
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Docker/local data
+/data/
+/volumes/
+.dotnet/
+.dotnet-install.ps1
