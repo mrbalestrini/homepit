@@ -323,7 +323,7 @@ function Ensure-LocalEnvironment {
     "EvolutionApi__InstanceName=homepit",
     "EvolutionApi__ApiKey=$evolutionApiKey",
     "EvolutionApi__SendTextPathTemplate=/message/sendText/{instance}",
-    "ObjectStorage__Endpoint=http://minio:9000",
+    "ObjectStorage__Endpoint=http://homepit-minio:9000",
     "ObjectStorage__AccessKey=$minioRootUser",
     "ObjectStorage__SecretKey=$minioRootPassword",
     "ObjectStorage__BucketName=homepit-assets",
