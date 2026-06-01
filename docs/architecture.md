@@ -6,6 +6,7 @@ HomePit is a modular monolith with deployable edges split for Coolify.
 
 - `infra/supabase`: PostgreSQL using the Supabase Postgres image, plus a lightweight Studio/meta setup.
 - `infra/evolution`: Evolution API with its own PostgreSQL and Redis.
+- `infra/minio`: private S3-compatible object storage for profile photos and future file uploads.
 - `apps/api`: ASP.NET Core API, custom auth, EF Core migrations and WhatsApp digest worker.
 - `apps/web`: Next.js operational UI.
 
@@ -17,6 +18,7 @@ All resources join the external Docker network `homepit_net`.
 - `Households`: tenant boundary for a family/home.
 - `Projects`: `Universe > Project > Activity > PendingItem`.
 - `Notifications`: daily WhatsApp summaries through Evolution API.
+- `Storage`: private object storage abstraction backed by MinIO.
 
 Future modules should stay inside the same API until they need independent scaling.
 

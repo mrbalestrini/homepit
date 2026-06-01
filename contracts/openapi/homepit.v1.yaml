@@ -127,6 +127,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
+  /api/users/me/profile-photo:
+    post:
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Current user profile photo updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+    get:
+      responses:
+        "200":
+          description: Current user profile photo
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Profile photo not found
   /api/universes:
     get:
       parameters:
@@ -466,7 +505,7 @@ components:
           type: string
           format: date-time
         user:
-          type: object
+          $ref: "#/components/schemas/UserProfile"
         households:
           type: array
           items:
@@ -542,7 +581,7 @@ components:
           nullable: true
     UserProfile:
       type: object
-      required: [id, email, displayName, systemRole]
+      required: [id, email, displayName, systemRole, hasProfilePhoto]
       properties:
         id:
           type: string
@@ -557,6 +596,12 @@ components:
           nullable: true
         systemRole:
           enum: [User, Admin]
+        hasProfilePhoto:
+          type: boolean
+        profilePhotoUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
     CreateProjectRequest:
       type: object
       required: [universeId, name]

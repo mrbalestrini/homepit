@@ -14,6 +14,7 @@ Create one Coolify resource per compose file:
 
 - `infra/supabase/docker-compose.yml`
 - `infra/evolution/docker-compose.yml`
+- `infra/minio/docker-compose.yml`
 - `apps/api/docker-compose.yml`
 - `apps/web/docker-compose.yml`
 
@@ -21,8 +22,9 @@ Start order:
 
 1. Supabase
 2. Evolution API
-3. API
-4. Web
+3. MinIO
+4. API
+5. Web
 
 ## API Environment
 
@@ -38,6 +40,17 @@ Use the Evolution internal host:
 EvolutionApi__BaseUrl=http://evolution-api:8080
 EvolutionApi__ApiKey=...
 EvolutionApi__InstanceName=homepit
+```
+
+Use the MinIO internal host:
+
+```txt
+ObjectStorage__Endpoint=http://homepit-minio:9000
+ObjectStorage__AccessKey=...
+ObjectStorage__SecretKey=...
+ObjectStorage__BucketName=homepit-assets
+ObjectStorage__UseSsl=false
+ObjectStorage__CreateBucketOnStartup=true
 ```
 
 ## Web Environment

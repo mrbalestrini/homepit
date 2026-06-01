@@ -312,6 +312,31 @@ export function useProjectDashboard() {
     [activeHouseholdId, session],
   );
 
+  const applyUpdatedUser = useCallback(
+    (updatedUser: AuthResponse["user"]) => {
+      if (!session) {
+        return;
+      }
+
+      const nextSession = { ...session, user: updatedUser };
+      storeSession(nextSession);
+      setSession(nextSession);
+      setMembers((current) =>
+        current.map((member) =>
+          member.isCurrentUser
+            ? {
+                ...member,
+                displayName: updatedUser.displayName,
+                phoneNumber: updatedUser.phoneNumber ?? null,
+                email: updatedUser.email,
+              }
+            : member,
+        ),
+      );
+    },
+    [session],
+  );
+
   const refreshHouseholds = useCallback(async () => {
     if (!session) {
       return;
@@ -822,13 +847,15 @@ export function useProjectDashboard() {
     }
   }
 
-  async function updateProfile(input: { displayName: string; phoneNumber?: string }) {
+  async function updateProfile(input: { displayName: string; phoneNumber?: string; profilePhoto?: File | null }) {
     if (!session) {
       return;
     }
 
+    let profileSaved = false;
+
     try {
-      const updatedUser = await apiFetch<AuthResponse["user"]>("/api/users/me", {
+      let updatedUser = await apiFetch<AuthResponse["user"]>("/api/users/me", {
         method: "PUT",
         token: session.accessToken,
         body: JSON.stringify({
@@ -836,25 +863,28 @@ export function useProjectDashboard() {
           phoneNumber: input.phoneNumber || null,
         }),
       });
+      profileSaved = true;
+      applyUpdatedUser(updatedUser);
 
-      const nextSession = { ...session, user: updatedUser };
-      storeSession(nextSession);
-      setSession(nextSession);
-      setMembers((current) =>
-        current.map((member) =>
-          member.isCurrentUser
-            ? {
-                ...member,
-                displayName: updatedUser.displayName,
-                phoneNumber: updatedUser.phoneNumber ?? null,
-                email: updatedUser.email,
-              }
-            : member,
-        ),
-      );
-      toast.success("Perfil atualizado.");
+      if (input.profilePhoto) {
+        const formData = new FormData();
+        formData.append("file", input.profilePhoto);
+        updatedUser = await apiFetch<AuthResponse["user"]>("/api/users/me/profile-photo", {
+          method: "POST",
+          token: session.accessToken,
+          body: formData,
+        });
+        applyUpdatedUser(updatedUser);
+      }
+
+      toast.success(input.profilePhoto ? "Perfil e foto atualizados." : "Perfil atualizado.");
     } catch (exception) {
-      reportError(exception, "Não foi possível atualizar o perfil.");
+      reportError(
+        exception,
+        profileSaved
+          ? "Os dados do perfil foram salvos, mas não foi possível concluir o envio da foto."
+          : "Não foi possível atualizar o perfil.",
+      );
     }
   }
 

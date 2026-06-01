@@ -20,6 +20,8 @@ export type User = {
   displayName: string;
   phoneNumber?: string | null;
   systemRole: "User" | "Admin";
+  hasProfilePhoto: boolean;
+  profilePhotoUpdatedAt?: string | null;
 };
 
 export type AuthResponse = {
@@ -104,7 +106,14 @@ export async function apiFetch<T>(
   options: RequestInit & { token?: string; householdId?: string } = {},
 ): Promise<T> {
   const headers = new Headers(options.headers);
-  headers.set("Content-Type", "application/json");
+  const hasBody = options.body !== undefined && options.body !== null;
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  const isBlob = typeof Blob !== "undefined" && options.body instanceof Blob;
+  const shouldSetJsonContentType = hasBody && !headers.has("Content-Type") && !isFormData && !isBlob;
+
+  if (shouldSetJsonContentType) {
+    headers.set("Content-Type", "application/json");
+  }
 
   if (options.token) {
     headers.set("Authorization", `Bearer ${options.token}`);
@@ -136,6 +145,41 @@ export async function apiFetch<T>(
   }
 
   return (await response.json()) as T;
+}
+
+export async function apiFetchBlob(
+  path: string,
+  options: RequestInit & { token?: string; householdId?: string } = {},
+): Promise<Blob> {
+  const headers = new Headers(options.headers);
+
+  if (options.token) {
+    headers.set("Authorization", `Bearer ${options.token}`);
+  }
+
+  if (options.householdId) {
+    headers.set("X-Household-Id", options.householdId);
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let message = "Não foi possível concluir a operação.";
+    try {
+      const body = (await response.json()) as { detail?: string; title?: string };
+      message = body.detail ?? body.title ?? message;
+    } catch {
+      message = response.statusText || message;
+    }
+
+    throw new ApiError(message, response.status);
+  }
+
+  return await response.blob();
 }
 
 export function storeSession(auth: AuthResponse) {

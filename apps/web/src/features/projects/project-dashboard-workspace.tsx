@@ -51,7 +51,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Activity, ActivityComment, ActivityStatus, Household, HouseholdMember, Priority, Project, Universe, User } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,7 @@ import {
   viewModeOptions,
 } from "./project-dashboard.constants";
 import type { ActivityFormInput, AppTheme, ProjectViewMode } from "./project-dashboard.types";
+import { AvatarCircle, ProtectedUserAvatar } from "./protected-user-avatar";
 import type { ProjectDashboardController } from "./use-project-dashboard";
 import { formatDateTime, getInitials, getPriorityVariant } from "./project-dashboard.utils";
 
@@ -277,9 +278,10 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
 
       {dashboard.session ? (
         <ProfileDialog
-          key={`profile-${dashboard.session.user.id}-${dashboard.session.user.displayName}-${dashboard.session.user.phoneNumber ?? ""}-${profileDialogOpen ? "open" : "closed"}`}
+          key={`profile-${dashboard.session.user.id}-${dashboard.session.user.displayName}-${dashboard.session.user.phoneNumber ?? ""}-${dashboard.session.user.hasProfilePhoto ? "photo" : "no-photo"}-${dashboard.session.user.profilePhotoUpdatedAt ?? "none"}-${profileDialogOpen ? "open" : "closed"}`}
           open={profileDialogOpen}
           user={dashboard.session.user}
+          token={dashboard.session.accessToken}
           onOpenChange={setProfileDialogOpen}
           onSave={dashboard.updateProfile}
         />
@@ -448,6 +450,7 @@ function SidebarContent({
       <div className="mt-auto border-t border-sidebar-border pt-3">
         <SidebarUserMenu
           user={dashboard.session!.user}
+          token={dashboard.session!.accessToken}
           collapsed={collapsed}
           theme={dashboard.theme}
           onChangeTheme={dashboard.setTheme}
@@ -487,7 +490,12 @@ function TopBar({
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <MembersBar members={dashboard.members} onOpenProfile={onOpenProfile} />
+          <MembersBar
+            members={dashboard.members}
+            currentUser={dashboard.session!.user}
+            token={dashboard.session!.accessToken}
+            onOpenProfile={onOpenProfile}
+          />
           <Button
             variant="secondary"
             size="icon"
@@ -516,9 +524,13 @@ function TopBar({
 
 function MembersBar({
   members,
+  currentUser,
+  token,
   onOpenProfile,
 }: {
   members: HouseholdMember[];
+  currentUser: User;
+  token: string;
   onOpenProfile: () => void;
 }) {
   if (members.length === 0) {
@@ -531,7 +543,13 @@ function MembersBar({
   return (
     <div className="hidden items-center gap-1.5 lg:flex">
       {visibleMembers.map((member) => (
-        <MemberAvatarPill key={member.id} member={member} onOpenProfile={onOpenProfile} />
+        <MemberAvatarPill
+          key={member.id}
+          member={member}
+          currentUser={currentUser}
+          token={token}
+          onOpenProfile={onOpenProfile}
+        />
       ))}
       {remainingCount > 0 ? <Badge variant="neutral">+{remainingCount}</Badge> : null}
     </div>
@@ -540,22 +558,29 @@ function MembersBar({
 
 function MemberAvatarPill({
   member,
+  currentUser,
+  token,
   onOpenProfile,
 }: {
   member: HouseholdMember;
+  currentUser: User;
+  token: string;
   onOpenProfile: () => void;
 }) {
   return (
     <div className="group relative">
-      <div
-        className={cn(
-          "grid size-9 place-items-center rounded-full border border-border/70 bg-surface text-[11px] font-semibold text-foreground shadow-xs",
-          member.isCurrentUser && "border-primary/30 bg-highlight text-accent-foreground",
-        )}
-        title={member.displayName}
-      >
-        {getInitials(member.displayName)}
-      </div>
+      {member.isCurrentUser ? (
+        <ProtectedUserAvatar
+          user={currentUser}
+          token={token}
+          className="size-9 border border-primary/30 bg-highlight text-accent-foreground shadow-xs"
+        />
+      ) : (
+        <AvatarCircle
+          name={member.displayName}
+          className="size-9 border border-border/70 bg-surface text-[11px] font-semibold text-foreground shadow-xs"
+        />
+      )}
 
       <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-56 rounded-[16px] border border-border/70 bg-popover p-3 opacity-0 shadow-md transition group-hover:pointer-events-auto group-hover:opacity-100">
         <div className="space-y-1">
@@ -578,6 +603,7 @@ function MemberAvatarPill({
 
 function SidebarUserMenu({
   user,
+  token,
   collapsed,
   theme,
   onChangeTheme,
@@ -585,6 +611,7 @@ function SidebarUserMenu({
   onLogout,
 }: {
   user: User;
+  token: string;
   collapsed: boolean;
   theme: AppTheme;
   onChangeTheme: (theme: AppTheme) => void;
@@ -596,13 +623,14 @@ function SidebarUserMenu({
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            "flex w-full items-center rounded-[16px] px-3 py-2.5 text-left text-sm font-semibold text-foreground transition hover:bg-surface-muted",
+            "flex w-full items-center gap-2.5 rounded-[16px] px-3 py-2.5 text-left text-sm font-semibold text-foreground transition hover:bg-surface-muted",
             collapsed && "justify-center px-2",
           )}
           type="button"
           aria-label="Menu do usuário"
         >
-          {collapsed ? <span>{getInitials(user.displayName)}</span> : <span className="truncate">{user.displayName}</span>}
+          <ProtectedUserAvatar user={user} token={token} className="size-9 border border-border/70 bg-surface text-foreground" />
+          {!collapsed ? <span className="truncate">{user.displayName}</span> : null}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align={collapsed ? "center" : "end"}>
@@ -704,24 +732,7 @@ function UniverseAvatar({
   imageUrl?: string | null;
   className?: string;
 }) {
-  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
-  const showImage = Boolean(imageUrl && failedImageUrl !== imageUrl);
-
-  return (
-    <div className={cn("grid shrink-0 place-items-center overflow-hidden rounded-full bg-accent text-[11px] font-semibold text-accent-foreground", className)}>
-      {showImage ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          alt={name}
-          className="h-full w-full object-cover"
-          src={imageUrl ?? undefined}
-          onError={() => setFailedImageUrl(imageUrl ?? null)}
-        />
-      ) : (
-        <span>{getInitials(name)}</span>
-      )}
-    </div>
-  );
+  return <AvatarCircle name={name} imageUrl={imageUrl} className={className} />;
 }
 
 function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController }) {
@@ -1644,19 +1655,23 @@ function UniverseDialog({
   );
 }
 
-function ProfileDialog({
+export function ProfileDialog({
   open,
   user,
+  token,
   onOpenChange,
   onSave,
 }: {
   open: boolean;
   user: User;
+  token: string;
   onOpenChange: (open: boolean) => void;
-  onSave: (input: { displayName: string; phoneNumber?: string }) => Promise<void>;
+  onSave: (input: { displayName: string; phoneNumber?: string; profilePhoto?: File | null }) => Promise<void>;
 }) {
   const [displayName, setDisplayName] = useState(user.displayName);
   const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber ?? "");
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const previewUrl = useObjectUrl(profilePhoto);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -1666,7 +1681,7 @@ function ProfileDialog({
     setSaving(true);
 
     try {
-      await onSave({ displayName, phoneNumber });
+      await onSave({ displayName, phoneNumber, profilePhoto });
       onOpenChange(false);
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Não foi possível salvar o perfil.");
@@ -1684,6 +1699,28 @@ function ProfileDialog({
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
+          <Field label="Foto de perfil">
+            <div className="flex items-center gap-3 rounded-[16px] border border-border/60 bg-surface-muted p-3">
+              {previewUrl ? (
+                <AvatarCircle name={displayName || user.displayName} imageUrl={previewUrl} className="size-14" />
+              ) : (
+                <ProtectedUserAvatar user={user} token={token} className="size-14" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">
+                  {profilePhoto ? "Nova foto selecionada" : "Sua foto atual"}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {profilePhoto ? profilePhoto.name : "Use JPG, PNG ou WEBP com até 5 MB."}
+                </p>
+              </div>
+            </div>
+            <Input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => setProfilePhoto(event.target.files?.[0] ?? null)}
+            />
+          </Field>
           <Field label="Nome">
             <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoFocus required />
           </Field>
@@ -1702,6 +1739,20 @@ function ProfileDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function useObjectUrl(file: File | null) {
+  const objectUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+
+  useEffect(() => {
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [objectUrl]);
+
+  return objectUrl;
 }
 
 function ProjectDialog({

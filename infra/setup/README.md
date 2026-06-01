@@ -67,6 +67,8 @@ Depois do `start`, os principais endpoints ficam em:
 - Supabase Studio: http://localhost:54323
 - Postgres local: `localhost:54322`
 - Evolution API: http://localhost:8081
+- MinIO API: http://localhost:9000
+- MinIO Console: http://localhost:9001
 
 ## O que o script prepara
 
@@ -74,11 +76,13 @@ Depois do `start`, os principais endpoints ficam em:
 - Cria `.env` locais quando eles ainda nao existem em:
   - `infra/supabase/.env`
   - `infra/evolution/.env`
+  - `infra/minio/.env`
   - `apps/api/.env`
   - `apps/web/.env`
 - Sobe os recursos nesta ordem:
   - Supabase/Postgres
   - Evolution API
+  - MinIO
   - API HomePit
   - Web HomePit
 
@@ -88,6 +92,6 @@ Os arquivos `.env` gerados sao locais e estao ignorados pelo Git. Se voce ja tiv
 
 `stop` remove containers, mas preserva volumes e dados.
 
-`destroy` remove containers e volumes. Isso apaga o banco local do HomePit, o banco da Evolution e o Redis local da Evolution. Use apenas quando quiser recomecar do zero.
+`destroy` remove containers e volumes. Isso apaga o banco local do HomePit, o banco da Evolution, o Redis local da Evolution e os objetos locais do MinIO. Use apenas quando quiser recomecar do zero.
 
 Para um passo a passo mais completo, veja [ONBOARDING.md](./ONBOARDING.md).

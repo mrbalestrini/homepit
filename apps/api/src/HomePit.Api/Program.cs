@@ -9,6 +9,7 @@ using HomePit.Application.Projects;
 using HomePit.Infrastructure;
 using HomePit.Infrastructure.Auth;
 using HomePit.Infrastructure.Data;
+using HomePit.Infrastructure.ObjectStorage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -72,6 +73,7 @@ if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true))
 {
     await app.Services.MigrateHomePitDatabaseAsync();
 }
+await app.Services.EnsureHomePitObjectStorageAsync();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/system/info", () => Results.Ok(new
@@ -115,6 +117,35 @@ api.MapPost("/households/share", async (ShareHouseholdRequest request, Household
     Results.Created("/api/households/members", await service.ShareAsync(request, cancellationToken)));
 api.MapPut("/users/me", async (UpdateProfileRequest request, AuthService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.UpdateProfileAsync(request, cancellationToken)));
+api.MapPost("/users/me/profile-photo", async (
+    HttpRequest request,
+    AuthService service,
+    CancellationToken cancellationToken) =>
+{
+    if (!request.HasFormContentType)
+    {
+        throw new ValidationException("Envie a foto de perfil em multipart/form-data.");
+    }
+
+    var form = await request.ReadFormAsync(cancellationToken);
+    var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+    if (file is null)
+    {
+        throw new ValidationException("Selecione uma imagem para a foto de perfil.");
+    }
+
+    await using var stream = file.OpenReadStream();
+    return Results.Ok(await service.UploadProfilePhotoAsync(stream, file.Length, file.ContentType, cancellationToken));
+});
+api.MapGet("/users/me/profile-photo", async (
+    HttpContext context,
+    AuthService service,
+    CancellationToken cancellationToken) =>
+{
+    var photo = await service.GetProfilePhotoAsync(cancellationToken);
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.File(photo.Content, photo.ContentType);
+});
 
 api.MapGet("/universes", async (ProjectService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.ListUniversesAsync(cancellationToken)));

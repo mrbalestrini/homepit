@@ -60,6 +60,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(user => user.DisplayName).HasMaxLength(160).IsRequired();
             builder.Property(user => user.PasswordHash).HasMaxLength(512).IsRequired();
             builder.Property(user => user.PhoneNumber).HasMaxLength(40);
+            builder.Property(user => user.ProfilePhotoObjectKey).HasMaxLength(512);
             builder.Property(user => user.SystemRole).HasConversion<string>().HasMaxLength(40).IsRequired();
             builder.HasIndex(user => user.Email).IsUnique();
         });

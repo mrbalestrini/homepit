@@ -22,6 +22,13 @@ public sealed record AuthResponse(
     UserDto User,
     IReadOnlyCollection<HouseholdDto> Households);
 
-public sealed record UserDto(Guid Id, string Email, string DisplayName, string? PhoneNumber, SystemRole SystemRole);
+public sealed record UserDto(
+    Guid Id,
+    string Email,
+    string DisplayName,
+    string? PhoneNumber,
+    SystemRole SystemRole,
+    bool HasProfilePhoto,
+    DateTimeOffset? ProfilePhotoUpdatedAt);
 
 public sealed record HouseholdDto(Guid Id, string Name, HouseholdRole Role);

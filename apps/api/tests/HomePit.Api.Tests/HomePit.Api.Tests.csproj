@@ -4,9 +4,12 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\HomePit.Application\HomePit.Application.csproj" />
+    <ProjectReference Include="..\..\src\HomePit.Infrastructure\HomePit.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\HomePit.Domain\HomePit.Domain.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio">

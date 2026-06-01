@@ -32,6 +32,13 @@ $script:ComposeTargets = @(
     Build = $false
   },
   @{
+    Name = "MinIO"
+    Project = "homepit-minio"
+    Directory = Join-Path $script:RepoRoot "infra\minio"
+    File = "docker-compose.yml"
+    Build = $false
+  },
+  @{
     Name = "HomePit API"
     Project = "homepit-api"
     Directory = Join-Path $script:RepoRoot "apps\api"
@@ -244,6 +251,7 @@ function Ensure-EnvFile {
 function Ensure-LocalEnvironment {
   $supabaseEnv = Join-Path $script:RepoRoot "infra\supabase\.env"
   $evolutionEnv = Join-Path $script:RepoRoot "infra\evolution\.env"
+  $minioEnv = Join-Path $script:RepoRoot "infra\minio\.env"
   $apiEnv = Join-Path $script:RepoRoot "apps\api\.env"
   $webEnv = Join-Path $script:RepoRoot "apps\web\.env"
 
@@ -267,6 +275,16 @@ function Ensure-LocalEnvironment {
     $jwtSigningKey = "homepit-local-" + (New-LocalSecret 32)
   }
 
+  $minioRootUser = Get-EnvValue -Path $minioEnv -Name "MINIO_ROOT_USER"
+  if ([string]::IsNullOrWhiteSpace($minioRootUser)) {
+    $minioRootUser = "homepitminio"
+  }
+
+  $minioRootPassword = Get-EnvValue -Path $minioEnv -Name "MINIO_ROOT_PASSWORD"
+  if ([string]::IsNullOrWhiteSpace($minioRootPassword)) {
+    $minioRootPassword = "homepit_" + (New-LocalSecret 24)
+  }
+
   Ensure-EnvFile -Path $supabaseEnv -Lines @(
     "POSTGRES_PASSWORD=$postgresPassword",
     "POSTGRES_USER=supabase_admin",
@@ -285,6 +303,13 @@ function Ensure-LocalEnvironment {
     "EVOLUTION_DB_USER=evolution"
   )
 
+  Ensure-EnvFile -Path $minioEnv -Lines @(
+    "MINIO_ROOT_USER=$minioRootUser",
+    "MINIO_ROOT_PASSWORD=$minioRootPassword",
+    "MINIO_PORT=9000",
+    "MINIO_CONSOLE_PORT=9001"
+  )
+
   Ensure-EnvFile -Path $apiEnv -Lines @(
     "ASPNETCORE_ENVIRONMENT=Development",
     "ASPNETCORE_URLS=http://+:8080",
@@ -298,6 +323,12 @@ function Ensure-LocalEnvironment {
     "EvolutionApi__InstanceName=homepit",
     "EvolutionApi__ApiKey=$evolutionApiKey",
     "EvolutionApi__SendTextPathTemplate=/message/sendText/{instance}",
+    "ObjectStorage__Endpoint=http://minio:9000",
+    "ObjectStorage__AccessKey=$minioRootUser",
+    "ObjectStorage__SecretKey=$minioRootPassword",
+    "ObjectStorage__BucketName=homepit-assets",
+    "ObjectStorage__UseSsl=false",
+    "ObjectStorage__CreateBucketOnStartup=true",
     "Notifications__DailyDigestEnabled=false",
     "Notifications__PollIntervalMinutes=5",
     "Cors__AllowedOrigins__0=http://localhost:3000"
@@ -358,6 +389,8 @@ function Start-HomePit {
   Write-Host "API healthcheck:  http://localhost:8080/health"
   Write-Host "Supabase Studio:  http://localhost:54323"
   Write-Host "Evolution API:    http://localhost:8081"
+  Write-Host "MinIO API:        http://localhost:9000"
+  Write-Host "MinIO Console:    http://localhost:9001"
 }
 
 function Stop-HomePit {
