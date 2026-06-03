@@ -1,5 +1,6 @@
 using HomePit.Application.Common;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace HomePit.Api.Security;
 
@@ -23,6 +24,31 @@ public static class ErrorHandlingMiddleware
                     ConflictException => (StatusCodes.Status409Conflict, "Conflito"),
                     _ => (StatusCodes.Status500InternalServerError, "Erro inesperado")
                 };
+
+                var logger = context.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("HomePit.Api.Errors");
+
+                if (exception is AppException)
+                {
+                    logger.LogWarning(
+                        exception,
+                        "Request failed with handled application error. Status: {StatusCode}. Method: {Method}. Path: {Path}. TraceId: {TraceId}",
+                        status,
+                        context.Request.Method,
+                        context.Request.Path,
+                        context.TraceIdentifier);
+                }
+                else
+                {
+                    logger.LogError(
+                        exception,
+                        "Request failed with unexpected error. Status: {StatusCode}. Method: {Method}. Path: {Path}. TraceId: {TraceId}",
+                        status,
+                        context.Request.Method,
+                        context.Request.Path,
+                        context.TraceIdentifier);
+                }
 
                 var problem = new ProblemDetails
                 {
