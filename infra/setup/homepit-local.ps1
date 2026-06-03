@@ -304,6 +304,7 @@ function Ensure-LocalEnvironment {
   )
 
   Ensure-EnvFile -Path $minioEnv -Lines @(
+    "MINIO_IMAGE=minio/minio:latest",
     "MINIO_ROOT_USER=$minioRootUser",
     "MINIO_ROOT_PASSWORD=$minioRootPassword",
     "MINIO_PORT=9000",

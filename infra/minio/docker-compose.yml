@@ -1,6 +1,6 @@
 services:
   homepit-minio:
-    image: quay.io/minio/aistor/minio:RELEASE.2026-05-28T20-50-32Z
+    image: ${MINIO_IMAGE:-minio/minio:latest}
     container_name: homepit-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
