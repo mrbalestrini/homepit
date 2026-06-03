@@ -1,5 +1,5 @@
-import { ProjectDashboard } from "@/features/projects/project-dashboard";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <ProjectDashboard />;
+  redirect("/projects");
 }

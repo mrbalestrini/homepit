@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ProfileDialog } from "./project-dashboard-workspace";
+import { ProfileDialog } from "@/features/workspace/homepit-workspace-shell";
 
 describe("ProfileDialog", () => {
   beforeEach(() => {

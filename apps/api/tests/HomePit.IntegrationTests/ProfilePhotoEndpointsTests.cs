@@ -149,5 +149,11 @@ public sealed class ProfilePhotoEndpointsTests
             await request.Content.CopyToAsync(buffer, cancellationToken);
             objects[request.ObjectKey] = new StoredObject(request.ObjectKey, buffer.ToArray(), request.ContentType);
         }
+
+        public Task DeleteAsync(string objectKey, CancellationToken cancellationToken)
+        {
+            objects.Remove(objectKey);
+            return Task.CompletedTask;
+        }
     }
 }

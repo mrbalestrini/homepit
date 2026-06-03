@@ -5,6 +5,7 @@ using HomePit.Application;
 using HomePit.Application.Auth;
 using HomePit.Application.Common;
 using HomePit.Application.Households;
+using HomePit.Application.Prompts;
 using HomePit.Application.Projects;
 using HomePit.Infrastructure;
 using HomePit.Infrastructure.Auth;
@@ -257,6 +258,98 @@ api.MapPost("/activities/{id:guid}/pending-items", async (
     ProjectService service,
     CancellationToken cancellationToken) =>
         Results.Created($"/api/activities/{id}/pending-items", await service.CreatePendingItemAsync(id, request, cancellationToken)));
+
+api.MapGet("/prompts", async (
+    string? search,
+    Guid? universeId,
+    bool withoutUniverse,
+    Guid[]? categoryId,
+    int? page,
+    int? pageSize,
+    PromptService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListPromptsAsync(
+            search,
+            universeId,
+            withoutUniverse,
+            categoryId,
+            page ?? 1,
+            pageSize ?? 12,
+            cancellationToken)));
+api.MapGet("/prompts/{id:guid}", async (Guid id, PromptService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetPromptAsync(id, cancellationToken)));
+api.MapPost("/prompts", async (CreatePromptRequest request, PromptService service, CancellationToken cancellationToken) =>
+    Results.Created("/api/prompts", await service.CreatePromptAsync(request, cancellationToken)));
+api.MapPut("/prompts/{id:guid}", async (
+    Guid id,
+    UpdatePromptRequest request,
+    PromptService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdatePromptAsync(id, request, cancellationToken)));
+api.MapDelete("/prompts/{id:guid}", async (
+    Guid id,
+    PromptService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeletePromptAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+api.MapPost("/prompts/{id:guid}/image", async (
+    Guid id,
+    HttpRequest request,
+    PromptService service,
+    CancellationToken cancellationToken) =>
+{
+    if (!request.HasFormContentType)
+    {
+        throw new ValidationException("Envie a imagem do prompt em multipart/form-data.");
+    }
+
+    var form = await request.ReadFormAsync(cancellationToken);
+    var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+    if (file is null)
+    {
+        throw new ValidationException("Selecione uma imagem para o prompt.");
+    }
+
+    await using var stream = file.OpenReadStream();
+    return Results.Ok(await service.UploadPromptImageAsync(id, stream, file.Length, file.ContentType, cancellationToken));
+});
+api.MapGet("/prompts/{id:guid}/image", async (
+    Guid id,
+    HttpContext context,
+    PromptService service,
+    CancellationToken cancellationToken) =>
+{
+    var image = await service.GetPromptImageAsync(id, cancellationToken);
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.File(image.Content, image.ContentType);
+});
+api.MapDelete("/prompts/{id:guid}/image", async (
+    Guid id,
+    PromptService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.DeletePromptImageAsync(id, cancellationToken)));
+
+api.MapGet("/prompt-categories", async (PromptService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListCategoriesAsync(cancellationToken)));
+api.MapPost("/prompt-categories", async (CreatePromptCategoryRequest request, PromptService service, CancellationToken cancellationToken) =>
+    Results.Created("/api/prompt-categories", await service.CreateCategoryAsync(request, cancellationToken)));
+api.MapPut("/prompt-categories/{id:guid}", async (
+    Guid id,
+    UpdatePromptCategoryRequest request,
+    PromptService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateCategoryAsync(id, request, cancellationToken)));
+api.MapDelete("/prompt-categories/{id:guid}", async (
+    Guid id,
+    Guid? replacementCategoryId,
+    PromptService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteCategoryAsync(id, replacementCategoryId, cancellationToken);
+    return Results.NoContent();
+});
 
 await app.RunAsync();
 

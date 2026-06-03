@@ -251,6 +251,224 @@ paths:
       responses:
         "204":
           description: Project deleted
+  /api/prompts:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: search
+          in: query
+          schema:
+            type: string
+            nullable: true
+        - name: universeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+        - name: withoutUniverse
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: categoryId
+          in: query
+          description: Repeat the query parameter to filter by one or more categories using OR semantics.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 48
+            default: 12
+      responses:
+        "200":
+          description: Prompt cards
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptListResponse"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePromptRequest"
+      responses:
+        "201":
+          description: Prompt created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+  /api/prompts/{id}:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Prompt detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePromptRequest"
+      responses:
+        "200":
+          description: Prompt updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Prompt deleted
+  /api/prompts/{id}/image:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Prompt image updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Prompt image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Prompt image not found
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Prompt image removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+  /api/prompt-categories:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      responses:
+        "200":
+          description: Prompt categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PromptCategory"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePromptCategoryRequest"
+      responses:
+        "201":
+          description: Prompt category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptCategory"
+  /api/prompt-categories/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePromptCategoryRequest"
+      responses:
+        "200":
+          description: Prompt category updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptCategory"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: replacementCategoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+      responses:
+        "204":
+          description: Prompt category deleted
   /api/activities:
     get:
       parameters:
@@ -620,6 +838,248 @@ components:
           format: uuid
         name:
           type: string
+    CreatePromptRequest:
+      type: object
+      required: [title, promptText, categoryIds]
+      properties:
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        promptText:
+          type: string
+        categoryIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+        linkUrl:
+          type: string
+          format: uri
+          nullable: true
+        linkTitle:
+          type: string
+          nullable: true
+    UpdatePromptRequest:
+      type: object
+      required: [title, promptText, categoryIds]
+      properties:
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        promptText:
+          type: string
+        categoryIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+        linkUrl:
+          type: string
+          format: uri
+          nullable: true
+        linkTitle:
+          type: string
+          nullable: true
+    PromptCategoryReference:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    PromptListItem:
+      type: object
+      required:
+        [
+          id,
+          title,
+          promptText,
+          categories,
+          hasImage,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        universeName:
+          type: string
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        promptText:
+          type: string
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/PromptCategoryReference"
+        linkUrl:
+          type: string
+          format: uri
+          nullable: true
+        linkTitle:
+          type: string
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        hasImage:
+          type: boolean
+        imageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    PromptListResponse:
+      type: object
+      required: [items, page, pageSize, totalCount]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PromptListItem"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+    PromptDetail:
+      type: object
+      required:
+        [
+          id,
+          title,
+          promptText,
+          categories,
+          hasImage,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        universeName:
+          type: string
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        promptText:
+          type: string
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/PromptCategoryReference"
+        linkUrl:
+          type: string
+          format: uri
+          nullable: true
+        linkTitle:
+          type: string
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        hasImage:
+          type: boolean
+        imageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreatePromptCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    UpdatePromptCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    PromptCategory:
+      type: object
+      required:
+        [
+          id,
+          name,
+          usageCount,
+          replacementRequiredCount,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        usageCount:
+          type: integer
+        replacementRequiredCount:
+          type: integer
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
     ActivityStatus:
       type: string
       enum: [NaoIniciada, EmAndamento, Concluido]

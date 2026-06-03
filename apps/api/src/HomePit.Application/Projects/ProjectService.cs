@@ -76,6 +76,15 @@ public sealed class ProjectService(IHomePitDbContext db, IUserContext userContex
 
         EnsureCanManageEntity(currentMember, universe.CreatedByMemberId, "Você não pode excluir um universo criado por outra pessoa.");
 
+        var prompts = await db.Prompts
+            .Where(prompt => prompt.HouseholdId == currentMember.HouseholdId && prompt.UniverseId == universe.Id)
+            .ToArrayAsync(cancellationToken);
+
+        foreach (var prompt in prompts)
+        {
+            prompt.UniverseId = null;
+        }
+
         db.Universes.Remove(universe);
         await db.SaveChangesAsync(cancellationToken);
     }

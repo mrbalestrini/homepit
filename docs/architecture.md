@@ -17,6 +17,7 @@ All resources join the external Docker network `homepit_net`.
 - `Auth`: custom login/register/refresh tokens.
 - `Households`: tenant boundary for a family/home.
 - `Projects`: `Universe > Project > Activity > PendingItem`.
+- `Prompts`: prompt bank shared by household, reusing `Universe` as an optional taxonomy and storing prompt images in private object storage.
 - `Notifications`: daily WhatsApp summaries through Evolution API.
 - `Storage`: private object storage abstraction backed by MinIO.
 

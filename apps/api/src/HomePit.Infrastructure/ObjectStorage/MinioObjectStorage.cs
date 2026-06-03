@@ -77,4 +77,24 @@ public sealed class MinioObjectStorage(IMinioClient client, IOptions<ObjectStora
             throw new NotFoundException("Bucket de arquivos não encontrado.");
         }
     }
+
+    public async Task DeleteAsync(string objectKey, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var args = new RemoveObjectArgs()
+                .WithBucket(options.BucketName)
+                .WithObject(objectKey);
+
+            await client.RemoveObjectAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ObjectNotFoundException)
+        {
+            throw new NotFoundException("Arquivo não encontrado.");
+        }
+        catch (BucketNotFoundException)
+        {
+            throw new NotFoundException("Bucket de arquivos não encontrado.");
+        }
+    }
 }

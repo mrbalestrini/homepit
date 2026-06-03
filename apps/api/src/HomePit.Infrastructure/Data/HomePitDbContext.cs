@@ -2,6 +2,7 @@ using HomePit.Application.Common;
 using HomePit.Domain.Common;
 using HomePit.Domain.Households;
 using HomePit.Domain.Notifications;
+using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,9 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<ActivityComment> ActivityComments => Set<ActivityComment>();
     public DbSet<PendingItem> PendingItems => Set<PendingItem>();
+    public DbSet<Prompt> Prompts => Set<Prompt>();
+    public DbSet<PromptCategory> PromptCategories => Set<PromptCategory>();
+    public DbSet<PromptCategoryAssignment> PromptCategoryAssignments => Set<PromptCategoryAssignment>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
     public DbSet<NotificationRun> NotificationRuns => Set<NotificationRun>();
 
@@ -28,6 +32,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
 
         ConfigureHouseholds(modelBuilder);
         ConfigureProjects(modelBuilder);
+        ConfigurePrompts(modelBuilder);
         ConfigureNotifications(modelBuilder);
     }
 
@@ -208,6 +213,72 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.HasOne(run => run.Household)
                 .WithMany(household => household.NotificationRuns)
                 .HasForeignKey(run => run.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigurePrompts(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Prompt>(builder =>
+        {
+            builder.ToTable("prompts");
+            builder.Property(prompt => prompt.Title).HasMaxLength(240).IsRequired();
+            builder.Property(prompt => prompt.Description).HasMaxLength(4000);
+            builder.Property(prompt => prompt.PromptText).HasMaxLength(16000).IsRequired();
+            builder.Property(prompt => prompt.LinkUrl).HasMaxLength(2000);
+            builder.Property(prompt => prompt.LinkTitle).HasMaxLength(240);
+            builder.Property(prompt => prompt.ImageObjectKey).HasMaxLength(512);
+            builder.Property(prompt => prompt.ImageContentType).HasMaxLength(120);
+            builder.HasIndex(prompt => new { prompt.HouseholdId, prompt.UpdatedAt });
+            builder.HasIndex(prompt => new { prompt.HouseholdId, prompt.UniverseId, prompt.UpdatedAt });
+            builder.HasCheckConstraint(
+                "CK_prompts_link_url_title_pair",
+                """
+                ("LinkUrl" IS NULL AND "LinkTitle" IS NULL)
+                OR
+                ("LinkUrl" IS NOT NULL AND "LinkTitle" IS NOT NULL)
+                """);
+            builder.HasOne(prompt => prompt.Household)
+                .WithMany(household => household.Prompts)
+                .HasForeignKey(prompt => prompt.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(prompt => prompt.CreatedByMember)
+                .WithMany(member => member.CreatedPrompts)
+                .HasForeignKey(prompt => prompt.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(prompt => prompt.Universe)
+                .WithMany(universe => universe.Prompts)
+                .HasForeignKey(prompt => prompt.UniverseId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<PromptCategory>(builder =>
+        {
+            builder.ToTable("prompt_categories");
+            builder.Property(category => category.Name).HasMaxLength(160).IsRequired();
+            builder.HasIndex(category => new { category.HouseholdId, category.Name }).IsUnique();
+            builder.HasOne(category => category.Household)
+                .WithMany(household => household.PromptCategories)
+                .HasForeignKey(category => category.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(category => category.CreatedByMember)
+                .WithMany(member => member.CreatedPromptCategories)
+                .HasForeignKey(category => category.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<PromptCategoryAssignment>(builder =>
+        {
+            builder.ToTable("prompt_category_assignments");
+            builder.HasKey(assignment => new { assignment.PromptId, assignment.CategoryId });
+            builder.HasIndex(assignment => new { assignment.PromptId, assignment.CategoryId }).IsUnique();
+            builder.HasOne(assignment => assignment.Prompt)
+                .WithMany(prompt => prompt.CategoryAssignments)
+                .HasForeignKey(assignment => assignment.PromptId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(assignment => assignment.Category)
+                .WithMany(category => category.PromptAssignments)
+                .HasForeignKey(assignment => assignment.CategoryId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

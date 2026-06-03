@@ -171,5 +171,11 @@ public sealed class AuthServiceProfilePhotoTests
             await request.Content.CopyToAsync(buffer, cancellationToken);
             Objects[request.ObjectKey] = new StoredObject(request.ObjectKey, buffer.ToArray(), request.ContentType);
         }
+
+        public Task DeleteAsync(string objectKey, CancellationToken cancellationToken)
+        {
+            Objects.Remove(objectKey);
+            return Task.CompletedTask;
+        }
     }
 }

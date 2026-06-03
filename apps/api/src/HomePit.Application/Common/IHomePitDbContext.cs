@@ -1,5 +1,6 @@
 using HomePit.Domain.Households;
 using HomePit.Domain.Notifications;
+using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,6 +17,9 @@ public interface IHomePitDbContext
     DbSet<Activity> Activities { get; }
     DbSet<ActivityComment> ActivityComments { get; }
     DbSet<PendingItem> PendingItems { get; }
+    DbSet<Prompt> Prompts { get; }
+    DbSet<PromptCategory> PromptCategories { get; }
+    DbSet<PromptCategoryAssignment> PromptCategoryAssignments { get; }
     DbSet<NotificationPreference> NotificationPreferences { get; }
     DbSet<NotificationRun> NotificationRuns { get; }
 

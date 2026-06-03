@@ -28,9 +28,11 @@ public interface IObjectStorage
     Task EnsureBucketExistsAsync(CancellationToken cancellationToken);
     Task PutAsync(ObjectStoragePutRequest request, CancellationToken cancellationToken);
     Task<StoredObject> GetAsync(string objectKey, CancellationToken cancellationToken);
+    Task DeleteAsync(string objectKey, CancellationToken cancellationToken);
 }
 
 public static class ObjectStorageKeys
 {
     public static string UserProfilePhoto(Guid userId) => $"users/{userId:D}/profile-photo";
+    public static string PromptImage(Guid promptId) => $"prompts/{promptId:D}/image";
 }

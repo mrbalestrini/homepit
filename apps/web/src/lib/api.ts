@@ -90,6 +90,65 @@ export type ActivityComment = {
   canDelete: boolean;
 };
 
+export type PromptCategoryReference = {
+  id: string;
+  name: string;
+};
+
+export type PromptCategory = {
+  id: string;
+  name: string;
+  createdByMemberId?: string | null;
+  usageCount: number;
+  replacementRequiredCount: number;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type PromptListItem = {
+  id: string;
+  universeId?: string | null;
+  universeName?: string | null;
+  title: string;
+  description?: string | null;
+  promptText: string;
+  categories: PromptCategoryReference[];
+  linkUrl?: string | null;
+  linkTitle?: string | null;
+  createdByMemberId?: string | null;
+  hasImage: boolean;
+  imageUpdatedAt?: string | null;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type PromptListResponse = {
+  items: PromptListItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+};
+
+export type PromptDetail = {
+  id: string;
+  universeId?: string | null;
+  universeName?: string | null;
+  title: string;
+  description?: string | null;
+  promptText: string;
+  categories: PromptCategoryReference[];
+  linkUrl?: string | null;
+  linkTitle?: string | null;
+  createdByMemberId?: string | null;
+  hasImage: boolean;
+  imageUpdatedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 export class ApiError extends Error {

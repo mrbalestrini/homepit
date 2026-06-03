@@ -13,6 +13,22 @@
 - `NotificationPreference`: digest settings per household member.
 - `NotificationRun`: idempotency log for WhatsApp messages.
 
+## Prompt Bank
+
+- `Prompt`: shared prompt library entry scoped by `Household`, created by a household member, with required `Title` and `PromptText`, optional `Description`, optional link metadata and optional private image metadata stored in MinIO.
+- `PromptCategory`: reusable category scoped by `Household`, created by a household member and unique by name inside the same house.
+- `PromptCategoryAssignment`: explicit many-to-many join between `Prompt` and `PromptCategory`.
+- `Universe`: reused from the projects module as an optional classification for prompts. When a universe is deleted, related prompts stay alive and their `UniverseId` becomes `null`.
+
+## Prompt Bank Constraints
+
+- Every `Prompt` must belong to exactly one `Household`.
+- Every `Prompt` must have at least one category assignment.
+- `Prompt.LinkUrl` and `Prompt.LinkTitle` must be filled together or both remain `null`.
+- Prompt categories are unique per house through the `(HouseholdId, Name)` index.
+- Prompt/category assignments are unique through the `(PromptId, CategoryId)` key.
+- Prompt listing is optimized by indexes on `(HouseholdId, UpdatedAt)` and `(HouseholdId, UniverseId, UpdatedAt)`.
+
 ## Status and Priority
 
 Activity status values:
@@ -36,3 +52,4 @@ Priority values:
 - `Atividades.Descrição`, `Status`, `Prioridade`, `Tamanho` map directly.
 - Activity comments are native to HomePit and are authored by the active household membership.
 - `Pendências.Pendência`, `Descrição`, `Prioridade`, `Fim`, `Adiar` map to `PendingItem`.
+- The prompt bank is native to HomePit and does not depend on Notion tables.
