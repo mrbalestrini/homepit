@@ -260,21 +260,16 @@ api.MapPost("/activities/{id:guid}/pending-items", async (
         Results.Created($"/api/activities/{id}/pending-items", await service.CreatePendingItemAsync(id, request, cancellationToken)));
 
 api.MapGet("/prompts", async (
-    string? search,
-    Guid? universeId,
-    bool withoutUniverse,
-    Guid[]? categoryId,
-    int? page,
-    int? pageSize,
+    HttpRequest request,
     PromptService service,
     CancellationToken cancellationToken) =>
         Results.Ok(await service.ListPromptsAsync(
-            search,
-            universeId,
-            withoutUniverse,
-            categoryId,
-            page ?? 1,
-            pageSize ?? 12,
+            ReadOptionalQueryString(request, "search"),
+            ReadOptionalGuidQuery(request, "universeId"),
+            ReadOptionalBoolQuery(request, "withoutUniverse") ?? false,
+            ReadGuidCollectionQuery(request, "categoryId"),
+            ReadOptionalIntQuery(request, "page") ?? 1,
+            ReadOptionalIntQuery(request, "pageSize") ?? 12,
             cancellationToken)));
 api.MapGet("/prompts/{id:guid}", async (Guid id, PromptService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetPromptAsync(id, cancellationToken)));
@@ -352,5 +347,86 @@ api.MapDelete("/prompt-categories/{id:guid}", async (
 });
 
 await app.RunAsync();
+
+static string? ReadOptionalQueryString(HttpRequest request, string key)
+{
+    return request.Query.TryGetValue(key, out var values)
+        ? string.IsNullOrWhiteSpace(values.ToString()) ? null : values.ToString()
+        : null;
+}
+
+static Guid? ReadOptionalGuidQuery(HttpRequest request, string key)
+{
+    var rawValue = ReadOptionalQueryString(request, key);
+    if (rawValue is null)
+    {
+        return null;
+    }
+
+    if (Guid.TryParse(rawValue, out var guid))
+    {
+        return guid;
+    }
+
+    throw new ValidationException($"O parâmetro '{key}' deve ser um GUID válido.");
+}
+
+static bool? ReadOptionalBoolQuery(HttpRequest request, string key)
+{
+    var rawValue = ReadOptionalQueryString(request, key);
+    if (rawValue is null)
+    {
+        return null;
+    }
+
+    if (bool.TryParse(rawValue, out var value))
+    {
+        return value;
+    }
+
+    throw new ValidationException($"O parâmetro '{key}' deve ser verdadeiro ou falso.");
+}
+
+static int? ReadOptionalIntQuery(HttpRequest request, string key)
+{
+    var rawValue = ReadOptionalQueryString(request, key);
+    if (rawValue is null)
+    {
+        return null;
+    }
+
+    if (int.TryParse(rawValue, out var value))
+    {
+        return value;
+    }
+
+    throw new ValidationException($"O parâmetro '{key}' deve ser um número inteiro válido.");
+}
+
+static Guid[] ReadGuidCollectionQuery(HttpRequest request, string key)
+{
+    if (!request.Query.TryGetValue(key, out var values))
+    {
+        return [];
+    }
+
+    var results = new List<Guid>();
+    foreach (var rawValue in values)
+    {
+        if (string.IsNullOrWhiteSpace(rawValue))
+        {
+            continue;
+        }
+
+        if (!Guid.TryParse(rawValue, out var guid))
+        {
+            throw new ValidationException($"O parâmetro '{key}' deve conter apenas GUIDs válidos.");
+        }
+
+        results.Add(guid);
+    }
+
+    return results.ToArray();
+}
 
 public partial class Program;

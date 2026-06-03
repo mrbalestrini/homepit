@@ -64,6 +64,19 @@ public sealed class PromptEndpointsTests
             linkTitle = (string?)null
         });
 
+        var defaultListResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Get,
+            "/api/prompts?page=1&pageSize=12");
+
+        defaultListResponse.EnsureSuccessStatusCode();
+        var defaultList = await defaultListResponse.Content.ReadFromJsonAsync<PromptListResponse>(JsonSerializerOptions.Web);
+
+        Assert.NotNull(defaultList);
+        Assert.Equal(3, defaultList.TotalCount);
+
         var allCategoriesResponse = await SendAuthorizedAsync(
             client,
             seed.AccessToken,
