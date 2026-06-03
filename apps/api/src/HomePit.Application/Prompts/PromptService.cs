@@ -304,36 +304,19 @@ public sealed class PromptService(
     {
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var isManager = IsContentManager(currentMember);
-        var categories = await db.PromptCategories
+        return await db.PromptCategories
             .AsNoTracking()
-            .Include(category => category.PromptAssignments)
-                .ThenInclude(assignment => assignment.Prompt)
-                    .ThenInclude(prompt => prompt!.CategoryAssignments)
             .Where(category => category.HouseholdId == currentMember.HouseholdId)
             .OrderBy(category => category.Name)
+            .Select(category => new PromptCategoryDto(
+                category.Id,
+                category.Name,
+                category.CreatedByMemberId,
+                category.PromptAssignments.Count,
+                category.PromptAssignments.Count(assignment => assignment.Prompt != null && assignment.Prompt.CategoryAssignments.Count == 1),
+                isManager || category.CreatedByMemberId == currentMember.Id,
+                isManager || category.CreatedByMemberId == currentMember.Id))
             .ToArrayAsync(cancellationToken);
-
-        return categories
-            .Select(category =>
-            {
-                var canManage = isManager || category.CreatedByMemberId == currentMember.Id;
-                var usageCount = category.PromptAssignments
-                    .Select(assignment => assignment.PromptId)
-                    .Distinct()
-                    .Count();
-                var replacementRequiredCount = category.PromptAssignments
-                    .Count(assignment => assignment.Prompt?.CategoryAssignments.Count == 1);
-
-                return new PromptCategoryDto(
-                    category.Id,
-                    category.Name,
-                    category.CreatedByMemberId,
-                    usageCount,
-                    replacementRequiredCount,
-                    canManage,
-                    canManage);
-            })
-            .ToArray();
     }
 
     public async Task<PromptCategoryDto> CreateCategoryAsync(CreatePromptCategoryRequest request, CancellationToken cancellationToken)

@@ -77,6 +77,24 @@ public sealed class PromptEndpointsTests
         Assert.NotNull(filtered);
         Assert.Equal(3, filtered.TotalCount);
 
+        var categoriesResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Get,
+            "/api/prompt-categories");
+
+        categoriesResponse.EnsureSuccessStatusCode();
+        var categories = await categoriesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PromptCategoryResponse>>(JsonSerializerOptions.Web);
+
+        Assert.NotNull(categories);
+        var listedCategoryA = Assert.Single(categories.Where(category => category.Id == categoryA.Id));
+        var listedCategoryB = Assert.Single(categories.Where(category => category.Id == categoryB.Id));
+        Assert.Equal(2, listedCategoryA.UsageCount);
+        Assert.Equal(1, listedCategoryA.ReplacementRequiredCount);
+        Assert.Equal(2, listedCategoryB.UsageCount);
+        Assert.Equal(1, listedCategoryB.ReplacementRequiredCount);
+
         var withoutUniverseResponse = await SendAuthorizedAsync(
             client,
             seed.AccessToken,
@@ -334,6 +352,8 @@ public sealed class PromptEndpointsTests
     private sealed record UniverseResponse(Guid Id, string Name);
 
     private sealed record CategoryResponse(Guid Id, string Name);
+
+    private sealed record PromptCategoryResponse(Guid Id, string Name, int UsageCount, int ReplacementRequiredCount);
 
     private sealed record PromptCategoryReferenceResponse(Guid Id, string Name);
 
