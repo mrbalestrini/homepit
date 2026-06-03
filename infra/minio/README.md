@@ -16,10 +16,24 @@ O backend consome o mesmo `MINIO_ROOT_USER` e `MINIO_ROOT_PASSWORD` via `apps/ap
 
 ## Migracao de ambiente
 
-Se voce ja subiu o container antigo com `quay.io/minio/aistor/minio`, recrie o servico para trocar a imagem:
+Se voce ja subiu o container antigo com `quay.io/minio/aistor/minio`, recrie o servico com o mesmo project name usado pelo setup local:
 
 ```powershell
 Set-Location infra/minio
-docker compose down
-docker compose up -d
+docker compose -p homepit-minio -f docker-compose.yml down
+docker compose -p homepit-minio -f docker-compose.yml up -d
+```
+
+Se o volume antigo tiver persistido configuracoes internas do AIStor, o MinIO community pode iniciar com erro semelhante a:
+
+```text
+Unable to initialize OpenID: found invalid keys (azure_use_group_id= azure_tenant_id= )
+```
+
+Nesse caso, para ambiente local, remova tambem o volume do MinIO e suba novamente:
+
+```powershell
+Set-Location infra/minio
+docker compose -p homepit-minio -f docker-compose.yml down -v
+docker compose -p homepit-minio -f docker-compose.yml up -d
 ```

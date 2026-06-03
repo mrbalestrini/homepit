@@ -94,4 +94,6 @@ Os arquivos `.env` gerados sao locais e estao ignorados pelo Git. Se voce ja tiv
 
 `destroy` remove containers e volumes. Isso apaga o banco local do HomePit, o banco da Evolution, o Redis local da Evolution e os objetos locais do MinIO. Use apenas quando quiser recomecar do zero.
 
+Se voce migrou de `quay.io/minio/aistor/minio` para `minio/minio` e o MinIO local passou a falhar com `Unable to initialize OpenID: found invalid keys`, execute `destroy` e depois `start` para recriar o volume local sem a configuracao antiga.
+
 Para um passo a passo mais completo, veja [ONBOARDING.md](./ONBOARDING.md).

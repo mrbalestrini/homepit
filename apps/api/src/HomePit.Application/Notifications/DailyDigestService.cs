@@ -17,9 +17,14 @@ public sealed class DailyDigestService(
     {
         var now = timeProvider.GetUtcNow();
         var preferences = await db.NotificationPreferences
-            .Include(preference => preference.HouseholdMember)
-                .ThenInclude(member => member!.User)
+            .AsNoTracking()
             .Where(preference => preference.DailyDigestEnabled && preference.WhatsAppPhoneNumber != null)
+            .Select(preference => new DailyDigestPreference(
+                preference.HouseholdId,
+                preference.HouseholdMemberId,
+                preference.WhatsAppPhoneNumber!,
+                preference.DailyDigestTime,
+                preference.TimeZoneId))
             .ToArrayAsync(cancellationToken);
 
         var sent = 0;
@@ -129,4 +134,11 @@ public sealed class DailyDigestService(
             return TimeZoneInfo.ConvertTime(now, TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo"));
         }
     }
+
+    private sealed record DailyDigestPreference(
+        Guid HouseholdId,
+        Guid HouseholdMemberId,
+        string WhatsAppPhoneNumber,
+        TimeOnly DailyDigestTime,
+        string TimeZoneId);
 }

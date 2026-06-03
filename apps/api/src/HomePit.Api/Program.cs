@@ -69,9 +69,14 @@ app.UseCors("web");
 app.UseAuthentication();
 app.UseAuthorization();
 
-if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true))
+var applyMigrationsOnStartup = app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true);
+if (applyMigrationsOnStartup)
 {
     await app.Services.MigrateHomePitDatabaseAsync();
+}
+else
+{
+    await app.Services.EnsureNoPendingHomePitMigrationsAsync();
 }
 await app.Services.EnsureHomePitObjectStorageAsync();
 

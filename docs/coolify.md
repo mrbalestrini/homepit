@@ -32,6 +32,7 @@ Use the Supabase internal host:
 
 ```txt
 ConnectionStrings__HomePitDb=Host=supabase-db;Port=5432;Database=postgres;Username=supabase_admin;Password=...
+Database__ApplyMigrationsOnStartup=true
 ```
 
 Use the Evolution internal host:
@@ -52,6 +53,28 @@ ObjectStorage__BucketName=homepit-assets
 ObjectStorage__UseSsl=false
 ObjectStorage__CreateBucketOnStartup=true
 ```
+
+## Troubleshooting
+
+If the API logs an error like `column u.ProfilePhotoObjectKey does not exist`, the production database schema is behind the application model. The migration `20260601161000_AddUserProfilePhoto` must exist in `__EFMigrationsHistory` before the current API build can run correctly.
+
+Quick checks:
+
+```sql
+SELECT "MigrationId"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+```
+
+```sql
+SELECT column_name
+FROM information_schema.columns
+WHERE table_schema = 'homepit'
+  AND table_name = 'users'
+  AND column_name IN ('ProfilePhotoObjectKey', 'ProfilePhotoUpdatedAt');
+```
+
+If those entries are missing, redeploy the API with `Database__ApplyMigrationsOnStartup=true` against the correct Postgres instance, or apply the EF Core migrations out of band before bringing the API back up.
 
 ## Web Environment
 
