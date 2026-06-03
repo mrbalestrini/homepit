@@ -4,6 +4,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Copy,
   ExternalLink,
   Image as ImageIcon,
   Layers,
@@ -18,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import type { PromptCategory, PromptDetail, PromptListItem } from "@/lib/api";
 import { ApiError, apiFetchBlob } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -52,8 +54,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { PromptBankController, PromptFormInput } from "./use-prompt-bank";
 
-const DESCRIPTION_PREVIEW_LIMIT = 140;
-const PROMPT_PREVIEW_LIMIT = 220;
+const DESCRIPTION_PREVIEW_LIMIT = 120;
+const PROMPT_PREVIEW_LIMIT = 150;
 
 export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
   return (
@@ -319,7 +321,7 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
           />
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="flex flex-wrap gap-4">
               {bank.promptPage.items.map((prompt) => (
                 <PromptCard
                   key={prompt.id}
@@ -420,7 +422,7 @@ export function PromptCard({
 }) {
   return (
     <div
-      className="group rounded-[24px] border border-border/70 bg-surface text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-sm"
+      className="group w-full cursor-pointer rounded-[24px] border border-border/70 bg-surface text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/70 sm:w-[21rem]"
       role="button"
       tabIndex={0}
       onClick={onOpen}
@@ -477,7 +479,7 @@ export function PromptCard({
         <div>
           <h3 className="line-clamp-2 text-lg font-semibold text-foreground">{prompt.title}</h3>
           {prompt.description ? (
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
               {truncateText(prompt.description, DESCRIPTION_PREVIEW_LIMIT)}
             </p>
           ) : (
@@ -485,9 +487,9 @@ export function PromptCard({
           )}
         </div>
 
-        <div className="rounded-[18px] border border-border/60 bg-surface-elevated p-3">
+        <div className="rounded-[16px] border border-border/60 bg-surface-elevated p-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Prompt</p>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground/85">
+          <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-foreground/85">
             {truncateText(prompt.promptText, PROMPT_PREVIEW_LIMIT)}
           </p>
         </div>
@@ -677,9 +679,13 @@ function PromptDialog({
                 <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
               </Field>
 
-              <Field label="Prompt">
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-foreground/85">Prompt</span>
+                  <CopyPromptButton value={promptText} />
+                </div>
                 <Textarea value={promptText} onChange={(event) => setPromptText(event.target.value)} rows={10} required />
-              </Field>
+              </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Link">
@@ -971,7 +977,10 @@ export function PromptDetailDialog({
 
               <div className="space-y-4">
                 <div className="rounded-[20px] border border-border/60 bg-surface-elevated p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Prompt completo</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Prompt completo</p>
+                    <CopyPromptButton className="-mr-1 -mt-1" value={prompt.promptText} />
+                  </div>
                   <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground">{prompt.promptText}</p>
                 </div>
 
@@ -996,6 +1005,78 @@ export function PromptDetailDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function CopyPromptButton({ value, className }: { value: string; className?: string }) {
+  const disabled = value.trim().length === 0;
+
+  async function handleCopy() {
+    const normalized = value.trim();
+
+    if (!normalized) {
+      toast.error("Não há prompt para copiar.");
+      return;
+    }
+
+    try {
+      const copied = await copyText(normalized);
+      if (!copied) {
+        toast.error("A cópia não está disponível neste navegador.");
+        return;
+      }
+      toast.success("Prompt copiado.");
+    } catch {
+      toast.error("Não foi possível copiar o prompt.");
+    }
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className={cn("size-8 rounded-lg", className)}
+      aria-label="Copiar prompt"
+      title="Copiar prompt"
+      disabled={disabled}
+      onClick={() => void handleCopy()}
+    >
+      <Copy className="size-4" />
+    </Button>
+  );
+}
+
+async function copyText(value: string) {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // Fall back to a manual copy path for browsers/contexts that block the async clipboard API.
+    }
+  }
+
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  textarea.style.pointerEvents = "none";
+
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+
+  try {
+    return document.execCommand("copy");
+  } finally {
+    document.body.removeChild(textarea);
+  }
 }
 
 function PromptImageFrame({

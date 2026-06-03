@@ -1,6 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
 import { CategoryDeleteDialog, PromptCard, PromptDetailDialog } from "./prompt-bank-workspace";
+
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 describe("PromptCard", () => {
   it("renders previews with 4:5 image frame and truncates noisy text", () => {
@@ -34,6 +42,7 @@ describe("PromptCard", () => {
 
     const imageFrame = container.querySelector('[class*="aspect-[4/5]"]');
     expect(imageFrame).not.toBeNull();
+    expect(container.firstChild).toHaveClass("cursor-pointer");
     expect(screen.getByText(/A{20}/)).toHaveTextContent(/\.\.\.$/);
     expect(screen.getByText(/B{20}/)).toHaveTextContent(/\.\.\.$/);
   });
@@ -72,7 +81,52 @@ describe("PromptDetailDialog", () => {
 
     expect(screen.getByRole("heading", { name: "Prompt detalhado" })).toBeInTheDocument();
     expect(screen.getByText("Texto integral do prompt sem truncamento.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copiar prompt" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Referência oficial" })).toHaveAttribute("href", "https://homepit.dev");
+  });
+
+  it("copies the full prompt text from the detail modal", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <PromptDetailDialog
+        open
+        prompt={{
+          id: "prompt-1",
+          universeId: "uni-1",
+          universeName: "Universo",
+          title: "Prompt detalhado",
+          description: "Descrição completa",
+          promptText: "Texto integral do prompt sem truncamento.",
+          categories: [{ id: "cat-1", name: "Categoria" }],
+          linkUrl: null,
+          linkTitle: null,
+          createdByMemberId: null,
+          hasImage: false,
+          imageUpdatedAt: null,
+          createdAt: "2026-06-03T12:00:00Z",
+          updatedAt: "2026-06-03T12:00:00Z",
+          canEdit: true,
+          canDelete: true,
+        }}
+        loading={false}
+        token=""
+        onOpenChange={() => undefined}
+        onEdit={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Copiar prompt" }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("Texto integral do prompt sem truncamento.");
+    });
+    expect(toast.success).toHaveBeenCalledWith("Prompt copiado.");
   });
 });
 
