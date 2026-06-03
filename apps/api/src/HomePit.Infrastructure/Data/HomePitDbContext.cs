@@ -221,7 +221,14 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     {
         modelBuilder.Entity<Prompt>(builder =>
         {
-            builder.ToTable("prompts");
+            builder.ToTable("prompts", tableBuilder =>
+                tableBuilder.HasCheckConstraint(
+                    "CK_prompts_link_url_title_pair",
+                    """
+                    ("LinkUrl" IS NULL AND "LinkTitle" IS NULL)
+                    OR
+                    ("LinkUrl" IS NOT NULL AND "LinkTitle" IS NOT NULL)
+                    """));
             builder.Property(prompt => prompt.Title).HasMaxLength(240).IsRequired();
             builder.Property(prompt => prompt.Description).HasMaxLength(4000);
             builder.Property(prompt => prompt.PromptText).HasMaxLength(16000).IsRequired();
@@ -231,13 +238,6 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(prompt => prompt.ImageContentType).HasMaxLength(120);
             builder.HasIndex(prompt => new { prompt.HouseholdId, prompt.UpdatedAt });
             builder.HasIndex(prompt => new { prompt.HouseholdId, prompt.UniverseId, prompt.UpdatedAt });
-            builder.HasCheckConstraint(
-                "CK_prompts_link_url_title_pair",
-                """
-                ("LinkUrl" IS NULL AND "LinkTitle" IS NULL)
-                OR
-                ("LinkUrl" IS NOT NULL AND "LinkTitle" IS NOT NULL)
-                """);
             builder.HasOne(prompt => prompt.Household)
                 .WithMany(household => household.Prompts)
                 .HasForeignKey(prompt => prompt.HouseholdId)
