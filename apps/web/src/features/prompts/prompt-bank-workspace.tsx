@@ -51,6 +51,7 @@ import {
   Notice,
   StatCard,
 } from "@/features/workspace/homepit-workspace-shell";
+import { AvatarCircle } from "@/features/workspace/protected-user-avatar";
 import { cn } from "@/lib/utils";
 import type { PromptBankController, PromptFormInput } from "./use-prompt-bank";
 
@@ -407,6 +408,21 @@ function CategoryFilterDropdown({ bank }: { bank: PromptBankController }) {
   );
 }
 
+function PromptUniverseBadge({
+  name,
+  imageUrl,
+}: {
+  name: string;
+  imageUrl?: string | null;
+}) {
+  return (
+    <Badge variant="outline" className="gap-1.5 pl-1">
+      <AvatarCircle name={name} imageUrl={imageUrl} className="size-4 text-[8px]" />
+      <span className="truncate">{name}</span>
+    </Badge>
+  );
+}
+
 export function PromptCard({
   prompt,
   token,
@@ -467,7 +483,11 @@ export function PromptCard({
 
       <div className="space-y-3 p-4">
         <div className="flex flex-wrap items-center gap-2">
-          {prompt.universeName ? <Badge variant="outline">{prompt.universeName}</Badge> : <Badge variant="neutral">Sem universo</Badge>}
+          {prompt.universeName ? (
+            <PromptUniverseBadge name={prompt.universeName} imageUrl={prompt.universeImageUrl} />
+          ) : (
+            <Badge variant="neutral">Sem universo</Badge>
+          )}
           {prompt.categories.slice(0, 2).map((category) => (
             <Badge key={category.id} variant="neutral">
               {category.name}
@@ -937,7 +957,11 @@ export function PromptDetailDialog({
               <div className="flex flex-wrap items-start justify-between gap-3 pr-10">
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    {prompt.universeName ? <Badge variant="outline">{prompt.universeName}</Badge> : <Badge variant="neutral">Sem universo</Badge>}
+                    {prompt.universeName ? (
+                      <PromptUniverseBadge name={prompt.universeName} imageUrl={prompt.universeImageUrl} />
+                    ) : (
+                      <Badge variant="neutral">Sem universo</Badge>
+                    )}
                     {prompt.categories.map((category) => (
                       <Badge key={category.id} variant="neutral">
                         {category.name}

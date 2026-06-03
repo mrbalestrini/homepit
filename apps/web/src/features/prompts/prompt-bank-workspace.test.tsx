@@ -20,6 +20,7 @@ describe("PromptCard", () => {
           id: "prompt-1",
           universeId: null,
           universeName: null,
+          universeImageUrl: null,
           title: "Prompt de teste",
           description: longDescription,
           promptText: longPrompt,
@@ -46,6 +47,37 @@ describe("PromptCard", () => {
     expect(screen.getByText(/A{20}/)).toHaveTextContent(/\.\.\.$/);
     expect(screen.getByText(/B{20}/)).toHaveTextContent(/\.\.\.$/);
   });
+
+  it("renders the universe chip with avatar when the universe has an image", () => {
+    render(
+      <PromptCard
+        prompt={{
+          id: "prompt-2",
+          universeId: "uni-1",
+          universeName: "Universo Visual",
+          universeImageUrl: "https://cdn.homepit.dev/universo-visual.png",
+          title: "Prompt com universo",
+          description: null,
+          promptText: "Texto do prompt.",
+          categories: [{ id: "cat-1", name: "Categoria" }],
+          linkUrl: null,
+          linkTitle: null,
+          createdByMemberId: null,
+          hasImage: false,
+          imageUpdatedAt: null,
+          updatedAt: "2026-06-03T12:00:00Z",
+          canEdit: true,
+          canDelete: true,
+        }}
+        token=""
+        onOpen={() => undefined}
+        onEdit={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    expect(screen.getByAltText("Universo Visual")).toHaveAttribute("src", "https://cdn.homepit.dev/universo-visual.png");
+  });
 });
 
 describe("PromptDetailDialog", () => {
@@ -57,6 +89,7 @@ describe("PromptDetailDialog", () => {
           id: "prompt-1",
           universeId: "uni-1",
           universeName: "Universo",
+          universeImageUrl: "https://cdn.homepit.dev/universo.png",
           title: "Prompt detalhado",
           description: "Descrição completa",
           promptText: "Texto integral do prompt sem truncamento.",
@@ -81,6 +114,7 @@ describe("PromptDetailDialog", () => {
 
     expect(screen.getByRole("heading", { name: "Prompt detalhado" })).toBeInTheDocument();
     expect(screen.getByText("Texto integral do prompt sem truncamento.")).toBeInTheDocument();
+    expect(screen.getByAltText("Universo")).toHaveAttribute("src", "https://cdn.homepit.dev/universo.png");
     expect(screen.getByRole("button", { name: "Copiar prompt" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Referência oficial" })).toHaveAttribute("href", "https://homepit.dev");
   });
@@ -99,6 +133,7 @@ describe("PromptDetailDialog", () => {
           id: "prompt-1",
           universeId: "uni-1",
           universeName: "Universo",
+          universeImageUrl: null,
           title: "Prompt detalhado",
           description: "Descrição completa",
           promptText: "Texto integral do prompt sem truncamento.",

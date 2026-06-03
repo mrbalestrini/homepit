@@ -29,7 +29,7 @@ public sealed class PromptEndpointsTests
 
         var categoryA = await CreateCategoryAsync(client, seed, "Categoria A");
         var categoryB = await CreateCategoryAsync(client, seed, "Categoria B");
-        var universe = await CreateUniverseAsync(client, seed, "Universo Criativo");
+        var universe = await CreateUniverseAsync(client, seed, "Universo Criativo", "https://cdn.homepit.dev/universo-criativo.png");
 
         var promptWithUniverse = await CreatePromptAsync(client, seed, new
         {
@@ -76,6 +76,7 @@ public sealed class PromptEndpointsTests
 
         Assert.NotNull(defaultList);
         Assert.Equal(3, defaultList.TotalCount);
+        Assert.Contains(defaultList.Items, item => item.Id == promptWithUniverse.Id && item.UniverseImageUrl == universe.ImageUrl);
 
         var allCategoriesResponse = await SendAuthorizedAsync(
             client,
@@ -130,6 +131,9 @@ public sealed class PromptEndpointsTests
             HttpMethod.Get,
             $"/api/prompts/{promptWithUniverse.Id}");
         detailResponse.EnsureSuccessStatusCode();
+        var detailPrompt = await detailResponse.Content.ReadFromJsonAsync<PromptDetailResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(detailPrompt);
+        Assert.Equal(universe.ImageUrl, detailPrompt.UniverseImageUrl);
 
         var updatedResponse = await SendAuthorizedAsync(
             client,
@@ -309,7 +313,7 @@ public sealed class PromptEndpointsTests
         return (await response.Content.ReadFromJsonAsync<CategoryResponse>(JsonSerializerOptions.Web))!;
     }
 
-    private static async Task<UniverseResponse> CreateUniverseAsync(HttpClient client, SeedResult seed, string name)
+    private static async Task<UniverseResponse> CreateUniverseAsync(HttpClient client, SeedResult seed, string name, string? imageUrl = null)
     {
         var response = await SendAuthorizedAsync(
             client,
@@ -317,7 +321,7 @@ public sealed class PromptEndpointsTests
             seed.HouseholdId,
             HttpMethod.Post,
             "/api/universes",
-            JsonContent.Create(new { name, imageUrl = (string?)null }));
+            JsonContent.Create(new { name, imageUrl }));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<UniverseResponse>(JsonSerializerOptions.Web))!;
     }
@@ -362,7 +366,7 @@ public sealed class PromptEndpointsTests
 
     private sealed record SeedResult(string AccessToken, Guid HouseholdId);
 
-    private sealed record UniverseResponse(Guid Id, string Name);
+    private sealed record UniverseResponse(Guid Id, string Name, string? ImageUrl);
 
     private sealed record CategoryResponse(Guid Id, string Name);
 
@@ -372,12 +376,13 @@ public sealed class PromptEndpointsTests
 
     private sealed record PromptListResponse(IReadOnlyCollection<PromptListItemResponse> Items, int Page, int PageSize, int TotalCount);
 
-    private sealed record PromptListItemResponse(Guid Id, Guid? UniverseId, string? UniverseName, string Title);
+    private sealed record PromptListItemResponse(Guid Id, Guid? UniverseId, string? UniverseName, string? UniverseImageUrl, string Title);
 
     private sealed record PromptDetailResponse(
         Guid Id,
         Guid? UniverseId,
         string? UniverseName,
+        string? UniverseImageUrl,
         string Title,
         IReadOnlyCollection<PromptCategoryReferenceResponse> Categories,
         bool HasImage);

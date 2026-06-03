@@ -109,6 +109,7 @@ export type PromptListItem = {
   id: string;
   universeId?: string | null;
   universeName?: string | null;
+  universeImageUrl?: string | null;
   title: string;
   description?: string | null;
   promptText: string;
@@ -134,6 +135,7 @@ export type PromptDetail = {
   id: string;
   universeId?: string | null;
   universeName?: string | null;
+  universeImageUrl?: string | null;
   title: string;
   description?: string | null;
   promptText: string;
