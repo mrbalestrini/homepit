@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Activity,
@@ -14,6 +14,8 @@ import {
   clearSession,
   readSession,
   storeSession,
+  subscribeToSessionChanges,
+  updateStoredSession,
 } from "@/lib/api";
 import { activityColumns, defaultActivityFilters, defaultAppTheme, uiStorageKeys } from "./project-dashboard.constants";
 import type { ActiveModal, ActivityFilterState, ActivityFormInput, AppTheme, ProjectViewMode } from "./project-dashboard.types";
@@ -50,24 +52,64 @@ export function useProjectDashboard() {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sessionUserIdRef = useRef<string | null>(null);
+
+  const resetWorkspaceState = useCallback(() => {
+    setUniverses([]);
+    setProjects([]);
+    setActivities([]);
+    setMembers([]);
+    setSelectedUniverseId("");
+    setSelectedProjectId("");
+    setSelectedActivity(null);
+    setActivityComments([]);
+    setEditingHousehold(null);
+    setEditingUniverse(null);
+    setEditingProject(null);
+    setEditingActivity(null);
+    setActiveModal(null);
+    setCommentsLoading(false);
+    setLoading(false);
+    setError(null);
+    setFilters(defaultActivityFilters);
+  }, []);
+
+  const syncSession = useCallback(
+    (nextSession: AuthResponse | null) => {
+      const nextUserId = nextSession?.user.id ?? null;
+      const userChanged = sessionUserIdRef.current !== nextUserId;
+      sessionUserIdRef.current = nextUserId;
+
+      if (!nextSession || userChanged) {
+        resetWorkspaceState();
+      }
+
+      setSession(nextSession);
+      setActiveHouseholdId((current) => {
+        if (!nextSession) {
+          return "";
+        }
+
+        return current && nextSession.households.some((household) => household.id === current)
+          ? current
+          : nextSession.households[0]?.id ?? "";
+      });
+    },
+    [resetWorkspaceState],
+  );
 
   useEffect(() => {
-    let isMounted = true;
+    let cancelled = false;
+    const savedViewMode = window.localStorage.getItem(uiStorageKeys.projectViewMode);
+    const savedSidebarState = window.localStorage.getItem(uiStorageKeys.sidebarCollapsed);
+    const savedTheme = window.localStorage.getItem(uiStorageKeys.theme);
 
     void Promise.resolve().then(() => {
-      const savedSession = readSession();
-      const savedViewMode = window.localStorage.getItem(uiStorageKeys.projectViewMode);
-      const savedSidebarState = window.localStorage.getItem(uiStorageKeys.sidebarCollapsed);
-      const savedTheme = window.localStorage.getItem(uiStorageKeys.theme);
-
-      if (!isMounted) {
+      if (cancelled) {
         return;
       }
 
-      if (savedSession) {
-        setSession(savedSession);
-        setActiveHouseholdId(savedSession.households[0]?.id ?? "");
-      }
+      syncSession(readSession());
 
       if (savedViewMode === "list" || savedViewMode === "kanban") {
         setViewModeState(savedViewMode);
@@ -85,10 +127,13 @@ export function useProjectDashboard() {
       }
     });
 
+    const unsubscribe = subscribeToSessionChanges(syncSession);
+
     return () => {
-      isMounted = false;
+      cancelled = true;
+      unsubscribe();
     };
-  }, []);
+  }, [syncSession]);
 
   useEffect(() => {
     applyDocumentTheme(theme);
@@ -258,8 +303,6 @@ export function useProjectDashboard() {
 
   const handleAuthenticated = useCallback((auth: AuthResponse) => {
     storeSession(auth);
-    setSession(auth);
-    setActiveHouseholdId(auth.households[0]?.id ?? "");
     toast.success("Sessão iniciada com sucesso.");
   }, []);
 
@@ -273,32 +316,20 @@ export function useProjectDashboard() {
 
   const handleLogout = useCallback(() => {
     clearSession();
-    setSession(null);
-    setActiveHouseholdId("");
-    setUniverses([]);
-    setProjects([]);
-    setActivities([]);
-    setMembers([]);
-    setSelectedUniverseId("");
-    setSelectedProjectId("");
-    setSelectedActivity(null);
-    setActivityComments([]);
-    setEditingHousehold(null);
-    setEditingUniverse(null);
-    setEditingProject(null);
-    setEditingActivity(null);
-    setActiveModal(null);
     toast.success("Sessão encerrada.");
   }, []);
 
   const updateSessionHouseholds = useCallback(
     (nextHouseholds: Household[], preferredHouseholdId?: string) => {
-      if (!session) {
+      const nextSession = updateStoredSession((currentSession) => ({
+        ...currentSession,
+        households: nextHouseholds,
+      }));
+
+      if (!nextSession) {
         return;
       }
 
-      const nextSession = { ...session, households: nextHouseholds };
-      storeSession(nextSession);
       setSession(nextSession);
 
       const nextHouseholdId =
@@ -309,17 +340,20 @@ export function useProjectDashboard() {
 
       setActiveHouseholdId(nextHouseholdId);
     },
-    [activeHouseholdId, session],
+    [activeHouseholdId],
   );
 
   const applyUpdatedUser = useCallback(
     (updatedUser: AuthResponse["user"]) => {
-      if (!session) {
+      const nextSession = updateStoredSession((currentSession) => ({
+        ...currentSession,
+        user: updatedUser,
+      }));
+
+      if (!nextSession) {
         return;
       }
 
-      const nextSession = { ...session, user: updatedUser };
-      storeSession(nextSession);
       setSession(nextSession);
       setMembers((current) =>
         current.map((member) =>
@@ -334,7 +368,7 @@ export function useProjectDashboard() {
         ),
       );
     },
-    [session],
+    [],
   );
 
   const refreshHouseholds = useCallback(async () => {

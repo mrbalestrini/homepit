@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   PromptCategory,
@@ -15,6 +15,8 @@ import {
   clearSession,
   readSession,
   storeSession,
+  subscribeToSessionChanges,
+  updateStoredSession,
 } from "@/lib/api";
 import { defaultAppTheme, uiStorageKeys } from "@/features/projects/project-dashboard.constants";
 import type { AppTheme } from "@/features/projects/project-dashboard.types";
@@ -66,23 +68,64 @@ export function usePromptBank() {
   const [loadingReferences, setLoadingReferences] = useState(false);
   const [loadingPrompts, setLoadingPrompts] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sessionUserIdRef = useRef<string | null>(null);
+
+  const resetWorkspaceState = useCallback(() => {
+    setUniverses([]);
+    setMembers([]);
+    setCategories([]);
+    setPromptPage({ items: [], page: 1, pageSize: 12, totalCount: 0 });
+    setSearch("");
+    setUniverseFilter("all");
+    setSelectedCategoryIds([]);
+    setPage(1);
+    setEditingHousehold(null);
+    setEditingPrompt(null);
+    setEditingCategory(null);
+    setDeletingCategory(null);
+    setSelectedPromptDetail(null);
+    setActiveModal(null);
+    setDetailLoading(false);
+    setLoadingReferences(false);
+    setLoadingPrompts(false);
+    setError(null);
+  }, []);
+
+  const syncSession = useCallback(
+    (nextSession: AuthResponse | null) => {
+      const nextUserId = nextSession?.user.id ?? null;
+      const userChanged = sessionUserIdRef.current !== nextUserId;
+      sessionUserIdRef.current = nextUserId;
+
+      if (!nextSession || userChanged) {
+        resetWorkspaceState();
+      }
+
+      setSession(nextSession);
+      setActiveHouseholdId((current) => {
+        if (!nextSession) {
+          return "";
+        }
+
+        return current && nextSession.households.some((household) => household.id === current)
+          ? current
+          : nextSession.households[0]?.id ?? "";
+      });
+    },
+    [resetWorkspaceState],
+  );
 
   useEffect(() => {
-    let isMounted = true;
+    let cancelled = false;
+    const savedSidebarState = window.localStorage.getItem(uiStorageKeys.sidebarCollapsed);
+    const savedTheme = window.localStorage.getItem(uiStorageKeys.theme);
 
     void Promise.resolve().then(() => {
-      const savedSession = readSession();
-      const savedSidebarState = window.localStorage.getItem(uiStorageKeys.sidebarCollapsed);
-      const savedTheme = window.localStorage.getItem(uiStorageKeys.theme);
-
-      if (!isMounted) {
+      if (cancelled) {
         return;
       }
 
-      if (savedSession) {
-        setSession(savedSession);
-        setActiveHouseholdId(savedSession.households[0]?.id ?? "");
-      }
+      syncSession(readSession());
 
       if (savedSidebarState === "true" || savedSidebarState === "false") {
         setSidebarCollapsedState(savedSidebarState === "true");
@@ -96,10 +139,13 @@ export function usePromptBank() {
       }
     });
 
+    const unsubscribe = subscribeToSessionChanges(syncSession);
+
     return () => {
-      isMounted = false;
+      cancelled = true;
+      unsubscribe();
     };
-  }, []);
+  }, [syncSession]);
 
   useEffect(() => {
     applyDocumentTheme(theme);
@@ -269,8 +315,6 @@ export function usePromptBank() {
 
   const handleAuthenticated = useCallback((auth: AuthResponse) => {
     storeSession(auth);
-    setSession(auth);
-    setActiveHouseholdId(auth.households[0]?.id ?? "");
     toast.success("Sessão iniciada com sucesso.");
   }, []);
 
@@ -289,29 +333,20 @@ export function usePromptBank() {
 
   const handleLogout = useCallback(() => {
     clearSession();
-    setSession(null);
-    setActiveHouseholdId("");
-    setUniverses([]);
-    setMembers([]);
-    setCategories([]);
-    setPromptPage({ items: [], page: 1, pageSize: 12, totalCount: 0 });
-    setSelectedPromptDetail(null);
-    setEditingPrompt(null);
-    setEditingCategory(null);
-    setDeletingCategory(null);
-    setEditingHousehold(null);
-    setActiveModal(null);
     toast.success("Sessão encerrada.");
   }, []);
 
   const updateSessionHouseholds = useCallback(
     (nextHouseholds: Household[], preferredHouseholdId?: string) => {
-      if (!session) {
+      const nextSession = updateStoredSession((currentSession) => ({
+        ...currentSession,
+        households: nextHouseholds,
+      }));
+
+      if (!nextSession) {
         return;
       }
 
-      const nextSession = { ...session, households: nextHouseholds };
-      storeSession(nextSession);
       setSession(nextSession);
 
       const nextHouseholdId =
@@ -322,17 +357,20 @@ export function usePromptBank() {
 
       setActiveHouseholdId(nextHouseholdId);
     },
-    [activeHouseholdId, session],
+    [activeHouseholdId],
   );
 
   const applyUpdatedUser = useCallback(
     (updatedUser: AuthResponse["user"]) => {
-      if (!session) {
+      const nextSession = updateStoredSession((currentSession) => ({
+        ...currentSession,
+        user: updatedUser,
+      }));
+
+      if (!nextSession) {
         return;
       }
 
-      const nextSession = { ...session, user: updatedUser };
-      storeSession(nextSession);
       setSession(nextSession);
       setMembers((current) =>
         current.map((member) =>
@@ -347,7 +385,7 @@ export function usePromptBank() {
         ),
       );
     },
-    [session],
+    [],
   );
 
   const refreshHouseholds = useCallback(async () => {

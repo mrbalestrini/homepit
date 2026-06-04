@@ -152,6 +152,14 @@ export type PromptDetail = {
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const SESSION_STORAGE_KEY = "homepit.session";
+const SESSION_EVENT_NAME = "homepit:session-changed";
+const ACCESS_TOKEN_REFRESH_LEEWAY_MS = 2 * 60 * 1000;
+
+type ApiRequestOptions = RequestInit & { token?: string; householdId?: string };
+type SessionListener = (session: AuthResponse | null) => void;
+
+let refreshSessionPromise: Promise<AuthResponse | null> | null = null;
 
 export class ApiError extends Error {
   constructor(
@@ -162,10 +170,161 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(
-  path: string,
-  options: RequestInit & { token?: string; householdId?: string } = {},
-): Promise<T> {
+export async function apiFetch<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const response = await requestApi(path, options);
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+export async function apiFetchBlob(path: string, options: ApiRequestOptions = {}): Promise<Blob> {
+  const response = await requestApi(path, {
+    ...options,
+    cache: "no-store",
+  });
+
+  return await response.blob();
+}
+
+export function storeSession(auth: AuthResponse) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(auth));
+  dispatchSessionChange(auth);
+}
+
+export function updateStoredSession(
+  updater: (session: AuthResponse) => AuthResponse | null,
+): AuthResponse | null {
+  const currentSession = readSession();
+  if (!currentSession) {
+    return null;
+  }
+
+  const nextSession = updater(currentSession);
+  if (nextSession) {
+    storeSession(nextSession);
+    return nextSession;
+  }
+
+  clearSession();
+  return null;
+}
+
+export function readSession(): AuthResponse | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return parseSessionValue(window.localStorage.getItem(SESSION_STORAGE_KEY), true);
+}
+
+export function clearSession() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(SESSION_STORAGE_KEY);
+  dispatchSessionChange(null);
+}
+
+export function subscribeToSessionChanges(listener: SessionListener) {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  const handleSessionChange = (event: Event) => {
+    listener((event as CustomEvent<AuthResponse | null>).detail ?? null);
+  };
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key !== SESSION_STORAGE_KEY) {
+      return;
+    }
+
+    listener(parseSessionValue(event.newValue, false));
+  };
+
+  window.addEventListener(SESSION_EVENT_NAME, handleSessionChange as EventListener);
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener(SESSION_EVENT_NAME, handleSessionChange as EventListener);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+async function requestApi(path: string, options: ApiRequestOptions): Promise<Response> {
+  const token = await prepareAccessToken(options);
+  let response = await executeRequest(path, options, token);
+
+  if (response.ok || response.status !== 401 || !options.token) {
+    if (!response.ok) {
+      throw await buildApiError(response);
+    }
+
+    return response;
+  }
+
+  const latestSession = readSession();
+  if (latestSession?.accessToken && latestSession.accessToken !== token) {
+    response = await executeRequest(path, options, latestSession.accessToken);
+    if (response.ok) {
+      return response;
+    }
+
+    if (response.status !== 401) {
+      throw await buildApiError(response);
+    }
+  }
+
+  const refreshedSession = await refreshStoredSession(true);
+  if (!refreshedSession) {
+    throw createExpiredSessionError();
+  }
+
+  response = await executeRequest(path, options, refreshedSession.accessToken);
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearSessionIfCurrent(refreshedSession.refreshToken);
+      throw createExpiredSessionError();
+    }
+
+    throw await buildApiError(response);
+  }
+
+  return response;
+}
+
+async function prepareAccessToken(options: ApiRequestOptions) {
+  if (!options.token) {
+    return undefined;
+  }
+
+  const currentToken = getCurrentSessionToken(options.token);
+  const currentSession = readSession();
+  if (!currentSession || currentToken !== currentSession.accessToken) {
+    return currentToken;
+  }
+
+  if (!isSessionExpiringSoon(currentSession)) {
+    return currentToken;
+  }
+
+  try {
+    const refreshedSession = await refreshStoredSession(false);
+    return refreshedSession?.accessToken ?? currentToken;
+  } catch {
+    return currentToken;
+  }
+}
+
+async function executeRequest(path: string, options: ApiRequestOptions, token?: string) {
   const headers = new Headers(options.headers);
   const hasBody = options.body !== undefined && options.body !== null;
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
@@ -176,79 +335,121 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  if (options.token) {
-    headers.set("Authorization", `Bearer ${options.token}`);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   if (options.householdId) {
     headers.set("X-Household-Id", options.householdId);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
   });
+}
 
-  if (!response.ok) {
-    let message = "Não foi possível concluir a operação.";
-    try {
-      const body = (await response.json()) as { detail?: string; title?: string };
-      message = body.detail ?? body.title ?? message;
-    } catch {
-      message = response.statusText || message;
+async function refreshStoredSession(force: boolean): Promise<AuthResponse | null> {
+  const currentSession = readSession();
+  if (!currentSession?.refreshToken) {
+    if (force) {
+      clearSession();
     }
 
-    throw new ApiError(message, response.status);
+    return null;
   }
 
-  if (response.status === 204) {
-    return undefined as T;
+  if (!force && !isSessionExpiringSoon(currentSession)) {
+    return currentSession;
   }
 
-  return (await response.json()) as T;
-}
-
-export async function apiFetchBlob(
-  path: string,
-  options: RequestInit & { token?: string; householdId?: string } = {},
-): Promise<Blob> {
-  const headers = new Headers(options.headers);
-
-  if (options.token) {
-    headers.set("Authorization", `Bearer ${options.token}`);
+  if (refreshSessionPromise) {
+    return await refreshSessionPromise;
   }
 
-  if (options.householdId) {
-    headers.set("X-Household-Id", options.householdId);
-  }
+  const sessionSnapshot = currentSession;
+  refreshSessionPromise = (async () => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ refreshToken: sessionSnapshot.refreshToken }),
+    });
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-    cache: "no-store",
-  });
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        clearSessionIfCurrent(sessionSnapshot.refreshToken);
+        return null;
+      }
 
-  if (!response.ok) {
-    let message = "Não foi possível concluir a operação.";
-    try {
-      const body = (await response.json()) as { detail?: string; title?: string };
-      message = body.detail ?? body.title ?? message;
-    } catch {
-      message = response.statusText || message;
+      throw await buildApiError(response);
     }
 
-    throw new ApiError(message, response.status);
+    const refreshedSession = (await response.json()) as AuthResponse;
+    const latestSession = readSession();
+
+    if (latestSession?.refreshToken !== sessionSnapshot.refreshToken) {
+      return latestSession;
+    }
+
+    storeSession(refreshedSession);
+    return refreshedSession;
+  })();
+
+  try {
+    return await refreshSessionPromise;
+  } finally {
+    refreshSessionPromise = null;
+  }
+}
+
+async function buildApiError(response: Response) {
+  let message = defaultErrorMessage(response.status);
+
+  try {
+    const body = (await response.json()) as { detail?: string; title?: string };
+    message = body.detail ?? body.title ?? message;
+  } catch {
+    message = response.statusText || message;
   }
 
-  return await response.blob();
+  return new ApiError(message, response.status);
 }
 
-export function storeSession(auth: AuthResponse) {
-  window.localStorage.setItem("homepit.session", JSON.stringify(auth));
+function defaultErrorMessage(status: number) {
+  if (status === 401) {
+    return "Sessão expirada. Faça login novamente.";
+  }
+
+  if (status === 403) {
+    return "Acesso negado.";
+  }
+
+  return "Não foi possível concluir a operação.";
 }
 
-export function readSession(): AuthResponse | null {
-  const value = window.localStorage.getItem("homepit.session");
+function createExpiredSessionError() {
+  return new ApiError("Sessão expirada. Faça login novamente.", 401);
+}
+
+function getCurrentSessionToken(fallbackToken: string) {
+  return readSession()?.accessToken ?? fallbackToken;
+}
+
+function clearSessionIfCurrent(refreshToken: string) {
+  const currentSession = readSession();
+  if (currentSession?.refreshToken === refreshToken) {
+    clearSession();
+  }
+}
+
+function isSessionExpiringSoon(session: AuthResponse) {
+  const expiresAt = Date.parse(session.expiresAt);
+  return Number.isNaN(expiresAt) || expiresAt - Date.now() <= ACCESS_TOKEN_REFRESH_LEEWAY_MS;
+}
+
+function parseSessionValue(value: string | null, clearInvalidValue: boolean): AuthResponse | null {
   if (!value) {
     return null;
   }
@@ -256,11 +457,19 @@ export function readSession(): AuthResponse | null {
   try {
     return JSON.parse(value) as AuthResponse;
   } catch {
-    window.localStorage.removeItem("homepit.session");
+    if (clearInvalidValue && typeof window !== "undefined") {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      dispatchSessionChange(null);
+    }
+
     return null;
   }
 }
 
-export function clearSession() {
-  window.localStorage.removeItem("homepit.session");
+function dispatchSessionChange(session: AuthResponse | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent<AuthResponse | null>(SESSION_EVENT_NAME, { detail: session }));
 }
