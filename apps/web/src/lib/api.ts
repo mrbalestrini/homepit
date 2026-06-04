@@ -36,6 +36,8 @@ export type Universe = {
   id: string;
   name: string;
   imageUrl?: string | null;
+  hasImage: boolean;
+  imageUpdatedAt?: string | null;
   createdByMemberId?: string | null;
   projectCount: number;
   canEdit: boolean;
@@ -47,6 +49,8 @@ export type Project = {
   universeId: string;
   universeName: string;
   universeImageUrl?: string | null;
+  universeHasImage: boolean;
+  universeImageUpdatedAt?: string | null;
   name: string;
   createdByMemberId?: string | null;
   activityCount: number;
@@ -64,6 +68,8 @@ export type Activity = {
   universeId: string;
   universeName: string;
   universeImageUrl?: string | null;
+  universeHasImage: boolean;
+  universeImageUpdatedAt?: string | null;
   createdByMemberId?: string | null;
   title: string;
   description?: string | null;
@@ -110,6 +116,8 @@ export type PromptListItem = {
   universeId?: string | null;
   universeName?: string | null;
   universeImageUrl?: string | null;
+  universeHasImage: boolean;
+  universeImageUpdatedAt?: string | null;
   title: string;
   description?: string | null;
   promptText: string;
@@ -136,6 +144,8 @@ export type PromptDetail = {
   universeId?: string | null;
   universeName?: string | null;
   universeImageUrl?: string | null;
+  universeHasImage: boolean;
+  universeImageUpdatedAt?: string | null;
   title: string;
   description?: string | null;
   promptText: string;

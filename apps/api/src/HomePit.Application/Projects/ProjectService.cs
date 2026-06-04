@@ -1,12 +1,26 @@
 using HomePit.Application.Common;
+using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Domain.Projects;
 using Microsoft.EntityFrameworkCore;
 
 namespace HomePit.Application.Projects;
 
-public sealed class ProjectService(IHomePitDbContext db, IUserContext userContext)
+public sealed class ProjectService(
+    IHomePitDbContext db,
+    IUserContext userContext,
+    IObjectStorage objectStorage,
+    TimeProvider timeProvider)
 {
+    private const long UniverseImageMaxBytes = 5 * 1024 * 1024;
+
+    private static readonly HashSet<string> AllowedUniverseImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    };
+
     public async Task<IReadOnlyCollection<UniverseDto>> ListUniversesAsync(CancellationToken cancellationToken)
     {
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -20,6 +34,8 @@ public sealed class ProjectService(IHomePitDbContext db, IUserContext userContex
                 universe.Id,
                 universe.Name,
                 universe.ImageUrl,
+                universe.ImageObjectKey != null,
+                universe.ImageUpdatedAt,
                 universe.CreatedByMemberId,
                 universe.Projects.Count,
                 isManager || universe.CreatedByMemberId == currentMember.Id,
@@ -57,8 +73,103 @@ public sealed class ProjectService(IHomePitDbContext db, IUserContext userContex
 
         EnsureCanManageEntity(currentMember, universe.CreatedByMemberId, "Você não pode editar um universo criado por outra pessoa.");
 
+        var normalizedImageUrl = NormalizeImageUrl(request.ImageUrl);
+
         universe.Name = RequiredText(request.Name, "Informe o nome do universo.");
-        universe.ImageUrl = NormalizeImageUrl(request.ImageUrl);
+        universe.ImageUrl = normalizedImageUrl;
+
+        if (normalizedImageUrl is not null && !string.IsNullOrWhiteSpace(universe.ImageObjectKey))
+        {
+            await objectStorage.DeleteAsync(universe.ImageObjectKey, cancellationToken);
+            universe.ImageObjectKey = null;
+            universe.ImageContentType = null;
+            universe.ImageUpdatedAt = null;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        var projectCount = await db.Projects
+            .CountAsync(project => project.HouseholdId == currentMember.HouseholdId && project.UniverseId == universe.Id, cancellationToken);
+
+        return ToUniverseDto(universe, projectCount, currentMember);
+    }
+
+    public async Task<UniverseDto> UploadUniverseImageAsync(
+        Guid universeId,
+        Stream content,
+        long contentLength,
+        string? contentType,
+        CancellationToken cancellationToken)
+    {
+        if (contentLength <= 0)
+        {
+            throw new ValidationException("Envie uma imagem com conteúdo para o universo.");
+        }
+
+        if (contentLength > UniverseImageMaxBytes)
+        {
+            throw new ValidationException($"A imagem do universo deve ter no máximo {FormatMegabytes(UniverseImageMaxBytes)} MB.");
+        }
+
+        var normalizedContentType = NormalizeUniverseImageContentType(contentType);
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var universe = await db.Universes
+            .FirstOrDefaultAsync(item => item.Id == universeId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Universo não encontrado.");
+
+        EnsureCanManageEntity(currentMember, universe.CreatedByMemberId, "Você não pode editar um universo criado por outra pessoa.");
+
+        var objectKey = ObjectStorageKeys.UniverseImage(universe.Id);
+        await objectStorage.PutAsync(
+            new ObjectStoragePutRequest(objectKey, content, contentLength, normalizedContentType),
+            cancellationToken);
+
+        universe.ImageUrl = null;
+        universe.ImageObjectKey = objectKey;
+        universe.ImageContentType = normalizedContentType;
+        universe.ImageUpdatedAt = timeProvider.GetUtcNow();
+        await db.SaveChangesAsync(cancellationToken);
+
+        var projectCount = await db.Projects
+            .CountAsync(project => project.HouseholdId == currentMember.HouseholdId && project.UniverseId == universe.Id, cancellationToken);
+
+        return ToUniverseDto(universe, projectCount, currentMember);
+    }
+
+    public async Task<StoredObject> GetUniverseImageAsync(Guid universeId, CancellationToken cancellationToken)
+    {
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var universe = await db.Universes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == universeId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Universo não encontrado.");
+
+        if (string.IsNullOrWhiteSpace(universe.ImageObjectKey))
+        {
+            throw new NotFoundException("Imagem do universo não encontrada.");
+        }
+
+        return await objectStorage.GetAsync(universe.ImageObjectKey, cancellationToken);
+    }
+
+    public async Task<UniverseDto> DeleteUniverseImageAsync(Guid universeId, CancellationToken cancellationToken)
+    {
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var universe = await db.Universes
+            .FirstOrDefaultAsync(item => item.Id == universeId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Universo não encontrado.");
+
+        EnsureCanManageEntity(currentMember, universe.CreatedByMemberId, "Você não pode editar um universo criado por outra pessoa.");
+
+        if (string.IsNullOrWhiteSpace(universe.ImageObjectKey))
+        {
+            throw new NotFoundException("Imagem do universo não encontrada.");
+        }
+
+        await objectStorage.DeleteAsync(universe.ImageObjectKey, cancellationToken);
+        universe.ImageObjectKey = null;
+        universe.ImageContentType = null;
+        universe.ImageUpdatedAt = null;
         await db.SaveChangesAsync(cancellationToken);
 
         var projectCount = await db.Projects
@@ -85,6 +196,11 @@ public sealed class ProjectService(IHomePitDbContext db, IUserContext userContex
             prompt.UniverseId = null;
         }
 
+        if (!string.IsNullOrWhiteSpace(universe.ImageObjectKey))
+        {
+            await objectStorage.DeleteAsync(universe.ImageObjectKey, cancellationToken);
+        }
+
         db.Universes.Remove(universe);
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -104,6 +220,8 @@ public sealed class ProjectService(IHomePitDbContext db, IUserContext userContex
                 project.UniverseId,
                 project.Universe!.Name,
                 project.Universe!.ImageUrl,
+                project.Universe!.ImageObjectKey != null,
+                project.Universe!.ImageUpdatedAt,
                 project.Name,
                 project.CreatedByMemberId,
                 project.Activities.Count,
@@ -578,6 +696,17 @@ public sealed class ProjectService(IHomePitDbContext db, IUserContext userContex
         return normalized;
     }
 
+    private static string NormalizeUniverseImageContentType(string? contentType)
+    {
+        var normalized = NormalizeOptional(contentType);
+        if (normalized is null || !AllowedUniverseImageContentTypes.Contains(normalized))
+        {
+            throw new ValidationException("A imagem do universo deve estar em JPG, PNG ou WEBP.");
+        }
+
+        return normalized;
+    }
+
     private static UniverseDto ToUniverseDto(Universe universe, int projectCount, HouseholdMember currentMember)
     {
         var canManage = CanManageEntity(currentMember, universe.CreatedByMemberId);
@@ -585,6 +714,8 @@ public sealed class ProjectService(IHomePitDbContext db, IUserContext userContex
             universe.Id,
             universe.Name,
             universe.ImageUrl,
+            !string.IsNullOrWhiteSpace(universe.ImageObjectKey),
+            universe.ImageUpdatedAt,
             universe.CreatedByMemberId,
             projectCount,
             canManage,
@@ -599,6 +730,8 @@ public sealed class ProjectService(IHomePitDbContext db, IUserContext userContex
             project.UniverseId,
             project.Universe?.Name ?? string.Empty,
             project.Universe?.ImageUrl,
+            !string.IsNullOrWhiteSpace(project.Universe?.ImageObjectKey),
+            project.Universe?.ImageUpdatedAt,
             project.Name,
             project.CreatedByMemberId,
             activityCount,
@@ -616,6 +749,8 @@ public sealed class ProjectService(IHomePitDbContext db, IUserContext userContex
             activity.Project.UniverseId,
             activity.Project.Universe!.Name,
             activity.Project.Universe.ImageUrl,
+            !string.IsNullOrWhiteSpace(activity.Project.Universe.ImageObjectKey),
+            activity.Project.Universe.ImageUpdatedAt,
             activity.CreatedByMemberId,
             activity.Title,
             activity.Description,
@@ -628,6 +763,11 @@ public sealed class ProjectService(IHomePitDbContext db, IUserContext userContex
             activity.Comments.Count,
             canManage,
             canManage);
+    }
+
+    private static long FormatMegabytes(long bytes)
+    {
+        return bytes / (1024 * 1024);
     }
 
     private static ActivityCommentDto ToCommentDto(ActivityComment comment, HouseholdMember currentMember)

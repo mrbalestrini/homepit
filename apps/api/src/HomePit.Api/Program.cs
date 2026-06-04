@@ -171,6 +171,42 @@ api.MapDelete("/universes/{id:guid}", async (
     await service.DeleteUniverseAsync(id, cancellationToken);
     return Results.NoContent();
 });
+api.MapPost("/universes/{id:guid}/image", async (
+    Guid id,
+    HttpRequest request,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+{
+    if (!request.HasFormContentType)
+    {
+        throw new ValidationException("Envie a imagem do universo em multipart/form-data.");
+    }
+
+    var form = await request.ReadFormAsync(cancellationToken);
+    var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+    if (file is null)
+    {
+        throw new ValidationException("Selecione uma imagem para o universo.");
+    }
+
+    await using var stream = file.OpenReadStream();
+    return Results.Ok(await service.UploadUniverseImageAsync(id, stream, file.Length, file.ContentType, cancellationToken));
+});
+api.MapGet("/universes/{id:guid}/image", async (
+    Guid id,
+    HttpContext context,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+{
+    var image = await service.GetUniverseImageAsync(id, cancellationToken);
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.File(image.Content, image.ContentType);
+});
+api.MapDelete("/universes/{id:guid}/image", async (
+    Guid id,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.DeleteUniverseImageAsync(id, cancellationToken)));
 
 api.MapGet("/projects", async (Guid? universeId, ProjectService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.ListProjectsAsync(universeId, cancellationToken)));

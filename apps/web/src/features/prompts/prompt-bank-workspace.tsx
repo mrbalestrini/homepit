@@ -51,7 +51,7 @@ import {
   Notice,
   StatCard,
 } from "@/features/workspace/homepit-workspace-shell";
-import { AvatarCircle } from "@/features/workspace/protected-user-avatar";
+import { ProtectedUniverseAvatar } from "@/features/workspace/protected-universe-avatar";
 import { cn } from "@/lib/utils";
 import type { PromptBankController, PromptFormInput } from "./use-prompt-bank";
 
@@ -134,6 +134,7 @@ export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
         prompt={bank.selectedPromptDetail}
         loading={bank.detailLoading}
         token={bank.session?.accessToken ?? ""}
+        householdId={bank.activeHouseholdId}
         onOpenChange={(open) => !open && bank.closePrompt()}
         onEdit={(promptId) => void bank.openEditPrompt(promptId)}
         onDelete={(prompt) => void bank.deletePrompt(prompt).catch(() => undefined)}
@@ -328,6 +329,7 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
                   key={prompt.id}
                   prompt={prompt}
                   token={bank.session?.accessToken ?? ""}
+                  householdId={bank.activeHouseholdId}
                   onOpen={() => void bank.openPrompt(prompt.id)}
                   onEdit={() => void bank.openEditPrompt(prompt.id)}
                   onDelete={() => void bank.deletePrompt(prompt).catch(() => undefined)}
@@ -409,15 +411,34 @@ function CategoryFilterDropdown({ bank }: { bank: PromptBankController }) {
 }
 
 function PromptUniverseBadge({
+  universeId,
   name,
   imageUrl,
+  hasImage,
+  imageUpdatedAt,
+  token,
+  householdId,
 }: {
+  universeId?: string | null;
   name: string;
   imageUrl?: string | null;
+  hasImage?: boolean;
+  imageUpdatedAt?: string | null;
+  token?: string;
+  householdId?: string;
 }) {
   return (
     <Badge variant="outline" className="gap-1.5 pl-1">
-      <AvatarCircle name={name} imageUrl={imageUrl} className="size-4 text-[8px]" />
+      <ProtectedUniverseAvatar
+        universeId={universeId}
+        name={name}
+        imageUrl={imageUrl}
+        hasImage={hasImage}
+        imageUpdatedAt={imageUpdatedAt}
+        token={token}
+        householdId={householdId}
+        className="size-4 text-[8px]"
+      />
       <span className="truncate">{name}</span>
     </Badge>
   );
@@ -426,12 +447,14 @@ function PromptUniverseBadge({
 export function PromptCard({
   prompt,
   token,
+  householdId,
   onOpen,
   onEdit,
   onDelete,
 }: {
   prompt: PromptListItem;
   token: string;
+  householdId?: string;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -484,7 +507,15 @@ export function PromptCard({
       <div className="space-y-3 p-4">
         <div className="flex flex-wrap items-center gap-2">
           {prompt.universeName ? (
-            <PromptUniverseBadge name={prompt.universeName} imageUrl={prompt.universeImageUrl} />
+            <PromptUniverseBadge
+              universeId={prompt.universeId}
+              name={prompt.universeName}
+              imageUrl={prompt.universeImageUrl}
+              hasImage={prompt.universeHasImage}
+              imageUpdatedAt={prompt.universeImageUpdatedAt}
+              token={token}
+              householdId={householdId}
+            />
           ) : (
             <Badge variant="neutral">Sem universo</Badge>
           )}
@@ -930,6 +961,7 @@ export function PromptDetailDialog({
   prompt,
   loading,
   token,
+  householdId,
   onOpenChange,
   onEdit,
   onDelete,
@@ -938,6 +970,7 @@ export function PromptDetailDialog({
   prompt: PromptDetail | null;
   loading: boolean;
   token: string;
+  householdId?: string;
   onOpenChange: (open: boolean) => void;
   onEdit: (promptId: string) => void;
   onDelete: (prompt: PromptDetail) => void;
@@ -958,7 +991,15 @@ export function PromptDetailDialog({
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
                     {prompt.universeName ? (
-                      <PromptUniverseBadge name={prompt.universeName} imageUrl={prompt.universeImageUrl} />
+                      <PromptUniverseBadge
+                        universeId={prompt.universeId}
+                        name={prompt.universeName}
+                        imageUrl={prompt.universeImageUrl}
+                        hasImage={prompt.universeHasImage}
+                        imageUpdatedAt={prompt.universeImageUpdatedAt}
+                        token={token}
+                        householdId={householdId}
+                      />
                     ) : (
                       <Badge variant="neutral">Sem universo</Badge>
                     )}

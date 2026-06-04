@@ -110,6 +110,8 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.ToTable("universes");
             builder.Property(universe => universe.Name).HasMaxLength(160).IsRequired();
             builder.Property(universe => universe.ImageUrl).HasMaxLength(2000);
+            builder.Property(universe => universe.ImageObjectKey).HasMaxLength(512);
+            builder.Property(universe => universe.ImageContentType).HasMaxLength(120);
             builder.HasIndex(universe => new { universe.HouseholdId, universe.Name }).IsUnique();
             builder.HasOne(universe => universe.Household)
                 .WithMany(household => household.Universes)

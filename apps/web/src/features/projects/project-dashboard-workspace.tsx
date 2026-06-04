@@ -37,7 +37,7 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import type { Activity, ActivityComment, ActivityStatus, HouseholdMember, Priority, Project, Universe } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,7 +71,7 @@ import {
   Notice,
   StatCard,
 } from "@/features/workspace/homepit-workspace-shell";
-import { AvatarCircle } from "@/features/workspace/protected-user-avatar";
+import { ProtectedUniverseAvatar, useProtectedUniverseImage } from "@/features/workspace/protected-universe-avatar";
 import {
   activityColumns,
   activitySortOptions,
@@ -178,6 +178,8 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
         open={dashboard.activeModal === "universe"}
         universe={dashboard.editingUniverse}
         onOpenChange={(open) => !open && dashboard.closeModal()}
+        token={dashboard.session?.accessToken}
+        householdId={dashboard.activeHouseholdId}
         onSave={(input) =>
           dashboard.editingUniverse
             ? dashboard.updateUniverse(dashboard.editingUniverse.id, input)
@@ -217,6 +219,8 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
       {dashboard.selectedActivity ? (
         <ActivityDetailsSheet
           activity={dashboard.selectedActivity}
+          token={dashboard.session?.accessToken}
+          householdId={dashboard.activeHouseholdId}
           comments={dashboard.activityComments}
           commentsLoading={dashboard.commentsLoading}
           onClose={dashboard.closeActivity}
@@ -258,15 +262,36 @@ function QuickStats({
 }
 
 function UniverseAvatar({
+  universeId,
   name,
   imageUrl,
+  hasImage,
+  imageUpdatedAt,
+  token,
+  householdId,
   className,
 }: {
+  universeId?: string | null;
   name: string;
   imageUrl?: string | null;
+  hasImage?: boolean;
+  imageUpdatedAt?: string | null;
+  token?: string;
+  householdId?: string;
   className?: string;
 }) {
-  return <AvatarCircle name={name} imageUrl={imageUrl} className={className} />;
+  return (
+    <ProtectedUniverseAvatar
+      universeId={universeId}
+      name={name}
+      imageUrl={imageUrl}
+      hasImage={hasImage}
+      imageUpdatedAt={imageUpdatedAt}
+      token={token}
+      householdId={householdId}
+      className={className}
+    />
+  );
 }
 
 function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController }) {
@@ -362,8 +387,13 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
                     >
                       <div className="flex min-w-0 items-center gap-2.5">
                         <UniverseAvatar
+                          universeId={universe.id}
                           name={universe.name}
                           imageUrl={universe.imageUrl}
+                          hasImage={universe.hasImage}
+                          imageUpdatedAt={universe.imageUpdatedAt}
+                          token={dashboard.session?.accessToken}
+                          householdId={dashboard.activeHouseholdId}
                           className="size-8"
                         />
                         <div className="min-w-0">
@@ -407,8 +437,13 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
                             >
                               <div className="flex min-w-0 items-center gap-2.5">
                                 <UniverseAvatar
+                                  universeId={project.universeId}
                                   name={project.universeName}
                                   imageUrl={project.universeImageUrl}
+                                  hasImage={project.universeHasImage}
+                                  imageUpdatedAt={project.universeImageUpdatedAt}
+                                  token={dashboard.session?.accessToken}
+                                  householdId={dashboard.activeHouseholdId}
                                   className="size-7"
                                 />
                                 <div className="min-w-0">
@@ -674,8 +709,13 @@ function ActivityListView({ dashboard }: { dashboard: ProjectDashboardController
                         <TableCell className="min-w-[160px]">
                           <div className="flex items-center gap-2">
                             <UniverseAvatar
+                              universeId={activity.universeId}
                               name={activity.universeName}
                               imageUrl={activity.universeImageUrl}
+                              hasImage={activity.universeHasImage}
+                              imageUpdatedAt={activity.universeImageUpdatedAt}
+                              token={dashboard.session?.accessToken}
+                              householdId={dashboard.activeHouseholdId}
                               className="size-6"
                             />
                             <div className="min-w-0">
@@ -774,7 +814,15 @@ function ActivityKanbanView({ dashboard }: { dashboard: ProjectDashboardControll
         ))}
       </div>
       <DragOverlay modifiers={[snapOverlayToCursor]}>
-        {activeActivity ? <ActivityCard activity={activeActivity} onOpen={() => undefined} dragging /> : null}
+        {activeActivity ? (
+          <ActivityCard
+            activity={activeActivity}
+            token={dashboard.session?.accessToken}
+            householdId={dashboard.activeHouseholdId}
+            onOpen={() => undefined}
+            dragging
+          />
+        ) : null}
       </DragOverlay>
     </DndContext>
   );
@@ -821,6 +869,8 @@ function KanbanColumn({
                 <SortableActivityCard
                   key={activity.id}
                   activity={activity}
+                  token={dashboard.session?.accessToken}
+                  householdId={dashboard.activeHouseholdId}
                   onOpen={() => dashboard.openActivity(activity)}
                   onEdit={activity.canEdit ? () => dashboard.openEditActivity(activity) : undefined}
                   onDelete={
@@ -840,11 +890,15 @@ function KanbanColumn({
 
 function SortableActivityCard({
   activity,
+  token,
+  householdId,
   onOpen,
   onEdit,
   onDelete,
 }: {
   activity: Activity;
+  token?: string;
+  householdId?: string;
   onOpen: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -863,6 +917,8 @@ function SortableActivityCard({
     >
       <ActivityCard
         activity={activity}
+        token={token}
+        householdId={householdId}
         onOpen={onOpen}
         onEdit={onEdit}
         onDelete={onDelete}
@@ -874,6 +930,8 @@ function SortableActivityCard({
 
 function ActivityCard({
   activity,
+  token,
+  householdId,
   onOpen,
   onEdit,
   onDelete,
@@ -881,6 +939,8 @@ function ActivityCard({
   dragHandleProps,
 }: {
   activity: Activity;
+  token?: string;
+  householdId?: string;
   onOpen: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -895,8 +955,13 @@ function ActivityCard({
             <h4 className="truncate text-sm font-semibold text-foreground">{activity.title}</h4>
             <div className="mt-1 flex min-w-0 items-center gap-2">
               <UniverseAvatar
+                universeId={activity.universeId}
                 name={activity.universeName}
                 imageUrl={activity.universeImageUrl}
+                hasImage={activity.universeHasImage}
+                imageUpdatedAt={activity.universeImageUpdatedAt}
+                token={token}
+                householdId={householdId}
                 className="size-6"
               />
               <p className="truncate text-xs text-muted-foreground">
@@ -1025,18 +1090,75 @@ function UniverseDialog({
   universe,
   open,
   onOpenChange,
+  token,
+  householdId,
   onSave,
 }: {
   universe: Universe | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (input: { name: string; imageUrl?: string }) => Promise<void>;
+  token?: string;
+  householdId?: string;
+  onSave: (input: { name: string; imageFile?: File | null; removeImage?: boolean }) => Promise<void>;
 }) {
   const [name, setName] = useState(universe?.name ?? "");
-  const [imageUrl, setImageUrl] = useState(universe?.imageUrl ?? "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const isEditing = Boolean(universe);
+  const previewUrl = useObjectUrl(imageFile);
+  const currentImageUrl = useProtectedUniverseImage({
+    universeId: universe?.id,
+    imageUrl: universe?.imageUrl,
+    hasImage: universe?.hasImage,
+    imageUpdatedAt: universe?.imageUpdatedAt,
+    token,
+    householdId,
+  });
+  const displayImageUrl = removeImage ? null : previewUrl ?? currentImageUrl;
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Envie uma imagem JPG, PNG ou WEBP.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("A imagem do universo deve ter no máximo 5 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    setError(null);
+    setImageFile(file);
+    setRemoveImage(false);
+  }
+
+  function discardSelectedImage() {
+    setImageFile(null);
+    setFileInputKey((current) => current + 1);
+    setError(null);
+  }
+
+  function removeCurrentImage() {
+    setImageFile(null);
+    setRemoveImage(true);
+    setFileInputKey((current) => current + 1);
+    setError(null);
+  }
+
+  function restoreCurrentImage() {
+    setRemoveImage(false);
+    setError(null);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1044,7 +1166,7 @@ function UniverseDialog({
     setSaving(true);
 
     try {
-      await onSave({ name, imageUrl });
+      await onSave({ name, imageFile, removeImage });
       onOpenChange(false);
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Não foi possível salvar o universo.");
@@ -1065,22 +1187,57 @@ function UniverseDialog({
           <Field label="Nome do universo">
             <Input value={name} onChange={(event) => setName(event.target.value)} autoFocus required />
           </Field>
-          <Field label="Imagem do universo (URL)">
+          <Field label="Imagem do universo">
             <Input
-              value={imageUrl}
-              onChange={(event) => setImageUrl(event.target.value)}
-              placeholder="https://... ou data:image/..."
+              key={fileInputKey}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleImageChange}
             />
+            <p className="mt-2 text-xs text-muted-foreground">Envie JPG, PNG ou WEBP com até 5 MB.</p>
           </Field>
-          {imageUrl ? (
+          {displayImageUrl || removeImage ? (
             <div className="flex items-center gap-3 rounded-[16px] border border-border/60 bg-surface-muted p-3">
-              <UniverseAvatar name={name || "Universo"} imageUrl={imageUrl} className="size-12" />
+              <ProtectedUniverseAvatar
+                universeId={universe?.id}
+                name={name || "Universo"}
+                imageUrl={universe?.imageUrl}
+                hasImage={universe?.hasImage}
+                imageUpdatedAt={universe?.imageUpdatedAt}
+                token={token}
+                householdId={householdId}
+                previewUrl={displayImageUrl}
+                className="size-12"
+              />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground">{name || "Prévia do universo"}</p>
-                <p className="truncate text-xs text-muted-foreground">{imageUrl}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {imageFile
+                    ? imageFile.name
+                    : removeImage
+                      ? "A imagem será removida ao salvar."
+                      : "Imagem atual do universo."}
+                </p>
               </div>
             </div>
           ) : null}
+          <div className="flex items-center gap-2">
+            {imageFile ? (
+              <Button variant="ghost" type="button" onClick={discardSelectedImage}>
+                Descartar nova imagem
+              </Button>
+            ) : null}
+            {!imageFile && universe && !removeImage && (universe.hasImage || universe.imageUrl) ? (
+              <Button variant="ghost" type="button" onClick={removeCurrentImage}>
+                Remover imagem atual
+              </Button>
+            ) : null}
+            {!imageFile && universe && removeImage ? (
+              <Button variant="ghost" type="button" onClick={restoreCurrentImage}>
+                Manter imagem atual
+              </Button>
+            ) : null}
+          </div>
           <DialogFooter>
             <Button variant="secondary" type="button" onClick={() => onOpenChange(false)}>
               Cancelar
@@ -1294,6 +1451,8 @@ function ActivityDialog({
 
 function ActivityDetailsSheet({
   activity,
+  token,
+  householdId,
   comments,
   commentsLoading,
   onClose,
@@ -1305,6 +1464,8 @@ function ActivityDetailsSheet({
   onDeleteActivity,
 }: {
   activity: Activity;
+  token?: string;
+  householdId?: string;
   comments: ActivityComment[];
   commentsLoading: boolean;
   onClose: () => void;
@@ -1325,8 +1486,13 @@ function ActivityDetailsSheet({
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface-strong px-2.5 py-1">
                 <UniverseAvatar
+                  universeId={activity.universeId}
                   name={activity.universeName}
                   imageUrl={activity.universeImageUrl}
+                  hasImage={activity.universeHasImage}
+                  imageUpdatedAt={activity.universeImageUpdatedAt}
+                  token={token}
+                  householdId={householdId}
                   className="size-6"
                 />
                 <span className="text-xs font-semibold text-foreground">{activity.universeName}</span>
@@ -1553,4 +1719,18 @@ function EditableComment({
       </div>
     </div>
   );
+}
+
+function useObjectUrl(file: File | null) {
+  const objectUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+
+  useEffect(() => {
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [objectUrl]);
+
+  return objectUrl;
 }

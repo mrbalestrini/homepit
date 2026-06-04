@@ -537,18 +537,23 @@ export function useProjectDashboard() {
     setEditingActivity(null);
   }
 
-  async function createUniverse(input: { name: string; imageUrl?: string }) {
+  async function createUniverse(input: { name: string; imageFile?: File | null; removeImage?: boolean }) {
     if (!session || !activeHouseholdId) {
       return;
     }
 
     try {
-      const created = await apiFetch<Universe>("/api/universes", {
+      let created = await apiFetch<Universe>("/api/universes", {
         method: "POST",
         token: session.accessToken,
         householdId: activeHouseholdId,
-        body: JSON.stringify({ name: input.name, imageUrl: input.imageUrl || null }),
+        body: JSON.stringify({ name: input.name, imageUrl: null }),
       });
+
+      if (input.imageFile) {
+        created = await uploadUniverseImage(created.id, input.imageFile);
+      }
+
       setUniverses((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
       setSelectedUniverseId(created.id);
       setSelectedProjectId("");
@@ -558,18 +563,25 @@ export function useProjectDashboard() {
     }
   }
 
-  async function updateUniverse(universeId: string, input: { name: string; imageUrl?: string }) {
+  async function updateUniverse(universeId: string, input: { name: string; imageFile?: File | null; removeImage?: boolean }) {
     if (!session || !activeHouseholdId) {
       return;
     }
 
     try {
-      const updated = await apiFetch<Universe>(`/api/universes/${universeId}`, {
+      let updated = await apiFetch<Universe>(`/api/universes/${universeId}`, {
         method: "PUT",
         token: session.accessToken,
         householdId: activeHouseholdId,
-        body: JSON.stringify({ name: input.name, imageUrl: input.imageUrl || null }),
+        body: JSON.stringify({ name: input.name, imageUrl: null }),
       });
+
+      if (input.imageFile) {
+        updated = await uploadUniverseImage(universeId, input.imageFile);
+      } else if (input.removeImage) {
+        updated = await deleteUniverseImage(universeId);
+      }
+
       setUniverses((current) =>
         current
           .map((universe) => (universe.id === updated.id ? updated : universe))
@@ -578,14 +590,26 @@ export function useProjectDashboard() {
       setProjects((current) =>
         current.map((project) =>
           project.universeId === updated.id
-            ? { ...project, universeName: updated.name, universeImageUrl: updated.imageUrl ?? null }
+            ? {
+                ...project,
+                universeName: updated.name,
+                universeImageUrl: updated.imageUrl ?? null,
+                universeHasImage: updated.hasImage,
+                universeImageUpdatedAt: updated.imageUpdatedAt ?? null,
+              }
             : project,
         ),
       );
       setActivities((current) =>
         current.map((activity) =>
           activity.universeId === updated.id
-            ? { ...activity, universeName: updated.name, universeImageUrl: updated.imageUrl ?? null }
+            ? {
+                ...activity,
+                universeName: updated.name,
+                universeImageUrl: updated.imageUrl ?? null,
+                universeHasImage: updated.hasImage,
+                universeImageUpdatedAt: updated.imageUpdatedAt ?? null,
+              }
             : activity,
         ),
       );
@@ -627,6 +651,34 @@ export function useProjectDashboard() {
     } catch (exception) {
       reportError(exception, "Não foi possível excluir o universo.");
     }
+  }
+
+  async function uploadUniverseImage(universeId: string, imageFile: File) {
+    if (!session || !activeHouseholdId) {
+      throw new Error("Sessão inválida para upload da imagem do universo.");
+    }
+
+    const formData = new FormData();
+    formData.append("file", imageFile);
+
+    return await apiFetch<Universe>(`/api/universes/${universeId}/image`, {
+      method: "POST",
+      token: session.accessToken,
+      householdId: activeHouseholdId,
+      body: formData,
+    });
+  }
+
+  async function deleteUniverseImage(universeId: string) {
+    if (!session || !activeHouseholdId) {
+      throw new Error("Sessão inválida para remoção da imagem do universo.");
+    }
+
+    return await apiFetch<Universe>(`/api/universes/${universeId}/image`, {
+      method: "DELETE",
+      token: session.accessToken,
+      householdId: activeHouseholdId,
+    });
   }
 
   async function createProject(universeId: string, name: string) {
