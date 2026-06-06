@@ -32,10 +32,8 @@ import {
   Pencil,
   Plus,
   Search,
-  Sparkles,
   Table2,
   Trash2,
-  Users,
 } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import type { Activity, ActivityComment, ActivityStatus, HouseholdMember, Priority, Project, Universe } from "@/lib/api";
@@ -69,7 +67,6 @@ import {
   Field,
   HomePitWorkspaceShell,
   Notice,
-  StatCard,
 } from "@/features/workspace/homepit-workspace-shell";
 import { ProtectedUniverseAvatar, useProtectedUniverseImage } from "@/features/workspace/protected-universe-avatar";
 import {
@@ -122,6 +119,16 @@ const snapOverlayToCursor: Modifier = ({
 };
 
 export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDashboardController }) {
+  const openActivities = dashboard.activities.filter((activity) => activity.status !== "Concluido").length;
+  const urgentActivities = dashboard.activities.filter((activity) => activity.priority === "Urgente").length;
+  const headerStats = [
+    { label: "Universos", value: dashboard.universes.length },
+    { label: "Projetos", value: dashboard.projects.length },
+    { label: "Abertas", value: openActivities },
+    { label: "Urgentes", value: urgentActivities },
+    { label: "Pessoas", value: dashboard.members.length },
+  ];
+
   return (
     <>
       <HomePitWorkspaceShell
@@ -159,14 +166,8 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
         activeModule="projects"
         subtitle={dashboard.selectedScopeLabel}
         visibleCount={dashboard.visibleActivities.length}
+        headerStats={headerStats}
       >
-        <QuickStats
-          universes={dashboard.universes}
-          projects={dashboard.projects}
-          activities={dashboard.activities}
-          members={dashboard.members}
-        />
-
         <div className="grid gap-3 xl:grid-cols-[316px_minmax(0,1fr)]">
           <ProjectExplorer dashboard={dashboard} />
           <WorkspaceBoard dashboard={dashboard} />
@@ -233,31 +234,6 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
         />
       ) : null}
     </>
-  );
-}
-
-function QuickStats({
-  universes,
-  projects,
-  activities,
-  members,
-}: {
-  universes: Universe[];
-  projects: Project[];
-  activities: Activity[];
-  members: HouseholdMember[];
-}) {
-  const openActivities = activities.filter((activity) => activity.status !== "Concluido").length;
-  const urgentActivities = activities.filter((activity) => activity.priority === "Urgente").length;
-
-  return (
-    <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
-      <StatCard label="Universos" value={universes.length} icon={<Layers className="size-4" />} tone="default" />
-      <StatCard label="Projetos" value={projects.length} icon={<Folder className="size-4" />} tone="default" />
-      <StatCard label="Abertas" value={openActivities} icon={<ClipboardList className="size-4" />} tone="success" />
-      <StatCard label="Urgentes" value={urgentActivities} icon={<Sparkles className="size-4" />} tone="warning" />
-      <StatCard label="Pessoas" value={members.length} icon={<Users className="size-4" />} tone="default" />
-    </div>
   );
 }
 
