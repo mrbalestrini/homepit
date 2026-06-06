@@ -337,6 +337,7 @@ public sealed class ProjectService(
             CreatedByMemberId = currentMember.Id,
             Title = RequiredText(request.Title, "Informe o nome da atividade."),
             Description = NormalizeOptional(request.Description),
+            Status = request.Status,
             Priority = request.Priority,
             Size = request.Size
         };

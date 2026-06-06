@@ -450,6 +450,30 @@ export function PromptCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const actionsMenu = (
+    <div onClick={(event) => event.stopPropagation()}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="secondary" size="icon" aria-label={`Ações do prompt ${prompt.title}`}>
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>{prompt.title}</DropdownMenuLabel>
+          <DropdownMenuItem onClick={onEdit} disabled={!prompt.canEdit}>
+            <Pencil className="size-4" />
+            Editar
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-danger focus:text-danger" onClick={onDelete} disabled={!prompt.canDelete}>
+            <Trash2 className="size-4" />
+            Excluir
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
   return (
     <div
       className="group w-full cursor-pointer rounded-[24px] border border-border/70 bg-surface text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/70 sm:w-[21rem]"
@@ -463,37 +487,32 @@ export function PromptCard({
         }
       }}
     >
-      <div className="relative">
-        <PromptImageFrame
-          promptId={prompt.id}
-          title={prompt.title}
-          hasImage={prompt.hasImage}
-          imageUpdatedAt={prompt.imageUpdatedAt}
-          token={token}
-          className="rounded-t-[24px]"
-        />
-        <div className="absolute right-3 top-3" onClick={(event) => event.stopPropagation()}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="icon" aria-label={`Ações do prompt ${prompt.title}`}>
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{prompt.title}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={onEdit} disabled={!prompt.canEdit}>
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-danger focus:text-danger" onClick={onDelete} disabled={!prompt.canDelete}>
-                <Trash2 className="size-4" />
-                Excluir
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      {prompt.hasImage ? (
+        <div className="relative">
+          <PromptImageFrame
+            promptId={prompt.id}
+            title={prompt.title}
+            hasImage={prompt.hasImage}
+            imageUpdatedAt={prompt.imageUpdatedAt}
+            token={token}
+            className="rounded-t-[24px]"
+          />
+          <div className="absolute right-3 top-3">{actionsMenu}</div>
         </div>
-      </div>
+      ) : (
+        <div className="flex items-start justify-between gap-3 rounded-t-[24px] border-b border-border/60 bg-[linear-gradient(135deg,rgba(138,106,84,0.08),rgba(237,227,213,0.5))] px-4 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid size-11 shrink-0 place-items-center rounded-[16px] bg-surface-strong text-accent-foreground shadow-xs">
+              <Sparkles className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Prompt de texto</p>
+              <p className="mt-1 truncate text-sm text-muted-foreground">Sem imagem vinculada</p>
+            </div>
+          </div>
+          {actionsMenu}
+        </div>
+      )}
 
       <div className="space-y-3 p-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -615,6 +634,7 @@ function PromptDialog({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const isEditing = Boolean(prompt);
+  const hasVisualPreview = Boolean(previewUrl || (prompt?.hasImage && !removeImage && !imageFile));
 
   function toggleCategory(categoryId: string) {
     setCategoryIds((current) =>
@@ -660,15 +680,31 @@ function PromptDialog({
 
           <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
             <div className="space-y-3">
-              <PromptImageFrame
-                promptId={prompt?.id ?? "preview"}
-                title={title || "Prompt"}
-                hasImage={Boolean(prompt?.hasImage) && !removeImage && !imageFile}
-                imageUpdatedAt={prompt?.imageUpdatedAt}
-                token={token}
-                className="rounded-[22px]"
-                previewUrl={previewUrl}
-              />
+              {hasVisualPreview ? (
+                <PromptImageFrame
+                  promptId={prompt?.id ?? "preview"}
+                  title={title || "Prompt"}
+                  hasImage={Boolean(prompt?.hasImage) && !removeImage && !imageFile}
+                  imageUpdatedAt={prompt?.imageUpdatedAt}
+                  token={token}
+                  className="rounded-[22px]"
+                  previewUrl={previewUrl}
+                />
+              ) : (
+                <div className="rounded-[22px] border border-dashed border-border/70 bg-surface-muted px-4 py-5">
+                  <div className="flex items-center gap-3">
+                    <div className="grid size-11 shrink-0 place-items-center rounded-[16px] bg-surface-strong text-accent-foreground shadow-xs">
+                      <Sparkles className="size-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Sem imagem vinculada</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        O prompt pode ser salvo só com texto. Envie imagem apenas quando ela agregar contexto.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <Input
                 type="file"
@@ -1021,15 +1057,17 @@ export function PromptDetailDialog({
               </div>
             </DialogHeader>
 
-            <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
-              <PromptImageFrame
-                promptId={prompt.id}
-                title={prompt.title}
-                hasImage={prompt.hasImage}
-                imageUpdatedAt={prompt.imageUpdatedAt}
-                token={token}
-                className="rounded-[24px]"
-              />
+            <div className={cn("grid gap-4", prompt.hasImage && "lg:grid-cols-[260px_minmax(0,1fr)]")}>
+              {prompt.hasImage ? (
+                <PromptImageFrame
+                  promptId={prompt.id}
+                  title={prompt.title}
+                  hasImage={prompt.hasImage}
+                  imageUpdatedAt={prompt.imageUpdatedAt}
+                  token={token}
+                  className="rounded-[24px]"
+                />
+              ) : null}
 
               <div className="space-y-4">
                 <div className="rounded-[20px] border border-border/60 bg-surface-elevated p-4">

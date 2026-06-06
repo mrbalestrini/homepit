@@ -206,9 +206,9 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
         key={`activity-${dashboard.editingActivity?.id ?? "new"}-${dashboard.activeModal === "activity" ? "open" : "closed"}`}
         open={dashboard.activeModal === "activity"}
         activity={dashboard.editingActivity}
-        projects={dashboard.filteredProjects.length > 0 ? dashboard.filteredProjects : dashboard.projects}
+        projects={dashboard.activityDialogProjects}
         members={dashboard.members}
-        defaultProjectId={dashboard.selectedProjectId}
+        defaultProjectId={dashboard.activityDraftProjectId || dashboard.selectedProjectId}
         onOpenChange={(open) => !open && dashboard.closeModal()}
         onSave={(input) =>
           dashboard.editingActivity
@@ -431,12 +431,14 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
                             </button>
                             <EntityActionMenu
                               title={project.name}
+                              onCreate={() => dashboard.openCreateActivity(project.id)}
                               onEdit={project.canEdit ? () => dashboard.openEditProject(project) : undefined}
                               onDelete={
                                 project.canDelete
                                   ? () => void dashboard.deleteProject(project).catch(() => undefined)
                                   : undefined
                               }
+                              createLabel="Nova atividade"
                               editLabel="Editar projeto"
                               deleteLabel="Excluir projeto"
                             />
@@ -589,7 +591,7 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
             title="Nenhuma atividade encontrada"
             description="Ajuste os filtros atuais ou crie uma nova atividade para preencher esta visão."
             action={
-              <Button onClick={dashboard.openCreateActivity} disabled={dashboard.projects.length === 0}>
+              <Button onClick={() => dashboard.openCreateActivity()} disabled={dashboard.projects.length === 0}>
                 <Plus />
                 Nova atividade
               </Button>

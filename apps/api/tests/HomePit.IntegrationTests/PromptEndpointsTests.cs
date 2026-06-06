@@ -267,6 +267,40 @@ public sealed class PromptEndpointsTests
         Assert.False(promptWithoutImage.HasImage);
     }
 
+    [Fact]
+    public async Task Activity_creation_respects_selected_status()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+        var seed = await SeedHouseholdAsync(factory);
+
+        var universe = await CreateUniverseAsync(client, seed, "Universo Operacional");
+        var project = await CreateProjectAsync(client, seed, universe.Id, "Projeto com status");
+
+        var response = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Post,
+            "/api/activities",
+            JsonContent.Create(new
+            {
+                projectId = project.Id,
+                title = "Atividade concluída na criação",
+                description = "Criada já finalizada",
+                status = "Concluido",
+                priority = "Alta",
+                size = 2
+            }));
+
+        response.EnsureSuccessStatusCode();
+        var activity = await response.Content.ReadFromJsonAsync<ActivityResponse>(JsonSerializerOptions.Web);
+
+        Assert.NotNull(activity);
+        Assert.Equal(project.Id, activity.ProjectId);
+        Assert.Equal("Concluido", activity.Status);
+    }
+
     private static async Task<SeedResult> SeedHouseholdAsync(HomePitApiFactory factory)
     {
         await using var scope = factory.Services.CreateAsyncScope();
@@ -326,6 +360,19 @@ public sealed class PromptEndpointsTests
         return (await response.Content.ReadFromJsonAsync<UniverseResponse>(JsonSerializerOptions.Web))!;
     }
 
+    private static async Task<ProjectResponse> CreateProjectAsync(HttpClient client, SeedResult seed, Guid universeId, string name)
+    {
+        var response = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Post,
+            "/api/projects",
+            JsonContent.Create(new { universeId, name }));
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ProjectResponse>(JsonSerializerOptions.Web))!;
+    }
+
     private static async Task<PromptDetailResponse> CreatePromptAsync(HttpClient client, SeedResult seed, object body)
     {
         var response = await SendAuthorizedAsync(
@@ -368,7 +415,11 @@ public sealed class PromptEndpointsTests
 
     private sealed record UniverseResponse(Guid Id, string Name, string? ImageUrl);
 
+    private sealed record ProjectResponse(Guid Id, Guid UniverseId, string Name);
+
     private sealed record CategoryResponse(Guid Id, string Name);
+
+    private sealed record ActivityResponse(Guid Id, Guid ProjectId, string Title, string Status);
 
     private sealed record PromptCategoryResponse(Guid Id, string Name, int UsageCount, int ReplacementRequiredCount);
 

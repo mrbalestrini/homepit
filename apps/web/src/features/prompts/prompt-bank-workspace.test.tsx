@@ -11,7 +11,7 @@ vi.mock("sonner", () => ({
 }));
 
 describe("PromptCard", () => {
-  it("renders previews with 4:5 image frame and truncates noisy text", () => {
+  it("renders a compact card when the prompt has no image and truncates noisy text", () => {
     const longDescription = "A".repeat(180);
     const longPrompt = "B".repeat(260);
     const { container } = render(
@@ -44,10 +44,44 @@ describe("PromptCard", () => {
     );
 
     const imageFrame = container.querySelector('[class*="aspect-[4/5]"]');
-    expect(imageFrame).not.toBeNull();
+    expect(imageFrame).toBeNull();
+    expect(screen.getByText("Sem imagem vinculada")).toBeInTheDocument();
     expect(container.firstChild).toHaveClass("cursor-pointer");
     expect(screen.getByText(/A{20}/)).toHaveTextContent(/\.\.\.$/);
     expect(screen.getByText(/B{20}/)).toHaveTextContent(/\.\.\.$/);
+  });
+
+  it("keeps the 4:5 frame when the prompt has an image", () => {
+    const { container } = render(
+      <PromptCard
+        prompt={{
+          id: "prompt-1",
+          universeId: null,
+          universeName: null,
+          universeImageUrl: null,
+          universeHasImage: false,
+          universeImageUpdatedAt: null,
+          title: "Prompt visual",
+          description: null,
+          promptText: "Texto do prompt.",
+          categories: [{ id: "cat-1", name: "Categoria" }],
+          linkUrl: null,
+          linkTitle: null,
+          createdByMemberId: null,
+          hasImage: true,
+          imageUpdatedAt: "2026-06-03T12:00:00Z",
+          updatedAt: "2026-06-03T12:00:00Z",
+          canEdit: true,
+          canDelete: true,
+        }}
+        token=""
+        onOpen={() => undefined}
+        onEdit={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    expect(container.querySelector('[class*="aspect-[4/5]"]')).not.toBeNull();
   });
 
   it("renders the universe chip with avatar when the universe has an image", () => {

@@ -47,6 +47,7 @@ export function useProjectDashboard() {
   const [editingUniverse, setEditingUniverse] = useState<Universe | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [activityDraftProjectId, setActivityDraftProjectId] = useState("");
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [activityComments, setActivityComments] = useState<ActivityComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -67,6 +68,7 @@ export function useProjectDashboard() {
     setEditingUniverse(null);
     setEditingProject(null);
     setEditingActivity(null);
+    setActivityDraftProjectId("");
     setActiveModal(null);
     setCommentsLoading(false);
     setLoading(false);
@@ -151,6 +153,16 @@ export function useProjectDashboard() {
       ? projects.filter((project) => project.universeId === selectedUniverseId)
       : projects;
   }, [projects, selectedUniverseId]);
+
+  const activityDialogProjects = useMemo(() => {
+    if (!activityDraftProjectId) {
+      return filteredProjects.length > 0 ? filteredProjects : projects;
+    }
+
+    return filteredProjects.some((project) => project.id === activityDraftProjectId)
+      ? filteredProjects
+      : projects;
+  }, [activityDraftProjectId, filteredProjects, projects]);
 
   const visibleActivities = useMemo(() => {
     const normalizedSearch = filters.search.trim().toLowerCase();
@@ -310,6 +322,7 @@ export function useProjectDashboard() {
     setActiveHouseholdId(householdId);
     setSelectedUniverseId("");
     setSelectedProjectId("");
+    setActivityDraftProjectId("");
     setSelectedActivity(null);
     setActivityComments([]);
   }, []);
@@ -511,8 +524,9 @@ export function useProjectDashboard() {
     setActiveModal("project");
   }
 
-  function openCreateActivity() {
+  function openCreateActivity(projectId?: string) {
     setEditingActivity(null);
+    setActivityDraftProjectId(projectId ?? selectedProjectId);
     setActiveModal("activity");
   }
 
@@ -525,6 +539,7 @@ export function useProjectDashboard() {
       return;
     }
 
+    setActivityDraftProjectId("");
     setEditingActivity(activity);
     setActiveModal("activity");
   }
@@ -535,6 +550,7 @@ export function useProjectDashboard() {
     setEditingUniverse(null);
     setEditingProject(null);
     setEditingActivity(null);
+    setActivityDraftProjectId("");
   }
 
   async function createUniverse(input: { name: string; imageFile?: File | null; removeImage?: boolean }) {
@@ -1124,6 +1140,7 @@ export function useProjectDashboard() {
     editingUniverse,
     editingProject,
     editingActivity,
+    activityDraftProjectId,
     selectedActivity: selectedActivitySnapshot,
     activityComments,
     commentsLoading,
@@ -1132,6 +1149,7 @@ export function useProjectDashboard() {
     canShareHousehold,
     canManageHousehold,
     filteredProjects,
+    activityDialogProjects,
     visibleActivities,
     groupedActivities,
     selectedScopeLabel,

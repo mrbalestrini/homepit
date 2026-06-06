@@ -38,6 +38,7 @@ public sealed record CreateActivityRequest(
     Guid ProjectId,
     string Title,
     string? Description,
+    ActivityStatus Status,
     Priority Priority,
     decimal? Size,
     Guid? ResponsibleMemberId);

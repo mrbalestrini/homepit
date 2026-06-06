@@ -1088,7 +1088,7 @@ components:
       enum: [Baixa, Media, Alta, Urgente]
     CreateActivityRequest:
       type: object
-      required: [projectId, title, priority]
+      required: [projectId, title, status, priority]
       properties:
         projectId:
           type: string
@@ -1098,6 +1098,8 @@ components:
         description:
           type: string
           nullable: true
+        status:
+          $ref: "#/components/schemas/ActivityStatus"
         priority:
           $ref: "#/components/schemas/Priority"
         size:
