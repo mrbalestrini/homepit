@@ -446,17 +446,17 @@ function TopBar({
           <Button variant="secondary" size="icon" className="lg:hidden" onClick={onOpenSidebar} aria-label="Abrir menu">
             <Menu />
           </Button>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <p className="truncate text-xl font-semibold text-foreground">
                 {controller.activeHousehold?.name ?? "HomePit"}
               </p>
               <Badge variant="neutral">
                 {visibleCount} {visibleLabel}
               </Badge>
+              {headerStats.length > 0 ? <HeaderStatsInline stats={headerStats} /> : null}
             </div>
             <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
-            {headerStats.length > 0 ? <HeaderStatsInline stats={headerStats} /> : null}
           </div>
         </div>
 
@@ -497,7 +497,7 @@ function TopBar({
 
 export function HeaderStatsInline({ stats }: { stats: HeaderStatItem[] }) {
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5">
       {stats.map((stat, index) => (
         <span key={stat.label} className="inline-flex items-baseline text-foreground">
           {index > 0 ? <span className="mr-2 text-border">•</span> : null}
