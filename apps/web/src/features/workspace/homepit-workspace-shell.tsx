@@ -89,6 +89,11 @@ export type HomePitWorkspaceController = {
   updateProfile: (input: { displayName: string; phoneNumber?: string; profilePhoto?: File | null }) => Promise<void>;
 };
 
+export type HeaderStatItem = {
+  label: string;
+  value: number;
+};
+
 const moduleIcons = {
   projects: Layers,
   prompts: Sparkles,
@@ -129,7 +134,7 @@ export function HomePitWorkspaceShell({
   subtitle,
   visibleCount,
   visibleLabel = "visíveis",
-  stats,
+  headerStats,
   children,
 }: {
   controller: HomePitWorkspaceController;
@@ -137,7 +142,7 @@ export function HomePitWorkspaceShell({
   subtitle: string;
   visibleCount: number;
   visibleLabel?: string;
-  stats?: React.ReactNode;
+  headerStats: HeaderStatItem[];
   children: React.ReactNode;
 }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -165,6 +170,7 @@ export function HomePitWorkspaceShell({
           subtitle={subtitle}
           visibleCount={visibleCount}
           visibleLabel={visibleLabel}
+          headerStats={headerStats}
           onOpenSidebar={() => setMobileSidebarOpen(true)}
           onOpenProfile={() => setProfileDialogOpen(true)}
         />
@@ -186,10 +192,7 @@ export function HomePitWorkspaceShell({
               onRefreshHouseholds={() => void controller.refreshHouseholds()}
             />
           ) : (
-            <>
-              {stats}
-              {children}
-            </>
+            children
           )}
         </main>
       </div>
@@ -424,6 +427,7 @@ function TopBar({
   subtitle,
   visibleCount,
   visibleLabel,
+  headerStats,
   onOpenSidebar,
   onOpenProfile,
 }: {
@@ -431,6 +435,7 @@ function TopBar({
   subtitle: string;
   visibleCount: number;
   visibleLabel: string;
+  headerStats: HeaderStatItem[];
   onOpenSidebar: () => void;
   onOpenProfile: () => void;
 }) {
@@ -451,6 +456,7 @@ function TopBar({
               </Badge>
             </div>
             <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
+            {headerStats.length > 0 ? <HeaderStatsInline stats={headerStats} /> : null}
           </div>
         </div>
 
@@ -486,6 +492,20 @@ function TopBar({
         ) : null}
       </div>
     </header>
+  );
+}
+
+export function HeaderStatsInline({ stats }: { stats: HeaderStatItem[] }) {
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5">
+      {stats.map((stat, index) => (
+        <span key={stat.label} className="inline-flex items-baseline text-foreground">
+          {index > 0 ? <span className="mr-2 text-border">•</span> : null}
+          <span className="font-semibold text-foreground">{stat.value} </span>
+          <span className="text-muted-foreground">{stat.label.toLowerCase()}</span>
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -951,41 +971,6 @@ function PermissionItem({ role, text }: { role: string; text: string }) {
       <p className="text-sm font-semibold text-foreground">{role}</p>
       <p className="mt-1 text-sm text-muted-foreground">{text}</p>
     </div>
-  );
-}
-
-export function StatCard({
-  label,
-  value,
-  icon,
-  tone,
-  className,
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-  tone: "default" | "success" | "warning";
-  className?: string;
-}) {
-  return (
-    <Card className={className}>
-      <CardContent className="flex items-center gap-3 p-4">
-        <div
-          className={cn(
-            "grid size-9 place-items-center rounded-[14px]",
-            tone === "default" && "bg-accent text-accent-foreground",
-            tone === "success" && "bg-status-success-soft text-success",
-            tone === "warning" && "bg-status-warning-soft text-warning",
-          )}
-        >
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <p className="text-[28px] font-semibold leading-none text-foreground">{value}</p>
-          <p className="mt-1 text-[13px] text-muted-foreground">{label}</p>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

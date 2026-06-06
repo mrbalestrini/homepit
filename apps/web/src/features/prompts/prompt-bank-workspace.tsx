@@ -6,8 +6,6 @@ import {
   ChevronRight,
   Copy,
   ExternalLink,
-  Image as ImageIcon,
-  Layers,
   Link2,
   MoreHorizontal,
   Pencil,
@@ -16,7 +14,6 @@ import {
   Sparkles,
   Tag,
   Trash2,
-  Users,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -49,7 +46,6 @@ import {
   Field,
   HomePitWorkspaceShell,
   Notice,
-  StatCard,
 } from "@/features/workspace/homepit-workspace-shell";
 import { ProtectedUniverseAvatar } from "@/features/workspace/protected-universe-avatar";
 import { cn } from "@/lib/utils";
@@ -59,6 +55,14 @@ const DESCRIPTION_PREVIEW_LIMIT = 120;
 const PROMPT_PREVIEW_LIMIT = 150;
 
 export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
+  const headerStats = [
+    { label: "Prompts", value: bank.promptPage.totalCount },
+    { label: "Categorias", value: bank.categories.length },
+    { label: "Universos", value: bank.universes.length },
+    { label: "Com imagem", value: bank.imageCount },
+    { label: "Pessoas", value: bank.members.length },
+  ];
+
   return (
     <>
       <HomePitWorkspaceShell
@@ -97,9 +101,8 @@ export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
         subtitle={bank.subtitle}
         visibleCount={bank.promptPage.totalCount}
         visibleLabel="resultados"
+        headerStats={headerStats}
       >
-        <PromptQuickStats bank={bank} />
-
         <div className="grid gap-3 xl:grid-cols-[340px_minmax(0,1fr)]">
           <CategoryManager bank={bank} />
           <PromptBoard bank={bank} />
@@ -149,18 +152,6 @@ export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
         onDelete={(categoryId, replacementCategoryId) => bank.deleteCategory(categoryId, replacementCategoryId)}
       />
     </>
-  );
-}
-
-function PromptQuickStats({ bank }: { bank: PromptBankController }) {
-  return (
-    <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
-      <StatCard label="Prompts" value={bank.promptPage.totalCount} icon={<Sparkles className="size-4" />} tone="default" />
-      <StatCard label="Categorias" value={bank.categories.length} icon={<Tag className="size-4" />} tone="default" />
-      <StatCard label="Universos" value={bank.universes.length} icon={<Layers className="size-4" />} tone="default" />
-      <StatCard label="Com imagem" value={bank.imageCount} icon={<ImageIcon className="size-4" />} tone="success" />
-      <StatCard label="Pessoas" value={bank.members.length} icon={<Users className="size-4" />} tone="warning" />
-    </div>
   );
 }
 
