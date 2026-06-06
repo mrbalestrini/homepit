@@ -15,7 +15,7 @@ import {
   Tag,
   Trash2,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { PromptCategory, PromptDetail, PromptListItem } from "@/lib/api";
 import { ApiError, apiFetchBlob } from "@/lib/api";
@@ -53,6 +53,9 @@ import type { PromptBankController, PromptFormInput } from "./use-prompt-bank";
 
 const DESCRIPTION_PREVIEW_LIMIT = 120;
 const PROMPT_PREVIEW_LIMIT = 150;
+const PROMPT_CARD_MIN_WIDTH = 320;
+const PROMPT_MASONRY_GAP = 16;
+const PROMPT_MASONRY_MAX_COLUMNS = 4;
 
 export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
   const headerStats = [
@@ -314,8 +317,9 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
           />
         ) : (
           <>
-            <div className="flex flex-wrap gap-4">
-              {bank.promptPage.items.map((prompt) => (
+            <PromptMasonry
+              prompts={bank.promptPage.items}
+              renderItem={(prompt) => (
                 <PromptCard
                   key={prompt.id}
                   prompt={prompt}
@@ -325,8 +329,8 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
                   onEdit={() => void bank.openEditPrompt(prompt.id)}
                   onDelete={() => void bank.deletePrompt(prompt).catch(() => undefined)}
                 />
-              ))}
-            </div>
+              )}
+            />
 
             <PaginationControls
               page={bank.page}
@@ -341,6 +345,243 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
       </CardContent>
     </Card>
   );
+}
+
+type MasonryLayoutItem = {
+  id: string;
+  column: number;
+  top: number;
+  left: number;
+  width: number;
+};
+
+type MasonryLayout = {
+  columnCount: number;
+  columnWidth: number;
+  height: number;
+  items: MasonryLayoutItem[];
+};
+
+function PromptMasonry({
+  prompts,
+  renderItem,
+}: {
+  prompts: PromptListItem[];
+  renderItem: (prompt: PromptListItem) => ReactNode;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [measurements, setMeasurements] = useState<{ columnWidth: number; heights: Record<string, number> }>({
+    columnWidth: 0,
+    heights: {},
+  });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    function measureWidth() {
+      const nextWidth = Math.round(container.getBoundingClientRect().width);
+      setContainerWidth((current) => (current === nextWidth ? current : nextWidth));
+    }
+
+    measureWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measureWidth);
+      return () => window.removeEventListener("resize", measureWidth);
+    }
+
+    const observer = new ResizeObserver(() => measureWidth());
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const geometry = useMemo(() => resolveMasonryGeometry(containerWidth), [containerWidth]);
+  const layout = useMemo(
+    () =>
+      buildPromptMasonryLayout({
+        containerWidth,
+        items: prompts.map((prompt) => {
+          const measuredHeight =
+            measurements.columnWidth === geometry.columnWidth ? measurements.heights[prompt.id] : undefined;
+
+          return {
+            id: prompt.id,
+            height: measuredHeight ?? estimatePromptCardHeight(prompt, geometry.columnWidth),
+          };
+        }),
+      }),
+    [containerWidth, geometry.columnWidth, measurements, prompts],
+  );
+  const layoutById = useMemo(() => new Map(layout.items.map((item) => [item.id, item])), [layout.items]);
+  const ready = containerWidth > 0;
+
+  useEffect(() => {
+    if (containerWidth <= 0 || prompts.length === 0) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const nextHeights = prompts.reduce<Record<string, number>>((accumulator, prompt) => {
+        const node = itemRefs.current[prompt.id];
+        if (!node) {
+          return accumulator;
+        }
+
+        const nextHeight = Math.ceil(node.getBoundingClientRect().height);
+        if (nextHeight > 0) {
+          accumulator[prompt.id] = nextHeight;
+        }
+
+        return accumulator;
+      }, {});
+
+      setMeasurements((current) => {
+        if (current.columnWidth === layout.columnWidth && areHeightMapsEqual(current.heights, nextHeights)) {
+          return current;
+        }
+
+        return {
+          columnWidth: layout.columnWidth,
+          heights: nextHeights,
+        };
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [containerWidth, layout.columnWidth, prompts]);
+
+  return (
+    <div ref={containerRef} className="relative" role="list" aria-label="Lista de prompts">
+      <div
+        className={cn(
+          ready ? "relative transition-[height] duration-200 ease-out motion-reduce:transition-none" : "flex flex-col gap-4",
+        )}
+        style={ready ? { height: `${layout.height}px` } : undefined}
+      >
+        {prompts.map((prompt) => {
+          const placement = layoutById.get(prompt.id);
+
+          return (
+            <div
+              key={prompt.id}
+              ref={(node) => {
+                if (node) {
+                  itemRefs.current[prompt.id] = node;
+                  return;
+                }
+
+                delete itemRefs.current[prompt.id];
+              }}
+              role="listitem"
+              className={cn(
+                ready ? "absolute transition-[top,left,width] duration-200 ease-out motion-reduce:transition-none" : "w-full",
+              )}
+              style={
+                ready && placement
+                  ? {
+                      top: `${placement.top}px`,
+                      left: `${placement.left}px`,
+                      width: `${placement.width}px`,
+                    }
+                  : undefined
+              }
+            >
+              {renderItem(prompt)}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function resolveMasonryGeometry(
+  containerWidth: number,
+  gap = PROMPT_MASONRY_GAP,
+  minColumnWidth = PROMPT_CARD_MIN_WIDTH,
+  maxColumns = PROMPT_MASONRY_MAX_COLUMNS,
+) {
+  if (containerWidth <= 0) {
+    return {
+      columnCount: 1,
+      columnWidth: minColumnWidth,
+    };
+  }
+
+  const columnCount = Math.max(1, Math.min(maxColumns, Math.floor((containerWidth + gap) / (minColumnWidth + gap))));
+  const columnWidth = (containerWidth - gap * (columnCount - 1)) / columnCount;
+
+  return {
+    columnCount,
+    columnWidth,
+  };
+}
+
+export function buildPromptMasonryLayout({
+  items,
+  containerWidth,
+  gap = PROMPT_MASONRY_GAP,
+  minColumnWidth = PROMPT_CARD_MIN_WIDTH,
+  maxColumns = PROMPT_MASONRY_MAX_COLUMNS,
+}: {
+  items: Array<{ id: string; height: number }>;
+  containerWidth: number;
+  gap?: number;
+  minColumnWidth?: number;
+  maxColumns?: number;
+}): MasonryLayout {
+  const { columnCount, columnWidth } = resolveMasonryGeometry(containerWidth, gap, minColumnWidth, maxColumns);
+  const columnHeights = Array.from({ length: columnCount }, () => 0);
+
+  const layoutItems = items.map<MasonryLayoutItem>((item) => {
+    const shortestColumnHeight = Math.min(...columnHeights);
+    const column = columnHeights.findIndex((height) => height === shortestColumnHeight);
+    const top = columnHeights[column];
+    const left = column * (columnWidth + gap);
+
+    columnHeights[column] += item.height + gap;
+
+    return {
+      id: item.id,
+      column,
+      top,
+      left,
+      width: columnWidth,
+    };
+  });
+
+  return {
+    columnCount,
+    columnWidth,
+    height: Math.max(0, ...columnHeights) - (layoutItems.length > 0 ? gap : 0),
+    items: layoutItems,
+  };
+}
+
+function estimatePromptCardHeight(prompt: PromptListItem, columnWidth: number) {
+  const safeWidth = Math.max(columnWidth, PROMPT_CARD_MIN_WIDTH);
+  const mediaHeight = prompt.hasImage ? safeWidth * 1.25 : 92;
+  const descriptionHeight = prompt.description ? 56 : 28;
+  const linkHeight = prompt.linkUrl && prompt.linkTitle ? 30 : 0;
+
+  return Math.ceil(mediaHeight + 228 + descriptionHeight + linkHeight);
+}
+
+function areHeightMapsEqual(left: Record<string, number>, right: Record<string, number>) {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  return leftKeys.every((key) => left[key] === right[key]);
 }
 
 function CategoryFilterDropdown({ bank }: { bank: PromptBankController }) {

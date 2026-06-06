@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
-import { CategoryDeleteDialog, PromptCard, PromptDetailDialog } from "./prompt-bank-workspace";
+import { CategoryDeleteDialog, PromptCard, PromptDetailDialog, buildPromptMasonryLayout } from "./prompt-bank-workspace";
 
 vi.mock("sonner", () => ({
   toast: {
@@ -115,6 +115,31 @@ describe("PromptCard", () => {
     );
 
     expect(screen.getByAltText("Universo Visual")).toHaveAttribute("src", "https://cdn.homepit.dev/universo-visual.png");
+  });
+});
+
+describe("buildPromptMasonryLayout", () => {
+  it("distributes cards into the shortest column while preserving consistent widths", () => {
+    const layout = buildPromptMasonryLayout({
+      containerWidth: 700,
+      items: [
+        { id: "a", height: 420 },
+        { id: "b", height: 220 },
+        { id: "c", height: 200 },
+        { id: "d", height: 180 },
+      ],
+    });
+
+    expect(layout.columnCount).toBe(2);
+    expect(layout.items.map((item) => ({ id: item.id, column: item.column, top: item.top }))).toEqual([
+      { id: "a", column: 0, top: 0 },
+      { id: "b", column: 1, top: 0 },
+      { id: "c", column: 1, top: 236 },
+      { id: "d", column: 0, top: 436 },
+    ]);
+    expect(layout.items.every((item) => item.width === layout.columnWidth)).toBe(true);
+    expect(layout.columnWidth).toBe(342);
+    expect(layout.height).toBe(616);
   });
 });
 
