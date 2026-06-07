@@ -1479,7 +1479,7 @@ function ActivityDetailsSheet({
             </div>
             <div>
               <SheetTitle>{activity.title}</SheetTitle>
-              <SheetDescription className="mt-2">
+              <SheetDescription className="mt-2 whitespace-pre-wrap break-words">
                 {activity.description || "Sem descrição detalhada para esta atividade."}
               </SheetDescription>
             </div>
