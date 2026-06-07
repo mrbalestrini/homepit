@@ -384,7 +384,12 @@ function PromptMasonry({
     }
 
     function measureWidth() {
-      const nextWidth = Math.round(container.getBoundingClientRect().width);
+      const currentContainer = containerRef.current;
+      if (!currentContainer) {
+        return;
+      }
+
+      const nextWidth = Math.round(currentContainer.getBoundingClientRect().width);
       setContainerWidth((current) => (current === nextWidth ? current : nextWidth));
     }
 
