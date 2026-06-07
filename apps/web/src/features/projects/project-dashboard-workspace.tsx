@@ -66,6 +66,7 @@ import {
   EmptyState,
   Field,
   HomePitWorkspaceShell,
+  LoadingState,
   Notice,
 } from "@/features/workspace/homepit-workspace-shell";
 import { ProtectedUniverseAvatar, useProtectedUniverseImage } from "@/features/workspace/protected-universe-avatar";
@@ -315,7 +316,12 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
         </button>
 
         <div className="space-y-2">
-          {dashboard.universes.length === 0 ? (
+          {dashboard.loading && dashboard.universes.length === 0 && dashboard.projects.length === 0 ? (
+            <LoadingState
+              title="Buscando universos e projetos"
+              description="Carregando a estrutura da casa antes de exibir a navegação lateral."
+            />
+          ) : dashboard.universes.length === 0 ? (
             <EmptyState
               icon={<Layers className="size-5" />}
               title="Nenhum universo criado"
@@ -585,7 +591,12 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
       </CardHeader>
 
       <CardContent className="p-4">
-        {dashboard.visibleActivities.length === 0 ? (
+        {dashboard.loading && dashboard.activities.length === 0 ? (
+          <LoadingState
+            title="Buscando atividades"
+            description="Carregando as atividades da casa para montar o quadro e aplicar os filtros."
+          />
+        ) : dashboard.visibleActivities.length === 0 ? (
           <EmptyState
             icon={<ClipboardList className="size-5" />}
             title="Nenhuma atividade encontrada"

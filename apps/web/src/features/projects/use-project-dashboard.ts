@@ -96,6 +96,7 @@ export function useProjectDashboard() {
           ? current
           : nextSession.households[0]?.id ?? "";
       });
+      setLoading(Boolean(nextSession && nextSession.households.length > 0));
     },
     [resetWorkspaceState],
   );
@@ -319,12 +320,19 @@ export function useProjectDashboard() {
   }, []);
 
   const handleHouseholdChange = useCallback((householdId: string) => {
+    setLoading(true);
+    setUniverses([]);
+    setProjects([]);
+    setActivities([]);
+    setMembers([]);
     setActiveHouseholdId(householdId);
     setSelectedUniverseId("");
     setSelectedProjectId("");
     setActivityDraftProjectId("");
     setSelectedActivity(null);
     setActivityComments([]);
+    setCommentsLoading(false);
+    setError(null);
   }, []);
 
   const handleLogout = useCallback(() => {

@@ -13,6 +13,7 @@ import {
   Palette,
   Pencil,
   Plus,
+  Loader2,
   RefreshCw,
   Repeat2,
   Share2,
@@ -1023,6 +1024,32 @@ export function EmptyState({
         <h3 className="text-lg font-semibold text-foreground">{title}</h3>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
         {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+export function LoadingState({
+  title,
+  description,
+  icon = <Loader2 className="size-5 animate-spin" />,
+}: {
+  title: string;
+  description: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div
+      className="grid min-h-[220px] place-items-center rounded-[22px] border border-dashed border-border/70 bg-surface-muted p-6 text-center"
+      role="status"
+      aria-busy="true"
+    >
+      <div className="max-w-md">
+        <div className="mx-auto mb-4 grid size-14 place-items-center rounded-[18px] bg-surface-strong text-accent-foreground shadow-xs">
+          {icon}
+        </div>
+        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
     </div>
   );

@@ -111,6 +111,9 @@ export function usePromptBank() {
           ? current
           : nextSession.households[0]?.id ?? "";
       });
+      const hasHouseholds = Boolean(nextSession && nextSession.households.length > 0);
+      setLoadingReferences(hasHouseholds);
+      setLoadingPrompts(hasHouseholds);
     },
     [resetWorkspaceState],
   );
@@ -319,16 +322,23 @@ export function usePromptBank() {
   }, []);
 
   const handleHouseholdChange = useCallback((householdId: string) => {
+    setLoadingReferences(true);
+    setLoadingPrompts(true);
+    setUniverses([]);
+    setMembers([]);
+    setCategories([]);
+    setPromptPage({ items: [], page: 1, pageSize: 12, totalCount: 0 });
     setActiveHouseholdId(householdId);
     setSearch("");
     setUniverseFilter("all");
     setSelectedCategoryIds([]);
     setPage(1);
-    setPromptPage((current) => ({ ...current, items: [], totalCount: 0, page: 1 }));
     setSelectedPromptDetail(null);
     setEditingPrompt(null);
     setEditingCategory(null);
     setDeletingCategory(null);
+    setDetailLoading(false);
+    setError(null);
   }, []);
 
   const handleLogout = useCallback(() => {

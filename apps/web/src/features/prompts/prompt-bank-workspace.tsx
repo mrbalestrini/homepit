@@ -45,6 +45,7 @@ import {
   EmptyState,
   Field,
   HomePitWorkspaceShell,
+  LoadingState,
   Notice,
 } from "@/features/workspace/homepit-workspace-shell";
 import { ProtectedUniverseAvatar } from "@/features/workspace/protected-universe-avatar";
@@ -174,7 +175,12 @@ function CategoryManager({ bank }: { bank: PromptBankController }) {
       </CardHeader>
 
       <CardContent className="space-y-3 p-4">
-        {bank.categories.length === 0 ? (
+        {bank.loading && bank.categories.length === 0 ? (
+          <LoadingState
+            title="Buscando categorias"
+            description="Carregando a taxonomia compartilhada antes de liberar o cadastro de prompts."
+          />
+        ) : bank.categories.length === 0 ? (
           <EmptyState
             icon={<Tag className="size-5" />}
             title="Nenhuma categoria criada"
@@ -291,7 +297,12 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
       </CardHeader>
 
       <CardContent className="space-y-4 p-4">
-        {bank.categories.length === 0 ? (
+        {bank.loading && bank.promptPage.items.length === 0 ? (
+          <LoadingState
+            title="Buscando prompts"
+            description="Carregando os prompts e seus filtros antes de exibir os cartões."
+          />
+        ) : bank.categories.length === 0 ? (
           <EmptyState
             icon={<Tag className="size-5" />}
             title="Crie categorias antes de cadastrar prompts"
