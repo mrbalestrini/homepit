@@ -54,6 +54,9 @@ SuperAdmin__DisplayName=SuperAdmin
 Use the MinIO internal host:
 
 ```txt
+# Use the same credentials configured in the MinIO resource.
+# ObjectStorage__AccessKey must match MINIO_ROOT_USER.
+# ObjectStorage__SecretKey must match MINIO_ROOT_PASSWORD.
 ObjectStorage__Endpoint=http://homepit-minio:9000
 ObjectStorage__AccessKey=...
 ObjectStorage__SecretKey=...
