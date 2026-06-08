@@ -254,6 +254,7 @@ public sealed class PromptServiceTests
     private sealed class TestUserContext(Guid userId, Guid? householdId) : IUserContext
     {
         public Guid UserId { get; } = userId;
+        public SystemRole SystemRole => SystemRole.User;
         public Guid? HouseholdId { get; } = householdId;
     }
 

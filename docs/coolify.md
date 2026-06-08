@@ -43,6 +43,14 @@ EvolutionApi__ApiKey=...
 EvolutionApi__InstanceName=homepit
 ```
 
+Optional superadmin access:
+
+```txt
+SuperAdmin__Email=superadmin@example.com
+SuperAdmin__Password=...
+SuperAdmin__DisplayName=SuperAdmin
+```
+
 Use the MinIO internal host:
 
 ```txt

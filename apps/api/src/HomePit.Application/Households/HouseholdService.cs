@@ -23,8 +23,19 @@ public sealed record HouseholdMemberDto(
 
 public sealed class HouseholdService(IHomePitDbContext db, IUserContext userContext)
 {
+    private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
+
     public async Task<IReadOnlyCollection<HouseholdDto>> ListAsync(CancellationToken cancellationToken)
     {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            return await db.Households
+                .AsNoTracking()
+                .OrderBy(household => household.Name)
+                .Select(household => new HouseholdDto(household.Id, household.Name, HouseholdRole.Member))
+                .ToArrayAsync(cancellationToken);
+        }
+
         return await db.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.UserId == userContext.UserId && member.IsActive)
@@ -35,6 +46,7 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
 
     public async Task<HouseholdDto> CreateAsync(CreateHouseholdRequest request, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new ValidationException("Informe o nome da casa.");
@@ -65,6 +77,7 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
         UpdateHouseholdRequest request,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new ValidationException("Informe o nome da casa.");
@@ -81,6 +94,7 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
 
     public async Task DeleteAsync(Guid householdId, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var member = await ResolveMembershipForHouseholdAsync(householdId, cancellationToken);
         EnsureOwner(member, "Somente o proprietário pode excluir a casa.");
 
@@ -94,6 +108,25 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
 
     public async Task<IReadOnlyCollection<HouseholdMemberDto>> ListMembersAsync(CancellationToken cancellationToken)
     {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            var householdId = await ResolveSuperAdminHouseholdIdAsync(cancellationToken);
+            return await db.HouseholdMembers
+                .AsNoTracking()
+                .Include(member => member.User)
+                .Where(member => member.HouseholdId == householdId && member.IsActive)
+                .OrderBy(member => member.User!.DisplayName)
+                .Select(member => new HouseholdMemberDto(
+                    member.Id,
+                    member.UserId,
+                    member.User!.DisplayName,
+                    member.User.Email,
+                    member.User.PhoneNumber,
+                    member.Role,
+                    false))
+                .ToArrayAsync(cancellationToken);
+        }
+
         var currentMember = await ResolveCurrentMembershipAsync(requireManager: false, cancellationToken);
 
         return await db.HouseholdMembers
@@ -114,6 +147,7 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
 
     public async Task<HouseholdMemberDto> ShareAsync(ShareHouseholdRequest request, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMembershipAsync(requireManager: true, cancellationToken);
         var email = NormalizeEmail(request.Email);
         var role = NormalizeSharedRole(request.Role);
@@ -262,5 +296,44 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
             member.User?.PhoneNumber,
             member.Role,
             member.UserId == currentUserId);
+    }
+
+    private async Task<Guid> ResolveSuperAdminHouseholdIdAsync(CancellationToken cancellationToken)
+    {
+        if (userContext.HouseholdId is null)
+        {
+            var householdIds = await db.Households
+                .AsNoTracking()
+                .OrderBy(household => household.Name)
+                .Select(household => household.Id)
+                .Take(2)
+                .ToArrayAsync(cancellationToken);
+
+            return householdIds.Length switch
+            {
+                0 => throw new NotFoundException("Casa não encontrada."),
+                1 => householdIds[0],
+                _ => throw new ValidationException("Informe X-Household-Id para escolher a casa.")
+            };
+        }
+
+        var exists = await db.Households
+            .AsNoTracking()
+            .AnyAsync(household => household.Id == userContext.HouseholdId.Value, cancellationToken);
+
+        if (!exists)
+        {
+            throw new NotFoundException("Casa não encontrada.");
+        }
+
+        return userContext.HouseholdId.Value;
+    }
+
+    private void EnsureWritable()
+    {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            throw new ForbiddenException(SuperAdminReadOnlyMessage);
+        }
     }
 }

@@ -186,9 +186,8 @@ export function useProjectDashboard() {
       const matchesPriority = filters.priority === "all" || activity.priority === filters.priority;
       const matchesResponsible =
         filters.responsibleMemberId === "all" || activity.responsibleMemberId === filters.responsibleMemberId;
-      const matchesOpenOnly = !filters.openOnly || activity.status !== "Concluido";
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesResponsible && matchesOpenOnly;
+      return matchesSearch && matchesStatus && matchesPriority && matchesResponsible;
     });
 
     return sortActivities(filteredActivities, filters.sort);
@@ -838,7 +837,7 @@ export function useProjectDashboard() {
         body: JSON.stringify({
           ...input,
           description: input.description || null,
-          size: input.size || null,
+          size: input.size ?? null,
           responsibleMemberId: input.responsibleMemberId || null,
         }),
       });
@@ -872,7 +871,7 @@ export function useProjectDashboard() {
         body: JSON.stringify({
           ...input,
           description: input.description || null,
-          size: input.size || null,
+          size: input.size ?? null,
           responsibleMemberId: input.responsibleMemberId || null,
         }),
       });

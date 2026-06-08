@@ -1,3 +1,4 @@
+using System.IO;
 using Xunit;
 
 namespace HomePit.IntegrationTests;
@@ -5,8 +6,11 @@ namespace HomePit.IntegrationTests;
 public sealed class ApiContractSmokeTests
 {
     [Fact]
-    public void Integration_suite_is_ready_for_postgres_backed_api_tests()
+    public void Openapi_contract_lists_superadmin_as_a_valid_system_role()
     {
-        Assert.True(true);
+        var contractPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "..", "contracts", "openapi", "homepit.v1.yaml"));
+        var contract = File.ReadAllText(contractPath);
+
+        Assert.Contains("enum: [User, Admin, SuperAdmin]", contract);
     }
 }

@@ -5,6 +5,7 @@ HomePit separa permissoes em dois niveis: perfil do sistema e perfil dentro de c
 ## Perfil do sistema
 
 - `Admin`: concedido automaticamente ao primeiro usuario cadastrado. Este perfil fica guardado para futuras telas de administracao da ferramenta.
+- `SuperAdmin`: acesso global somente leitura quando configurado via `.env`/Coolify. Pode navegar por qualquer casa e modulo existente para suporte e testes, mas nao cria, edita, exclui ou compartilha dados nesta etapa.
 - `User`: perfil padrao dos demais usuarios.
 
 ## Perfis da casa

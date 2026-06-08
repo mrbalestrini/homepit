@@ -109,7 +109,8 @@ public sealed class AuthServiceProfilePhotoTests
             new StubTokenService(),
             timeProvider,
             userContext,
-            storage);
+            storage,
+            new SuperAdminOptions());
 
         return new TestContext(db, service, storage, timeProvider, user.Id);
     }
@@ -124,6 +125,7 @@ public sealed class AuthServiceProfilePhotoTests
     private sealed class FakeUserContext(Guid userId) : IUserContext
     {
         public Guid UserId { get; } = userId;
+        public SystemRole SystemRole => SystemRole.User;
         public Guid? HouseholdId => null;
     }
 

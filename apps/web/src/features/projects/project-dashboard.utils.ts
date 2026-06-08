@@ -36,6 +36,22 @@ export function getErrorMessage(exception: unknown, fallback: string) {
   return exception instanceof Error ? exception.message : fallback;
 }
 
+function compareNullableNumbers(left: number | null | undefined, right: number | null | undefined) {
+  if (left == null && right == null) {
+    return 0;
+  }
+
+  if (left == null) {
+    return 1;
+  }
+
+  if (right == null) {
+    return -1;
+  }
+
+  return left - right;
+}
+
 export function getStatusIndex(status: Activity["status"]) {
   switch (status) {
     case "NaoIniciada":
@@ -53,8 +69,11 @@ export function sortActivities(items: Activity[], sort: ActivitySortState) {
   return [...items].sort((left, right) => {
     const priorityDifference = priorityRank[left.priority] - priorityRank[right.priority];
     const statusDifference = getStatusIndex(left.status) - getStatusIndex(right.status);
+    const sizeDifference = compareNullableNumbers(left.size, right.size);
 
     switch (sort) {
+      case "size":
+        return sizeDifference || priorityDifference || statusDifference || left.title.localeCompare(right.title);
       case "project":
         return (
           left.universeName.localeCompare(right.universeName) ||

@@ -6,7 +6,7 @@ export type AppTheme = "cozy" | "earthy" | "dark";
 
 export type ProjectViewMode = "list" | "kanban";
 
-export type ActivitySortState = "priority" | "project" | "responsible" | "title";
+export type ActivitySortState = "priority" | "size" | "project" | "responsible" | "title";
 
 export type ActivityStatusFilter = ActivityStatus | "all";
 
@@ -17,7 +17,6 @@ export type ActivityFilterState = {
   status: ActivityStatusFilter;
   priority: ActivityPriorityFilter;
   responsibleMemberId: "all" | string;
-  openOnly: boolean;
   sort: ActivitySortState;
 };
 

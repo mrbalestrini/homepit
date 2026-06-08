@@ -24,9 +24,11 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<SuperAdminOptions>(configuration.GetSection(SuperAdminOptions.SectionName));
         services.Configure<EvolutionOptions>(configuration.GetSection(EvolutionOptions.SectionName));
         services.Configure<DailyDigestWorkerOptions>(configuration.GetSection(DailyDigestWorkerOptions.SectionName));
         services.Configure<ObjectStorageOptions>(configuration.GetSection(ObjectStorageOptions.SectionName));
+        services.AddSingleton(provider => provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<SuperAdminOptions>>().Value);
         services.AddSingleton(provider => provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ObjectStorageOptions>>().Value);
 
         services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();

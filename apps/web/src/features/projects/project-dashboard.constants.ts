@@ -29,6 +29,7 @@ export const roleLabels: Record<Household["role"], string> = {
 
 export const systemRoleLabels: Record<AuthResponse["user"]["systemRole"], string> = {
   Admin: "Admin do sistema",
+  SuperAdmin: "Superadmin",
   User: "Usuário",
 };
 
@@ -39,6 +40,7 @@ export const viewModeOptions: Array<{ value: ProjectViewMode; label: string }> =
 
 export const activitySortOptions: Array<{ value: ActivitySortState; label: string }> = [
   { value: "priority", label: "Prioridade" },
+  { value: "size", label: "Tamanho" },
   { value: "project", label: "Projeto" },
   { value: "responsible", label: "Responsável" },
   { value: "title", label: "Título" },
@@ -70,6 +72,5 @@ export const defaultActivityFilters: ActivityFilterState = {
   status: "all",
   priority: "all",
   responsibleMemberId: "all",
-  openOnly: true,
   sort: "priority",
 };

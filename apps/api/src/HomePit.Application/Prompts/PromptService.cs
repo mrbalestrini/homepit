@@ -15,6 +15,7 @@ public sealed class PromptService(
     private const int DefaultPageSize = 12;
     private const int MaxPageSize = 48;
     private const long PromptImageMaxBytes = 5 * 1024 * 1024;
+    private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
     private static readonly HashSet<string> AllowedPromptImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -103,6 +104,7 @@ public sealed class PromptService(
 
     public async Task<PromptDetailDto> CreatePromptAsync(CreatePromptRequest request, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var normalizedCategoryIds = await ValidatePromptPayloadAsync(
             currentMember.HouseholdId,
@@ -145,6 +147,7 @@ public sealed class PromptService(
 
     public async Task<PromptDetailDto> UpdatePromptAsync(Guid promptId, UpdatePromptRequest request, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var prompt = await db.Prompts
             .Include(item => item.CategoryAssignments)
@@ -201,6 +204,7 @@ public sealed class PromptService(
 
     public async Task DeletePromptAsync(Guid promptId, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var prompt = await db.Prompts
             .FirstOrDefaultAsync(item => item.Id == promptId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -224,6 +228,7 @@ public sealed class PromptService(
         string? contentType,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         if (contentLength <= 0)
         {
             throw new ValidationException("Envie uma imagem com conteúdo para o prompt.");
@@ -276,6 +281,7 @@ public sealed class PromptService(
 
     public async Task<PromptDetailDto> DeletePromptImageAsync(Guid promptId, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var prompt = await db.Prompts
             .Include(item => item.CategoryAssignments)
@@ -321,6 +327,7 @@ public sealed class PromptService(
 
     public async Task<PromptCategoryDto> CreateCategoryAsync(CreatePromptCategoryRequest request, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var category = new PromptCategory
         {
@@ -340,6 +347,7 @@ public sealed class PromptService(
         UpdatePromptCategoryRequest request,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var category = await db.PromptCategories
             .Include(item => item.PromptAssignments)
@@ -369,6 +377,7 @@ public sealed class PromptService(
 
     public async Task DeleteCategoryAsync(Guid categoryId, Guid? replacementCategoryId, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var category = await db.PromptCategories
             .Include(item => item.PromptAssignments)
@@ -499,6 +508,11 @@ public sealed class PromptService(
 
     private async Task<Guid> ResolveHouseholdIdAsync(CancellationToken cancellationToken)
     {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            return await ResolveSuperAdminHouseholdIdAsync(cancellationToken);
+        }
+
         var memberships = await db.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.UserId == userContext.UserId && member.IsActive)
@@ -530,6 +544,16 @@ public sealed class PromptService(
 
     private async Task<HouseholdMember> ResolveCurrentMemberAsync(Guid householdId, CancellationToken cancellationToken)
     {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            return new HouseholdMember
+            {
+                HouseholdId = householdId,
+                UserId = userContext.UserId,
+                Role = HouseholdRole.Member
+            };
+        }
+
         return await db.HouseholdMembers
             .Include(member => member.User)
             .FirstOrDefaultAsync(member =>
@@ -665,5 +689,44 @@ public sealed class PromptService(
     private static long FormatMegabytes(long bytes)
     {
         return bytes / (1024 * 1024);
+    }
+
+    private async Task<Guid> ResolveSuperAdminHouseholdIdAsync(CancellationToken cancellationToken)
+    {
+        if (userContext.HouseholdId is null)
+        {
+            var householdIds = await db.Households
+                .AsNoTracking()
+                .OrderBy(household => household.Name)
+                .Select(household => household.Id)
+                .Take(2)
+                .ToArrayAsync(cancellationToken);
+
+            return householdIds.Length switch
+            {
+                0 => throw new NotFoundException("Casa não encontrada."),
+                1 => householdIds[0],
+                _ => throw new ValidationException("Informe X-Household-Id para escolher a casa.")
+            };
+        }
+
+        var exists = await db.Households
+            .AsNoTracking()
+            .AnyAsync(household => household.Id == userContext.HouseholdId.Value, cancellationToken);
+
+        if (!exists)
+        {
+            throw new NotFoundException("Casa não encontrada.");
+        }
+
+        return userContext.HouseholdId.Value;
+    }
+
+    private void EnsureWritable()
+    {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            throw new ForbiddenException(SuperAdminReadOnlyMessage);
+        }
     }
 }

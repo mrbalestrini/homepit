@@ -3,6 +3,8 @@ using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Domain.Notifications;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace HomePit.Application.Auth;
 
@@ -12,9 +14,11 @@ public sealed class AuthService(
     ITokenService tokenService,
     TimeProvider timeProvider,
     IUserContext userContext,
-    IObjectStorage objectStorage)
+    IObjectStorage objectStorage,
+    SuperAdminOptions superAdminOptions)
 {
     private const long ProfilePhotoMaxBytes = 5 * 1024 * 1024;
+    private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
     private static readonly HashSet<string> AllowedProfilePhotoContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -33,7 +37,7 @@ public sealed class AuthService(
             throw new ConflictException("Este e-mail já está cadastrado.");
         }
 
-        var systemRole = await db.Users.AnyAsync(cancellationToken)
+        var systemRole = await db.Users.AnyAsync(user => user.SystemRole != SystemRole.SuperAdmin, cancellationToken)
             ? SystemRole.User
             : SystemRole.Admin;
 
@@ -73,7 +77,7 @@ public sealed class AuthService(
 
         db.Users.Add(user);
 
-        var response = IssueTokens(user, memberships);
+        var response = await IssueTokensAsync(user, memberships, cancellationToken);
         db.RefreshTokens.Add(new RefreshToken
         {
             User = user,
@@ -88,12 +92,33 @@ public sealed class AuthService(
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
     {
         var email = NormalizeEmail(request.Email);
+
+        if (IsSuperAdminEmail(email))
+        {
+            if (!IsSuperAdminPassword(request.Password))
+            {
+                throw new ForbiddenException("E-mail ou senha inválidos.");
+            }
+
+            var superAdminUser = await EnsureSuperAdminUserAsync(cancellationToken);
+            var response = await IssueTokensAsync(superAdminUser, Array.Empty<HouseholdMember>(), cancellationToken);
+            db.RefreshTokens.Add(new RefreshToken
+            {
+                UserId = superAdminUser.Id,
+                TokenHash = tokenService.HashRefreshToken(response.RefreshToken),
+                ExpiresAt = timeProvider.GetUtcNow().AddDays(30)
+            });
+
+            await db.SaveChangesAsync(cancellationToken);
+            return response;
+        }
+
         var user = await db.Users
             .Include(item => item.HouseholdMembers)
                 .ThenInclude(member => member.Household)
             .FirstOrDefaultAsync(item => item.Email == email && item.IsActive, cancellationToken);
 
-        if (user is null || !passwordHasher.Verify(request.Password, user.PasswordHash))
+        if (user is null || user.SystemRole == SystemRole.SuperAdmin || !passwordHasher.Verify(request.Password, user.PasswordHash))
         {
             throw new ForbiddenException("E-mail ou senha inválidos.");
         }
@@ -102,7 +127,7 @@ public sealed class AuthService(
             .Where(member => member.IsActive)
             .ToArray();
 
-        var response = IssueTokens(user, memberships);
+        var response = await IssueTokensAsync(user, memberships, cancellationToken);
         db.RefreshTokens.Add(new RefreshToken
         {
             UserId = user.Id,
@@ -135,14 +160,20 @@ public sealed class AuthService(
 
         savedToken.RevokedAt = now;
 
-        var memberships = savedToken.User.HouseholdMembers
+        var user = savedToken.User.SystemRole == SystemRole.SuperAdmin
+            ? await EnsureSuperAdminUserAsync(cancellationToken)
+            : savedToken.User;
+
+        var memberships = user.SystemRole == SystemRole.SuperAdmin
+            ? Array.Empty<HouseholdMember>()
+            : user.HouseholdMembers
             .Where(member => member.IsActive)
             .ToArray();
 
-        var response = IssueTokens(savedToken.User, memberships);
+        var response = await IssueTokensAsync(user, memberships, cancellationToken);
         db.RefreshTokens.Add(new RefreshToken
         {
-            UserId = savedToken.UserId,
+            UserId = user.Id,
             TokenHash = tokenService.HashRefreshToken(response.RefreshToken),
             ExpiresAt = now.AddDays(30)
         });
@@ -153,6 +184,7 @@ public sealed class AuthService(
 
     public async Task<UserDto> UpdateProfileAsync(UpdateProfileRequest request, CancellationToken cancellationToken)
     {
+        EnsureWritableUser();
         var user = await FindCurrentUserAsync(cancellationToken);
 
         user.DisplayName = RequiredText(request.DisplayName, "Informe o nome.");
@@ -169,6 +201,7 @@ public sealed class AuthService(
         string? contentType,
         CancellationToken cancellationToken)
     {
+        EnsureWritableUser();
         if (contentLength <= 0)
         {
             throw new ValidationException("Envie uma imagem com conteúdo para a foto de perfil.");
@@ -205,16 +238,27 @@ public sealed class AuthService(
         return await objectStorage.GetAsync(user.ProfilePhotoObjectKey, cancellationToken);
     }
 
-    private AuthResponse IssueTokens(AppUser user, IReadOnlyCollection<HouseholdMember> memberships)
+    private async Task<AuthResponse> IssueTokensAsync(
+        AppUser user,
+        IReadOnlyCollection<HouseholdMember> memberships,
+        CancellationToken cancellationToken)
     {
+        var households = user.SystemRole == SystemRole.SuperAdmin
+            ? await db.Households
+                .AsNoTracking()
+                .OrderBy(household => household.Name)
+                .Select(household => new HouseholdDto(household.Id, household.Name, HouseholdRole.Member))
+                .ToArrayAsync(cancellationToken)
+            : memberships
+                .Select(member => new HouseholdDto(member.HouseholdId, member.Household?.Name ?? string.Empty, member.Role))
+                .ToArray();
+
         return new AuthResponse(
             tokenService.CreateAccessToken(user, memberships),
             tokenService.CreateRefreshToken(),
             tokenService.AccessTokenExpiresAt,
             ToUserDto(user),
-            memberships
-                .Select(member => new HouseholdDto(member.HouseholdId, member.Household?.Name ?? string.Empty, member.Role))
-                .ToArray());
+            households);
     }
 
     private async Task<AppUser> FindCurrentUserAsync(CancellationToken cancellationToken)
@@ -283,5 +327,78 @@ public sealed class AuthService(
         {
             throw new ValidationException("A senha precisa ter pelo menos 8 caracteres.");
         }
+    }
+
+    private bool IsSuperAdminEmail(string email)
+    {
+        return superAdminOptions.IsEnabled &&
+            string.Equals(email, NormalizeEmail(superAdminOptions.Email!), StringComparison.Ordinal);
+    }
+
+    private bool IsSuperAdminPassword(string password)
+    {
+        if (!superAdminOptions.IsEnabled)
+        {
+            return false;
+        }
+
+        var configuredPassword = superAdminOptions.Password!;
+        var left = Encoding.UTF8.GetBytes(password);
+        var right = Encoding.UTF8.GetBytes(configuredPassword);
+        return left.Length == right.Length && CryptographicOperations.FixedTimeEquals(left, right);
+    }
+
+    private void EnsureWritableUser()
+    {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            throw new ForbiddenException(SuperAdminReadOnlyMessage);
+        }
+    }
+
+    private async Task<AppUser> EnsureSuperAdminUserAsync(CancellationToken cancellationToken)
+    {
+        if (!superAdminOptions.IsEnabled)
+        {
+            throw new ForbiddenException("Sessão expirada ou inválida.");
+        }
+
+        var email = NormalizeEmail(superAdminOptions.Email!);
+        var displayName = NormalizeOptional(superAdminOptions.DisplayName) ?? "SuperAdmin";
+        var candidates = await db.Users
+            .Where(user => user.SystemRole == SystemRole.SuperAdmin || user.Email == email)
+            .ToArrayAsync(cancellationToken);
+
+        var superAdminUser = candidates.FirstOrDefault(user => user.SystemRole == SystemRole.SuperAdmin);
+        if (superAdminUser is null)
+        {
+            superAdminUser = candidates.FirstOrDefault(user => user.Email == email);
+        }
+
+        if (superAdminUser is not null && candidates.Any(user => user.Email == email && user.Id != superAdminUser.Id))
+        {
+            throw new ConflictException("O e-mail configurado para o superadmin já está em uso por outro usuário.");
+        }
+
+        if (superAdminUser is null)
+        {
+            superAdminUser = new AppUser
+            {
+                Email = email,
+                PasswordHash = passwordHasher.Hash(superAdminOptions.Password!),
+                DisplayName = displayName,
+                SystemRole = SystemRole.SuperAdmin,
+                IsActive = true
+            };
+            db.Users.Add(superAdminUser);
+            return superAdminUser;
+        }
+
+        superAdminUser.Email = email;
+        superAdminUser.PasswordHash = passwordHasher.Hash(superAdminOptions.Password!);
+        superAdminUser.DisplayName = displayName;
+        superAdminUser.SystemRole = SystemRole.SuperAdmin;
+        superAdminUser.IsActive = true;
+        return superAdminUser;
     }
 }

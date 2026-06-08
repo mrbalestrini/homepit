@@ -13,6 +13,7 @@ public sealed class ProjectService(
     TimeProvider timeProvider)
 {
     private const long UniverseImageMaxBytes = 5 * 1024 * 1024;
+    private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
     private static readonly HashSet<string> AllowedUniverseImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -45,6 +46,7 @@ public sealed class ProjectService(
 
     public async Task<UniverseDto> CreateUniverseAsync(CreateUniverseRequest request, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var name = RequiredText(request.Name, "Informe o nome do universo.");
 
@@ -66,6 +68,7 @@ public sealed class ProjectService(
         UpdateUniverseRequest request,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var universe = await db.Universes
             .FirstOrDefaultAsync(item => item.Id == universeId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -101,6 +104,7 @@ public sealed class ProjectService(
         string? contentType,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         if (contentLength <= 0)
         {
             throw new ValidationException("Envie uma imagem com conteúdo para o universo.");
@@ -154,6 +158,7 @@ public sealed class ProjectService(
 
     public async Task<UniverseDto> DeleteUniverseImageAsync(Guid universeId, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var universe = await db.Universes
             .FirstOrDefaultAsync(item => item.Id == universeId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -180,6 +185,7 @@ public sealed class ProjectService(
 
     public async Task DeleteUniverseAsync(Guid universeId, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var universe = await db.Universes
             .FirstOrDefaultAsync(item => item.Id == universeId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -232,6 +238,7 @@ public sealed class ProjectService(
 
     public async Task<ProjectDto> CreateProjectAsync(CreateProjectRequest request, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var universe = await db.Universes
             .FirstOrDefaultAsync(item => item.Id == request.UniverseId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -257,6 +264,7 @@ public sealed class ProjectService(
         UpdateProjectRequest request,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var project = await db.Projects
             .FirstOrDefaultAsync(item => item.Id == projectId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -280,6 +288,7 @@ public sealed class ProjectService(
 
     public async Task DeleteProjectAsync(Guid projectId, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var project = await db.Projects
             .FirstOrDefaultAsync(item => item.Id == projectId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -318,6 +327,7 @@ public sealed class ProjectService(
 
     public async Task<ActivityDto> CreateActivityAsync(CreateActivityRequest request, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var project = await db.Projects
             .Include(item => item.Universe)
@@ -354,6 +364,7 @@ public sealed class ProjectService(
         UpdateActivityRequest request,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var activity = await db.Activities
             .FirstOrDefaultAsync(item => item.Id == activityId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -388,6 +399,7 @@ public sealed class ProjectService(
         UpdateActivityStatusRequest request,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var activity = await db.Activities
             .Include(item => item.Project)
@@ -408,6 +420,7 @@ public sealed class ProjectService(
 
     public async Task DeleteActivityAsync(Guid activityId, CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var activity = await db.Activities
             .FirstOrDefaultAsync(item => item.Id == activityId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -442,6 +455,7 @@ public sealed class ProjectService(
         CreateActivityCommentRequest request,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var author = await ResolveCurrentMemberAsync(cancellationToken);
         await EnsureActivityAsync(author.HouseholdId, activityId, cancellationToken);
 
@@ -466,6 +480,7 @@ public sealed class ProjectService(
         UpdateActivityCommentRequest request,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var comment = await db.ActivityComments
             .Include(item => item.AuthorMember)
@@ -493,6 +508,7 @@ public sealed class ProjectService(
         Guid commentId,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var comment = await db.ActivityComments
             .FirstOrDefaultAsync(item =>
@@ -539,6 +555,7 @@ public sealed class ProjectService(
         CreatePendingItemRequest request,
         CancellationToken cancellationToken)
     {
+        EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var activity = await db.Activities
             .AsNoTracking()
@@ -574,6 +591,11 @@ public sealed class ProjectService(
 
     private async Task<Guid> ResolveHouseholdIdAsync(CancellationToken cancellationToken)
     {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            return await ResolveSuperAdminHouseholdIdAsync(cancellationToken);
+        }
+
         var memberships = await db.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.UserId == userContext.UserId && member.IsActive)
@@ -633,6 +655,16 @@ public sealed class ProjectService(
 
     private async Task<HouseholdMember> ResolveCurrentMemberAsync(Guid householdId, CancellationToken cancellationToken)
     {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            return new HouseholdMember
+            {
+                HouseholdId = householdId,
+                UserId = userContext.UserId,
+                Role = HouseholdRole.Member
+            };
+        }
+
         return await db.HouseholdMembers
             .Include(member => member.User)
             .FirstOrDefaultAsync(member =>
@@ -808,6 +840,45 @@ public sealed class ProjectService(
         if (!CanManageEntity(member, createdByMemberId))
         {
             throw new ForbiddenException(message);
+        }
+    }
+
+    private async Task<Guid> ResolveSuperAdminHouseholdIdAsync(CancellationToken cancellationToken)
+    {
+        if (userContext.HouseholdId is null)
+        {
+            var householdIds = await db.Households
+                .AsNoTracking()
+                .OrderBy(household => household.Name)
+                .Select(household => household.Id)
+                .Take(2)
+                .ToArrayAsync(cancellationToken);
+
+            return householdIds.Length switch
+            {
+                0 => throw new NotFoundException("Casa não encontrada."),
+                1 => householdIds[0],
+                _ => throw new ValidationException("Informe X-Household-Id para escolher a casa.")
+            };
+        }
+
+        var exists = await db.Households
+            .AsNoTracking()
+            .AnyAsync(household => household.Id == userContext.HouseholdId.Value, cancellationToken);
+
+        if (!exists)
+        {
+            throw new NotFoundException("Casa não encontrada.");
+        }
+
+        return userContext.HouseholdId.Value;
+    }
+
+    private void EnsureWritable()
+    {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            throw new ForbiddenException(SuperAdminReadOnlyMessage);
         }
     }
 }

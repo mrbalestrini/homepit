@@ -813,7 +813,7 @@ components:
           type: string
           nullable: true
         systemRole:
-          enum: [User, Admin]
+          enum: [User, Admin, SuperAdmin]
         hasProfilePhoto:
           type: boolean
         profilePhotoUpdatedAt:

@@ -22,7 +22,6 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
-  Filter,
   Folder,
   FolderPlus,
   GripVertical,
@@ -510,7 +509,7 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
           </div>
 
           <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
-            <div className="relative min-w-[18rem] flex-[1.7]">
+            <div className="relative w-full md:w-1/2 md:max-w-[28rem] md:flex-none">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-9"
@@ -574,13 +573,6 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
             </Select>
 
             <div className="ml-auto flex items-center gap-2">
-              <Button
-                variant={dashboard.filters.openOnly ? "default" : "secondary"}
-                onClick={() => dashboard.updateFilter("openOnly", !dashboard.filters.openOnly)}
-              >
-                <Filter />
-                {dashboard.filters.openOnly ? "Só abertas" : "Todas"}
-              </Button>
               <Button variant="ghost" onClick={dashboard.resetFilters}>
                 <ListFilter />
                 Limpar
@@ -729,7 +721,9 @@ function ActivityListView({ dashboard }: { dashboard: ProjectDashboardController
                           <Badge variant={getPriorityVariant(activity.priority)}>{priorityLabels[activity.priority]}</Badge>
                         </TableCell>
                         <TableCell>
-                          <span className="text-[13px] text-foreground">{activity.size ? `${activity.size} pts` : "Sem tamanho"}</span>
+                          <span className="text-[13px] text-foreground">
+                            {activity.size != null ? `${activity.size} pts` : "Sem tamanho"}
+                          </span>
                         </TableCell>
                         <TableCell>
                           <div className="text-[13px] text-foreground">{activity.commentCount} comentários</div>
@@ -982,7 +976,7 @@ function ActivityCard({
 
         <div className="flex flex-wrap gap-2">
           <Badge variant={getPriorityVariant(activity.priority)}>{priorityLabels[activity.priority]}</Badge>
-          {activity.size ? <Badge variant="neutral">{activity.size} pts</Badge> : null}
+          {activity.size != null ? <Badge variant="neutral">{activity.size} pts</Badge> : null}
           {activity.responsibleName ? <Badge variant="neutral">{activity.responsibleName}</Badge> : null}
         </div>
 
@@ -1335,7 +1329,7 @@ function ActivityDialog({
   const [description, setDescription] = useState(activity?.description ?? "");
   const [status, setStatus] = useState<ActivityStatus>(activity?.status ?? "NaoIniciada");
   const [priority, setPriority] = useState<Priority>(activity?.priority ?? "Media");
-  const [size, setSize] = useState(activity?.size ? String(activity.size) : "");
+  const [size, setSize] = useState(activity?.size != null ? String(activity.size) : "");
   const [responsibleMemberId, setResponsibleMemberId] = useState(activity?.responsibleMemberId ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1520,7 +1514,7 @@ function ActivityDetailsSheet({
             <DetailCard label="Status" value={activityColumns.find((column) => column.status === activity.status)?.label ?? activity.status} />
             <DetailCard label="Prioridade" value={priorityLabels[activity.priority]} />
             <DetailCard label="Responsável" value={activity.responsibleName ?? "Sem responsável"} />
-            <DetailCard label="Tamanho" value={activity.size ? `${activity.size} pts` : "Sem tamanho"} />
+            <DetailCard label="Tamanho" value={activity.size != null ? `${activity.size} pts` : "Sem tamanho"} />
           </div>
 
           <Card className="border-border/60 bg-surface-elevated">

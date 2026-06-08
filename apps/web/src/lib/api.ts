@@ -19,7 +19,7 @@ export type User = {
   email: string;
   displayName: string;
   phoneNumber?: string | null;
-  systemRole: "User" | "Admin";
+  systemRole: "User" | "Admin" | "SuperAdmin";
   hasProfilePhoto: boolean;
   profilePhotoUpdatedAt?: string | null;
 };
