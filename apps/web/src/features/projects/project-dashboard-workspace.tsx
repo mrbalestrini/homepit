@@ -3,9 +3,11 @@
 import {
   closestCorners,
   DndContext,
+  type DragCancelEvent,
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  type DragOverEvent,
   KeyboardSensor,
   type Modifier,
   PointerSensor,
@@ -34,7 +36,7 @@ import {
   Table2,
   Trash2,
 } from "lucide-react";
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import type { Activity, ActivityComment, ActivityStatus, HouseholdMember, Priority, Project, Universe } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -118,6 +120,47 @@ const snapOverlayToCursor: Modifier = ({
     y: transform.y + activatorEvent.clientY - draggingNodeRect.top - overlayNodeRect.height / 2,
   };
 };
+
+type ActivityDragTarget =
+  | {
+      type: "activity";
+      status: Activity["status"];
+      activityId: string;
+    }
+  | {
+      type: "column";
+      status: Activity["status"];
+      activityId: null;
+    }
+  | null;
+
+function getDragTarget(over: DragOverEvent["over"] | DragEndEvent["over"]): ActivityDragTarget {
+  const overData = over?.data.current as
+    | { type?: string; status?: Activity["status"]; activity?: Activity }
+    | undefined;
+
+  if (!overData?.type || !overData.status) {
+    return null;
+  }
+
+  if (overData.type === "activity" && overData.activity) {
+    return {
+      type: "activity",
+      status: overData.status,
+      activityId: overData.activity.id,
+    };
+  }
+
+  if (overData.type === "column") {
+    return {
+      type: "column",
+      status: overData.status,
+      activityId: null,
+    };
+  }
+
+  return null;
+}
 
 export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDashboardController }) {
   const openActivities = dashboard.activities.filter((activity) => activity.status !== "Concluido").length;
@@ -776,22 +819,19 @@ function ActivityKanbanView({ dashboard }: { dashboard: ProjectDashboardControll
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const [activeActivity, setActiveActivity] = useState<Activity | null>(null);
+  const [dragTarget, setDragTarget] = useState<ActivityDragTarget>(null);
 
   async function handleDragEnd(event: DragEndEvent) {
     const dragged = event.active.data.current?.activity as Activity | undefined;
-    const overData = event.over?.data.current;
+    const nextTarget = getDragTarget(event.over) ?? dragTarget;
     setActiveActivity(null);
+    setDragTarget(null);
 
-    if (!dragged || !overData) {
+    if (!dragged || !nextTarget) {
       return;
     }
 
-    const nextStatus =
-      overData.type === "column"
-        ? (overData.status as Activity["status"])
-        : overData.type === "activity"
-          ? (overData.status as Activity["status"])
-          : null;
+    const nextStatus = nextTarget.status;
 
     if (!nextStatus || nextStatus === dragged.status) {
       return;
@@ -803,23 +843,55 @@ function ActivityKanbanView({ dashboard }: { dashboard: ProjectDashboardControll
   function handleDragStart(event: DragStartEvent) {
     const dragged = event.active.data.current?.activity as Activity | undefined;
     setActiveActivity(dragged ?? null);
+    setDragTarget(null);
+  }
+
+  function handleDragOver(event: DragOverEvent) {
+    const nextTarget = getDragTarget(event.over);
+    setDragTarget((current) => {
+      if (
+        current?.type === nextTarget?.type &&
+        current?.status === nextTarget?.status &&
+        current?.activityId === nextTarget?.activityId
+      ) {
+        return current;
+      }
+
+      return nextTarget;
+    });
+  }
+
+  function handleDragCancel(_event: DragCancelEvent) {
+    setActiveActivity(null);
+    setDragTarget(null);
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragCancel={handleDragCancel}
+      onDragEnd={handleDragEnd}
+    >
       <div className="grid gap-3 xl:grid-cols-3">
         {dashboard.groupedActivities.map((group) => (
-          <KanbanColumn key={group.status} group={group} dashboard={dashboard} />
+          <KanbanColumn
+            key={group.status}
+            group={group}
+            dashboard={dashboard}
+            activeActivityId={activeActivity?.id ?? null}
+            dragTarget={dragTarget}
+          />
         ))}
       </div>
       <DragOverlay modifiers={[snapOverlayToCursor]}>
         {activeActivity ? (
-          <ActivityCard
+          <ActivityDragPreview
             activity={activeActivity}
             token={dashboard.session?.accessToken}
             householdId={dashboard.activeHouseholdId}
-            onOpen={() => undefined}
-            dragging
           />
         ) : null}
       </DragOverlay>
@@ -830,18 +902,85 @@ function ActivityKanbanView({ dashboard }: { dashboard: ProjectDashboardControll
 function KanbanColumn({
   group,
   dashboard,
+  activeActivityId,
+  dragTarget,
 }: {
   group: { status: Activity["status"]; label: string; hint: string; items: Activity[] };
   dashboard: ProjectDashboardController;
+  activeActivityId: string | null;
+  dragTarget: ActivityDragTarget;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column:${group.status}`,
     data: { type: "column", status: group.status },
   });
 
+  const isDropTarget = Boolean(dragTarget && dragTarget.status === group.status);
+  const draggedActivityId = dragTarget?.type === "activity" ? dragTarget.activityId : null;
+
   return (
-    <div className={cn("rounded-[20px] border border-border/60 bg-surface-elevated p-2.5 shadow-xs", statusSectionStyles[group.status].card)}>
-      <div className={cn("flex items-start justify-between gap-3 rounded-[16px] p-3", statusSectionStyles[group.status].header)}>
+    <KanbanColumnFrame
+      group={group}
+      isDropTarget={isDropTarget || isOver}
+      setNodeRef={setNodeRef}
+    >
+      <SortableContext items={group.items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+        <div className="space-y-2">
+          {group.items.length === 0 ? (
+            <div className="grid min-h-[180px] place-items-center px-4 text-center text-sm text-muted-foreground">
+              Arraste uma atividade para este estágio.
+            </div>
+          ) : (
+            group.items.map((activity) => (
+              <SortableActivityCard
+                key={activity.id}
+                activity={activity}
+                token={dashboard.session?.accessToken}
+                householdId={dashboard.activeHouseholdId}
+                onOpen={() => dashboard.openActivity(activity)}
+                onEdit={activity.canEdit ? () => dashboard.openEditActivity(activity) : undefined}
+                onDelete={
+                  activity.canDelete
+                    ? () => void dashboard.deleteActivity(activity).catch(() => undefined)
+                    : undefined
+                }
+                isDropTarget={dragTarget?.type === "activity" && draggedActivityId === activity.id && activity.id !== activeActivityId}
+              />
+            ))
+          )}
+        </div>
+      </SortableContext>
+    </KanbanColumnFrame>
+  );
+}
+
+export function KanbanColumnFrame({
+  group,
+  isDropTarget,
+  setNodeRef,
+  children,
+}: {
+  group: { status: Activity["status"]; label: string; hint: string; items: Activity[] };
+  isDropTarget: boolean;
+  setNodeRef: (node: HTMLElement | null) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-[20px] border border-border/60 bg-surface-elevated p-2.5 shadow-xs transition-all duration-200",
+        statusSectionStyles[group.status].card,
+        isDropTarget && "border-primary/35 shadow-md shadow-primary/10",
+      )}
+      data-drop-target={isDropTarget ? "true" : "false"}
+    >
+      <div
+        className={cn(
+          "flex items-start justify-between gap-3 rounded-[16px] p-3 transition-all duration-200",
+          statusSectionStyles[group.status].header,
+          isDropTarget && "bg-highlight ring-1 ring-primary/20",
+        )}
+      >
         <div>
           <h3 className="text-sm font-semibold text-foreground">{group.label}</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">{group.hint}</p>
@@ -852,36 +991,12 @@ function KanbanColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          "mt-2.5 min-h-[240px] rounded-[16px] border border-dashed p-2 transition",
+          "mt-2.5 min-h-[240px] rounded-[16px] border border-dashed p-2 transition-all duration-200",
           statusSectionStyles[group.status].dropzone,
-          isOver && "border-primary/40 bg-highlight",
+          isDropTarget && "border-primary/45 bg-highlight/80 shadow-inner shadow-primary/5",
         )}
       >
-        <SortableContext items={group.items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-2">
-            {group.items.length === 0 ? (
-              <div className="grid min-h-[180px] place-items-center px-4 text-center text-sm text-muted-foreground">
-                Arraste uma atividade para este estágio.
-              </div>
-            ) : (
-              group.items.map((activity) => (
-                <SortableActivityCard
-                  key={activity.id}
-                  activity={activity}
-                  token={dashboard.session?.accessToken}
-                  householdId={dashboard.activeHouseholdId}
-                  onOpen={() => dashboard.openActivity(activity)}
-                  onEdit={activity.canEdit ? () => dashboard.openEditActivity(activity) : undefined}
-                  onDelete={
-                    activity.canDelete
-                      ? () => void dashboard.deleteActivity(activity).catch(() => undefined)
-                      : undefined
-                  }
-                />
-              ))
-            )}
-          </div>
-        </SortableContext>
+        {children}
       </div>
     </div>
   );
@@ -894,6 +1009,7 @@ function SortableActivityCard({
   onOpen,
   onEdit,
   onDelete,
+  isDropTarget,
 }: {
   activity: Activity;
   token?: string;
@@ -901,6 +1017,7 @@ function SortableActivityCard({
   onOpen: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  isDropTarget: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activity.id,
@@ -912,7 +1029,7 @@ function SortableActivityCard({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(isDragging && "opacity-40")}
+      className={cn(isDragging && "opacity-20")}
     >
       <ActivityCard
         activity={activity}
@@ -922,12 +1039,14 @@ function SortableActivityCard({
         onEdit={onEdit}
         onDelete={onDelete}
         dragHandleProps={activity.canEdit ? { ...attributes, ...listeners } : undefined}
+        dragging={isDragging}
+        isDropTarget={isDropTarget}
       />
     </div>
   );
 }
 
-function ActivityCard({
+export function ActivityCard({
   activity,
   token,
   householdId,
@@ -935,6 +1054,7 @@ function ActivityCard({
   onEdit,
   onDelete,
   dragging = false,
+  isDropTarget = false,
   dragHandleProps,
 }: {
   activity: Activity;
@@ -944,10 +1064,19 @@ function ActivityCard({
   onEdit?: () => void;
   onDelete?: () => void;
   dragging?: boolean;
+  isDropTarget?: boolean;
   dragHandleProps?: Record<string, unknown>;
 }) {
   return (
-    <Card className={cn("border-border/70 bg-surface-strong", dragging && "rotate-1 shadow-md")}>
+    <Card
+      className={cn(
+        "border-border/70 bg-surface-strong transition-all duration-200",
+        dragging && "scale-[0.985] rotate-1 opacity-20 shadow-sm",
+        isDropTarget && "border-primary/35 bg-highlight shadow-md shadow-primary/10 ring-1 ring-primary/20",
+      )}
+      data-drop-target={isDropTarget ? "true" : "false"}
+      data-dragging={dragging ? "true" : "false"}
+    >
       <CardContent className="space-y-3 p-3">
         <div className="flex items-start gap-2">
           <button className="min-w-0 flex-1 text-left" type="button" onClick={onOpen}>
@@ -999,6 +1128,48 @@ function ActivityCard({
         <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-2 text-[12px] text-muted-foreground">
           <span>{activity.commentCount} comentários</span>
           <span>{activity.pendingCount} pendências</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function ActivityDragPreview({
+  activity,
+  token,
+  householdId,
+}: {
+  activity: Activity;
+  token?: string;
+  householdId?: string;
+}) {
+  return (
+    <Card
+      className={cn(
+        "pointer-events-none w-[min(340px,calc(100vw-2rem))] rounded-full border-primary/25 bg-surface-strong shadow-lg shadow-primary/10 ring-1 ring-primary/10",
+      )}
+      data-drag-preview="true"
+    >
+      <CardContent className="flex items-center gap-3 p-2.5">
+        <UniverseAvatar
+          universeId={activity.universeId}
+          name={activity.universeName}
+          imageUrl={activity.universeImageUrl}
+          hasImage={activity.universeHasImage}
+          imageUpdatedAt={activity.universeImageUpdatedAt}
+          token={token}
+          householdId={householdId}
+          className="size-9 shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">{activity.title}</p>
+          <p className="truncate text-[12px] text-muted-foreground">
+            {activity.universeName} / {activity.projectName}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Badge variant={getPriorityVariant(activity.priority)}>{priorityLabels[activity.priority]}</Badge>
+          {activity.size != null ? <Badge variant="neutral">{activity.size} pts</Badge> : null}
         </div>
       </CardContent>
     </Card>
