@@ -101,16 +101,16 @@ public sealed class AuthService(
             }
 
             var superAdminUser = await EnsureSuperAdminUserAsync(cancellationToken);
-            var response = await IssueTokensAsync(superAdminUser, Array.Empty<HouseholdMember>(), cancellationToken);
+            var superAdminResponse = await IssueTokensAsync(superAdminUser, Array.Empty<HouseholdMember>(), cancellationToken);
             db.RefreshTokens.Add(new RefreshToken
             {
                 UserId = superAdminUser.Id,
-                TokenHash = tokenService.HashRefreshToken(response.RefreshToken),
+                TokenHash = tokenService.HashRefreshToken(superAdminResponse.RefreshToken),
                 ExpiresAt = timeProvider.GetUtcNow().AddDays(30)
             });
 
             await db.SaveChangesAsync(cancellationToken);
-            return response;
+            return superAdminResponse;
         }
 
         var user = await db.Users
