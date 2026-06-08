@@ -72,6 +72,7 @@ import { ProtectedUniverseAvatar, useProtectedUniverseImage } from "@/features/w
 import {
   activityColumns,
   activitySortOptions,
+  defaultActivityFilters,
   priorityLabels,
   viewModeOptions,
 } from "./project-dashboard.constants";
@@ -489,6 +490,13 @@ function ExplorerCreateMenu({ dashboard }: { dashboard: ProjectDashboardControll
 }
 
 function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }) {
+  const hasActiveFilters =
+    dashboard.filters.search.trim() !== defaultActivityFilters.search ||
+    dashboard.filters.status !== defaultActivityFilters.status ||
+    dashboard.filters.priority !== defaultActivityFilters.priority ||
+    dashboard.filters.responsibleMemberId !== defaultActivityFilters.responsibleMemberId ||
+    dashboard.filters.sort !== defaultActivityFilters.sort;
+
   return (
     <Card>
       <CardHeader className="border-b border-border/60 pb-4">
@@ -520,60 +528,68 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
               />
             </div>
 
-            <Select
-              className="min-w-[11rem] xl:w-[11rem]"
-              value={dashboard.filters.status}
-              onChange={(event) => dashboard.updateFilter("status", event.target.value as ActivityStatus | "all")}
-            >
-              <option value="all">Todos os status</option>
-              {activityColumns.map((column) => (
-                <option key={column.status} value={column.status}>
-                  {column.label}
-                </option>
-              ))}
-            </Select>
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              <Select
+                className="min-w-[10rem] xl:w-[10rem] text-[13px]"
+                value={dashboard.filters.status}
+                onChange={(event) => dashboard.updateFilter("status", event.target.value as ActivityStatus | "all")}
+              >
+                <option value="all">Todos os status</option>
+                {activityColumns.map((column) => (
+                  <option key={column.status} value={column.status}>
+                    {column.label}
+                  </option>
+                ))}
+              </Select>
 
-            <Select
-              className="min-w-[11rem] xl:w-[11rem]"
-              value={dashboard.filters.priority}
-              onChange={(event) => dashboard.updateFilter("priority", event.target.value as Priority | "all")}
-            >
-              <option value="all">Todas as prioridades</option>
-              {Object.entries(priorityLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
+              <Select
+                className="min-w-[10rem] xl:w-[10rem] text-[13px]"
+                value={dashboard.filters.priority}
+                onChange={(event) => dashboard.updateFilter("priority", event.target.value as Priority | "all")}
+              >
+                <option value="all">Todas as prioridades</option>
+                {Object.entries(priorityLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
 
-            <Select
-              className="min-w-[12rem] xl:w-[12rem]"
-              value={dashboard.filters.responsibleMemberId}
-              onChange={(event) => dashboard.updateFilter("responsibleMemberId", event.target.value)}
-            >
-              <option value="all">Todos os responsáveis</option>
-              <option value="">Sem responsável</option>
-              {dashboard.members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.displayName}
-                </option>
-              ))}
-            </Select>
+              <Select
+                className="min-w-[10.5rem] xl:w-[10.5rem] text-[13px]"
+                value={dashboard.filters.responsibleMemberId}
+                onChange={(event) => dashboard.updateFilter("responsibleMemberId", event.target.value)}
+              >
+                <option value="all">Todos os responsáveis</option>
+                <option value="">Sem responsável</option>
+                {dashboard.members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.displayName}
+                  </option>
+                ))}
+              </Select>
 
-            <Select
-              className="min-w-[11rem] xl:w-[11rem]"
-              value={dashboard.filters.sort}
-              onChange={(event) => dashboard.updateFilter("sort", event.target.value as typeof dashboard.filters.sort)}
-            >
-              {activitySortOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  Ordenar por {option.label}
-                </option>
-              ))}
-            </Select>
+              <Select
+                className="min-w-[10rem] xl:w-[10rem] text-[13px]"
+                value={dashboard.filters.sort}
+                onChange={(event) => dashboard.updateFilter("sort", event.target.value as typeof dashboard.filters.sort)}
+              >
+                {activitySortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    Ordenar por {option.label}
+                  </option>
+                ))}
+              </Select>
 
-            <div className="ml-auto flex items-center gap-2">
-              <Button variant="ghost" onClick={dashboard.resetFilters}>
+              <Button
+                variant={hasActiveFilters ? "outline" : "ghost"}
+                className={cn(
+                  "shrink-0",
+                  hasActiveFilters &&
+                    "border-primary/25 bg-primary/10 text-primary shadow-sm hover:border-primary/35 hover:bg-primary/15 hover:text-primary",
+                )}
+                onClick={dashboard.resetFilters}
+              >
                 <ListFilter />
                 Limpar
               </Button>
