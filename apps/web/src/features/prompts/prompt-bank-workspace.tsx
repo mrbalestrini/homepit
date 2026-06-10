@@ -766,7 +766,6 @@ export function PromptCard({
             </div>
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Prompt de texto</p>
-              <p className="mt-1 truncate text-sm text-muted-foreground">Sem imagem vinculada</p>
             </div>
           </div>
           {actionsMenu}

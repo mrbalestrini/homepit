@@ -47,7 +47,6 @@ describe("PromptCard", () => {
     expect(imageFrame).toBeNull();
     expect(container.firstChild).toHaveClass("w-full");
     expect(container.firstChild).not.toHaveClass("sm:w-[21rem]");
-    expect(screen.getByText("Sem imagem vinculada")).toBeInTheDocument();
     expect(container.firstChild).toHaveClass("cursor-pointer");
     expect(screen.getByText(/A{20}/)).toHaveTextContent(/\.\.\.$/);
     expect(screen.getByText(/B{20}/)).toHaveTextContent(/\.\.\.$/);
