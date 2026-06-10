@@ -54,7 +54,7 @@ import { cn } from "@/lib/utils";
 import { AvatarCircle, ProtectedUserAvatar } from "./protected-user-avatar";
 
 type WorkspaceTheme = "cozy" | "earthy" | "dark";
-type ActiveModule = "projects" | "prompts";
+type ActiveModule = "projects" | "prompts" | "household";
 
 type ThemeOption = { value: WorkspaceTheme; label: string };
 
@@ -98,6 +98,7 @@ export type HeaderStatItem = {
 const moduleIcons = {
   projects: Layers,
   prompts: Sparkles,
+  household: ShieldCheck,
   market: ShoppingCart,
   finance: Wallet,
   routines: Repeat2,
@@ -106,6 +107,7 @@ const moduleIcons = {
 const modules = [
   { key: "projects", label: "Projetos", href: "/projects", state: "active" as const },
   { key: "prompts", label: "Prompts", href: "/prompts", state: "active" as const },
+  { key: "household", label: "Casa", href: "/household", state: "active" as const },
   { key: "market", label: "Mercado", href: "#", state: "roadmap" as const },
   { key: "finance", label: "Financeiro", href: "#", state: "roadmap" as const },
   { key: "routines", label: "Rotinas", href: "#", state: "roadmap" as const },
@@ -168,6 +170,7 @@ export function HomePitWorkspaceShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           controller={controller}
+          activeModule={activeModule}
           subtitle={subtitle}
           visibleCount={visibleCount}
           visibleLabel={visibleLabel}
@@ -402,6 +405,15 @@ function SidebarContent({
                 </Button>
               </div>
             ) : null}
+
+            {!collapsed ? (
+              <Button asChild variant="ghost">
+                <Link href="/household">
+                  <ShieldCheck />
+                  Administração
+                </Link>
+              </Button>
+            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -425,6 +437,7 @@ function SidebarContent({
 
 function TopBar({
   controller,
+  activeModule,
   subtitle,
   visibleCount,
   visibleLabel,
@@ -433,6 +446,7 @@ function TopBar({
   onOpenProfile,
 }: {
   controller: HomePitWorkspaceController;
+  activeModule: ActiveModule;
   subtitle: string;
   visibleCount: number;
   visibleLabel: string;
@@ -463,6 +477,14 @@ function TopBar({
 
         {controller.session ? (
           <div className="ml-auto flex items-center gap-2">
+            {activeModule !== "household" ? (
+              <Button asChild variant="secondary" className="hidden sm:inline-flex">
+                <Link href="/household">
+                  <ShieldCheck />
+                  Casa
+                </Link>
+              </Button>
+            ) : null}
             <MembersBar
               members={controller.members}
               currentUser={controller.session.user}
