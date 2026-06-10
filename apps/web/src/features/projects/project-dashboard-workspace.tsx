@@ -821,7 +821,7 @@ function ActivityKanbanView({ dashboard }: { dashboard: ProjectDashboardControll
   const [activeActivity, setActiveActivity] = useState<Activity | null>(null);
   const [dragTarget, setDragTarget] = useState<ActivityDragTarget>(null);
 
-  async function handleDragEnd(event: DragEndEvent) {
+  function handleDragEnd(event: DragEndEvent) {
     const dragged = event.active.data.current?.activity as Activity | undefined;
     const nextTarget = getDragTarget(event.over) ?? dragTarget;
     setActiveActivity(null);
@@ -837,7 +837,7 @@ function ActivityKanbanView({ dashboard }: { dashboard: ProjectDashboardControll
       return;
     }
 
-    await dashboard.updateActivityStatus(dragged, nextStatus).catch(() => undefined);
+    void dashboard.updateActivityStatusOptimistic(dragged, nextStatus);
   }
 
   function handleDragStart(event: DragStartEvent) {

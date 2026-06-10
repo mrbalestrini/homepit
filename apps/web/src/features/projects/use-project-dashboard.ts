@@ -54,6 +54,7 @@ export function useProjectDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sessionUserIdRef = useRef<string | null>(null);
+  const activityStatusMutationVersionRef = useRef<Record<string, number>>({});
 
   const resetWorkspaceState = useCallback(() => {
     setUniverses([]);
@@ -300,6 +301,18 @@ export function useProjectDashboard() {
     },
     [activeHouseholdId, session],
   );
+
+  const replaceActivityInState = useCallback((nextActivity: Activity) => {
+    setActivities((current) => current.map((activity) => (activity.id === nextActivity.id ? nextActivity : activity)));
+    setSelectedActivity((current) => (current?.id === nextActivity.id ? nextActivity : current));
+  }, []);
+
+  const restoreActivityInState = useCallback((previousActivity: Activity) => {
+    setActivities((current) =>
+      current.map((activity) => (activity.id === previousActivity.id ? previousActivity : activity)),
+    );
+    setSelectedActivity((current) => (current?.id === previousActivity.id ? previousActivity : current));
+  }, []);
 
   useEffect(() => {
     if (!session || !activeHouseholdId) {
@@ -1017,6 +1030,42 @@ export function useProjectDashboard() {
     }
   }
 
+  async function updateActivityStatusOptimistic(activity: Activity, nextStatus: Activity["status"]) {
+    if (!session || !activeHouseholdId || !activity.canEdit || activity.status === nextStatus) {
+      return;
+    }
+
+    const mutationVersion = (activityStatusMutationVersionRef.current[activity.id] ?? 0) + 1;
+    activityStatusMutationVersionRef.current[activity.id] = mutationVersion;
+
+    const previousActivity = activities.find((item) => item.id === activity.id) ?? activity;
+    const optimisticActivity = { ...previousActivity, status: nextStatus };
+
+    replaceActivityInState(optimisticActivity);
+
+    try {
+      const updated = await apiFetch<Activity>(`/api/activities/${activity.id}/status`, {
+        method: "PATCH",
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+        body: JSON.stringify({ status: nextStatus }),
+      });
+
+      if (activityStatusMutationVersionRef.current[activity.id] !== mutationVersion) {
+        return;
+      }
+
+      replaceActivityInState(updated);
+    } catch (exception) {
+      if (activityStatusMutationVersionRef.current[activity.id] !== mutationVersion) {
+        return;
+      }
+
+      restoreActivityInState(previousActivity);
+      toast.error(getErrorMessage(exception, "Não foi possível atualizar o status."));
+    }
+  }
+
   async function moveActivity(activity: Activity, direction: -1 | 1) {
     const currentIndex = activityColumns.findIndex((column) => column.status === activity.status);
     const nextStatus = activityColumns[currentIndex + direction]?.status;
@@ -1196,6 +1245,7 @@ export function useProjectDashboard() {
     shareHousehold,
     updateProfile,
     updateActivityStatus,
+    updateActivityStatusOptimistic,
     moveActivity,
     createComment,
     updateComment,
