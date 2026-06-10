@@ -10,6 +10,8 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - Nova página de administração da casa em `/household`, com visão em estilo dashboard para nome, membros, permissões e atalhos.
 - Atalho de acesso à administração da casa no topo e na navegação lateral compartilhada.
 - Bloco de membros preparado para futura retirada individual sem apagar o histórico de ações.
+- Navegação entre casas e criação de nova casa diretamente no topo da administração.
+- Endpoints para editar e remover membros da casa com proteção de proprietário e preservação de histórico.
 
 ## [1.0.0] - 2026-06-10
 

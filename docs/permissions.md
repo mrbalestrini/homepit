@@ -14,6 +14,7 @@ HomePit separa permissoes em dois niveis: perfil do sistema e perfil dentro de c
 
 - Edita e exclui a casa.
 - Compartilha a casa com administradores e membros.
+- Edita o papel de membros da casa e remove membros sem apagar o historico.
 - Cria, edita e exclui universos, projetos e atividades da casa.
 - Cria, edita e exclui prompts e categorias de prompts da casa.
 - Exclui comentarios de qualquer pessoa.

@@ -112,6 +112,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HouseholdMember"
+  /api/households/members/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHouseholdMemberRequest"
+      responses:
+        "200":
+          description: Household member updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HouseholdMember"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Household member removed without deleting historical records
   /api/users/me:
     put:
       requestBody:
@@ -768,6 +803,12 @@ components:
         email:
           type: string
           format: email
+        role:
+          enum: [Admin, Member]
+    UpdateHouseholdMemberRequest:
+      type: object
+      required: [role]
+      properties:
         role:
           enum: [Admin, Member]
     CreateUniverseRequest:

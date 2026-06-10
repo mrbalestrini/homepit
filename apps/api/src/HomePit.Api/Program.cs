@@ -121,6 +121,20 @@ api.MapGet("/households/members", async (HouseholdService service, CancellationT
     Results.Ok(await service.ListMembersAsync(cancellationToken)));
 api.MapPost("/households/share", async (ShareHouseholdRequest request, HouseholdService service, CancellationToken cancellationToken) =>
     Results.Created("/api/households/members", await service.ShareAsync(request, cancellationToken)));
+api.MapPut("/households/members/{id:guid}", async (
+    Guid id,
+    UpdateHouseholdMemberRequest request,
+    HouseholdService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateMemberAsync(id, request, cancellationToken)));
+api.MapDelete("/households/members/{id:guid}", async (
+    Guid id,
+    HouseholdService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.RemoveMemberAsync(id, cancellationToken);
+    return Results.NoContent();
+});
 api.MapPut("/users/me", async (UpdateProfileRequest request, AuthService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.UpdateProfileAsync(request, cancellationToken)));
 api.MapPost("/users/me/profile-photo", async (

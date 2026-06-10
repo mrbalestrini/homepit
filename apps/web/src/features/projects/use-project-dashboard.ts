@@ -967,6 +967,68 @@ export function useProjectDashboard() {
     }
   }
 
+  async function updateHouseholdMember(memberId: string, role: HouseholdMember["role"]) {
+    if (!session || !activeHouseholdId) {
+      return;
+    }
+
+    try {
+      const updated = await apiFetch<HouseholdMember>(`/api/households/members/${memberId}`, {
+        method: "PUT",
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+        body: JSON.stringify({ role }),
+      });
+      setMembers((current) =>
+        current
+          .map((member) => (member.id === updated.id ? updated : member))
+          .sort((a, b) => a.displayName.localeCompare(b.displayName)),
+      );
+
+      if (updated.isCurrentUser) {
+        updateSessionHouseholds(
+          session.households.map((household) =>
+            household.id === activeHouseholdId ? { ...household, role: updated.role } : household,
+          ),
+          activeHouseholdId,
+        );
+      }
+
+      toast.success("Pessoa atualizada.");
+    } catch (exception) {
+      reportError(exception, "Não foi possível atualizar a pessoa.");
+    }
+  }
+
+  async function removeHouseholdMember(member: HouseholdMember) {
+    if (
+      !session ||
+      !activeHouseholdId ||
+      !window.confirm(
+        `Remover ${member.displayName} da casa? O histórico de ações e comentários será preservado.`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await apiFetch<void>(`/api/households/members/${member.id}`, {
+        method: "DELETE",
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+      });
+      setMembers((current) => current.filter((item) => item.id !== member.id));
+
+      if (member.isCurrentUser) {
+        updateSessionHouseholds(session.households.filter((household) => household.id !== activeHouseholdId));
+      }
+
+      toast.success("Pessoa removida da casa.");
+    } catch (exception) {
+      reportError(exception, "Não foi possível remover a pessoa.");
+    }
+  }
+
   async function updateProfile(input: { displayName: string; phoneNumber?: string; profilePhoto?: File | null }) {
     if (!session) {
       return;
@@ -1244,6 +1306,8 @@ export function useProjectDashboard() {
     updateActivity,
     deleteActivity,
     shareHousehold,
+    updateHouseholdMember,
+    removeHouseholdMember,
     updateProfile,
     updateActivityStatus,
     updateActivityStatusOptimistic,

@@ -12,6 +12,8 @@ public sealed record UpdateHouseholdRequest(string Name);
 
 public sealed record ShareHouseholdRequest(string Email, HouseholdRole Role);
 
+public sealed record UpdateHouseholdMemberRequest(HouseholdRole Role);
+
 public sealed record HouseholdMemberDto(
     Guid Id,
     Guid UserId,
@@ -209,6 +211,54 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
         return ToMemberDto(member, userContext.UserId);
     }
 
+    public async Task<HouseholdMemberDto> UpdateMemberAsync(
+        Guid memberId,
+        UpdateHouseholdMemberRequest request,
+        CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentMember = await ResolveCurrentMembershipAsync(requireManager: false, cancellationToken);
+        EnsureOwner(currentMember, "Somente o proprietário pode editar membros.");
+
+        var member = await db.HouseholdMembers
+            .Include(item => item.User)
+            .FirstOrDefaultAsync(item =>
+                item.Id == memberId &&
+                item.HouseholdId == currentMember.HouseholdId &&
+                item.IsActive,
+                cancellationToken)
+            ?? throw new NotFoundException("Membro não encontrado.");
+
+        var nextRole = NormalizeEditableRole(request.Role);
+        await EnsureOwnerChangeAllowedAsync(member, nextRole, cancellationToken);
+
+        member.Role = nextRole;
+        await db.SaveChangesAsync(cancellationToken);
+
+        return ToMemberDto(member, userContext.UserId);
+    }
+
+    public async Task RemoveMemberAsync(Guid memberId, CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentMember = await ResolveCurrentMembershipAsync(requireManager: false, cancellationToken);
+        EnsureOwner(currentMember, "Somente o proprietário pode remover membros.");
+
+        var member = await db.HouseholdMembers
+            .Include(item => item.User)
+            .FirstOrDefaultAsync(item =>
+                item.Id == memberId &&
+                item.HouseholdId == currentMember.HouseholdId &&
+                item.IsActive,
+                cancellationToken)
+            ?? throw new NotFoundException("Membro não encontrado.");
+
+        await EnsureOwnerChangeAllowedAsync(member, nextRole: null, cancellationToken);
+
+        member.IsActive = false;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task<HouseholdMember> ResolveCurrentMembershipAsync(
         bool requireManager,
         CancellationToken cancellationToken)
@@ -284,6 +334,37 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
             HouseholdRole.Owner => throw new ValidationException("Compartilhe a casa como administrador ou membro."),
             _ => throw new ValidationException("Perfil inválido para compartilhamento.")
         };
+    }
+
+    private static HouseholdRole NormalizeEditableRole(HouseholdRole role)
+    {
+        return role switch
+        {
+            HouseholdRole.Admin => HouseholdRole.Admin,
+            HouseholdRole.Member => HouseholdRole.Member,
+            HouseholdRole.Owner => throw new ValidationException("Edite membros apenas como administrador ou membro."),
+            _ => throw new ValidationException("Perfil inválido para edição.")
+        };
+    }
+
+    private async Task EnsureOwnerChangeAllowedAsync(
+        HouseholdMember member,
+        HouseholdRole? nextRole,
+        CancellationToken cancellationToken)
+    {
+        if (member.Role is not HouseholdRole.Owner || nextRole is HouseholdRole.Owner)
+        {
+            return;
+        }
+
+        var ownerCount = await db.HouseholdMembers.CountAsync(
+            item => item.HouseholdId == member.HouseholdId && item.IsActive && item.Role == HouseholdRole.Owner,
+            cancellationToken);
+
+        if (ownerCount <= 1)
+        {
+            throw new ValidationException("A casa precisa manter ao menos um proprietário ativo.");
+        }
     }
 
     private static HouseholdMemberDto ToMemberDto(HouseholdMember member, Guid currentUserId)
