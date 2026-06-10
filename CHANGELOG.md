@@ -8,6 +8,9 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ### Changed
 - O texto de prompt passou a aceitar até 20000 caracteres, com validação e armazenamento alinhados ao novo limite.
+- Ajustei a concordância dos textos de categoria no banco de prompts para respeitar singular e plural quando o total é 1.
+- Removi da interface de categorias o texto explicativo sobre prompts que exigiriam substituição ao excluir uma categoria.
+- Corrigi a largura dos cards da tela de prompts para respeitar o masonry responsivo e preencher a coluna por completo.
 
 ### Added
 - Nova página de administração da casa em `/household`, com visão em estilo dashboard para nome, membros, permissões e atalhos.

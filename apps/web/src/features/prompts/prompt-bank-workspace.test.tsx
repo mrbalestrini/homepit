@@ -45,6 +45,8 @@ describe("PromptCard", () => {
 
     const imageFrame = container.querySelector('[class*="aspect-[4/5]"]');
     expect(imageFrame).toBeNull();
+    expect(container.firstChild).toHaveClass("w-full");
+    expect(container.firstChild).not.toHaveClass("sm:w-[21rem]");
     expect(screen.getByText("Sem imagem vinculada")).toBeInTheDocument();
     expect(container.firstChild).toHaveClass("cursor-pointer");
     expect(screen.getByText(/A{20}/)).toHaveTextContent(/\.\.\.$/);

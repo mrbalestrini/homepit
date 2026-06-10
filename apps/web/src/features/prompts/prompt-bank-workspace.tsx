@@ -59,6 +59,10 @@ const PROMPT_CARD_MIN_WIDTH = 320;
 const PROMPT_MASONRY_GAP = 16;
 const PROMPT_MASONRY_MAX_COLUMNS = 4;
 
+function formatCountLabel(count: number, singular: string, plural: string) {
+  return count === 1 ? `${count} ${singular}` : `${count} ${plural}`;
+}
+
 export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
   const headerStats = [
     { label: "Prompts", value: bank.promptPage.totalCount },
@@ -205,12 +209,9 @@ function CategoryManager({ bank }: { bank: PromptBankController }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-semibold text-foreground">{category.name}</p>
                       <Badge variant="neutral">{category.usageCount}</Badge>
-                      {category.replacementRequiredCount > 0 ? (
-                        <Badge variant="warning">{category.replacementRequiredCount} exigem substituição</Badge>
-                      ) : null}
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {category.usageCount === 1 ? "1 prompt vinculado" : `${category.usageCount} prompts vinculados`}
+                      {formatCountLabel(category.usageCount, "prompt vinculado", "prompts vinculados")}
                     </p>
                   </div>
 
@@ -734,7 +735,7 @@ export function PromptCard({
 
   return (
     <div
-      className="group w-full cursor-pointer rounded-[24px] border border-border/70 bg-surface text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/70 sm:w-[21rem]"
+      className="group w-full cursor-pointer rounded-[24px] border border-border/70 bg-surface text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/70"
       role="button"
       tabIndex={0}
       onClick={onOpen}
@@ -1207,12 +1208,7 @@ export function CategoryDeleteDialog({
               <p className="mt-2 text-sm text-muted-foreground">
                 {category.usageCount === 0
                   ? "Nenhum prompt usa esta categoria."
-                  : `${category.usageCount} prompts usam esta categoria.`}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {category.replacementRequiredCount === 0
-                  ? "Nenhum prompt ficará inválido após a exclusão."
-                  : `${category.replacementRequiredCount} prompts perderiam a última categoria e exigem substituição.`}
+                  : formatCountLabel(category.usageCount, "prompt usa esta categoria.", "prompts usam esta categoria.")}
               </p>
             </div>
 
