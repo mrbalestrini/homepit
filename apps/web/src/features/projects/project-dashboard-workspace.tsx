@@ -316,6 +316,7 @@ function UniverseAvatar({
 
 function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController }) {
   const [collapsedUniverses, setCollapsedUniverses] = useState<Record<string, boolean>>({});
+  const openActivityCount = dashboard.projects.reduce((total, project) => total + project.activityCount, 0);
 
   function toggleUniverse(universeId: string) {
     setCollapsedUniverses((current) => ({ ...current, [universeId]: !current[universeId] }));
@@ -355,7 +356,7 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
             <p className="text-sm font-semibold">Todos os projetos</p>
             <p className="mt-1 text-xs text-muted-foreground">Casa inteira</p>
           </div>
-          <Badge variant="neutral">{dashboard.activities.length}</Badge>
+          <Badge variant="neutral">{openActivityCount}</Badge>
         </button>
 
         <div className="space-y-2">
@@ -379,7 +380,7 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
           ) : (
             dashboard.universes.map((universe) => {
               const universeProjects = dashboard.projects.filter((project) => project.universeId === universe.id);
-              const universeActivityCount = dashboard.activities.filter((activity) => activity.universeId === universe.id).length;
+              const universeActivityCount = universeProjects.reduce((total, project) => total + project.activityCount, 0);
               const activeUniverse = dashboard.selectedUniverseId === universe.id && !dashboard.selectedProjectId;
               const hasActiveProject = universeProjects.some((project) => project.id === dashboard.selectedProjectId);
               const isCollapsed = activeUniverse || hasActiveProject ? false : (collapsedUniverses[universe.id] ?? false);

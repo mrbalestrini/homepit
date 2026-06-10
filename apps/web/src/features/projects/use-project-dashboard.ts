@@ -29,6 +29,32 @@ function applyDocumentTheme(theme: AppTheme) {
   document.documentElement.dataset.theme = theme;
 }
 
+function isOpenActivity(status: Activity["status"]) {
+  return status !== "Concluido";
+}
+
+function updateProjectActivityCounts(
+  projects: Project[],
+  previousActivity: Pick<Activity, "projectId" | "status"> | null,
+  nextActivity: Pick<Activity, "projectId" | "status"> | null,
+) {
+  return projects.map((project) => {
+    let activityCount = project.activityCount;
+
+    if (previousActivity?.projectId === project.id && isOpenActivity(previousActivity.status)) {
+      activityCount -= 1;
+    }
+
+    if (nextActivity?.projectId === project.id && isOpenActivity(nextActivity.status)) {
+      activityCount += 1;
+    }
+
+    return activityCount === project.activityCount
+      ? project
+      : { ...project, activityCount: Math.max(0, activityCount) };
+  });
+}
+
 export function useProjectDashboard() {
   const [session, setSession] = useState<AuthResponse | null>(null);
   const [activeHouseholdId, setActiveHouseholdId] = useState("");
@@ -855,13 +881,7 @@ export function useProjectDashboard() {
         }),
       });
       setActivities((current) => [...current, created]);
-      setProjects((current) =>
-        current.map((project) =>
-          project.id === created.projectId
-            ? { ...project, activityCount: project.activityCount + 1 }
-            : project,
-        ),
-      );
+      setProjects((current) => updateProjectActivityCounts(current, null, created));
       setSelectedUniverseId(created.universeId);
       setSelectedProjectId(created.projectId);
       toast.success("Atividade criada.");
@@ -890,23 +910,7 @@ export function useProjectDashboard() {
       });
 
       setActivities((current) => current.map((activity) => (activity.id === updated.id ? updated : activity)));
-      setProjects((current) =>
-        current.map((project) => {
-          if (!previousActivity || previousActivity.projectId === updated.projectId) {
-            return project;
-          }
-
-          if (project.id === previousActivity.projectId) {
-            return { ...project, activityCount: Math.max(0, project.activityCount - 1) };
-          }
-
-          if (project.id === updated.projectId) {
-            return { ...project, activityCount: project.activityCount + 1 };
-          }
-
-          return project;
-        }),
-      );
+      setProjects((current) => updateProjectActivityCounts(current, previousActivity, updated));
       setSelectedUniverseId(updated.universeId);
       setSelectedProjectId(updated.projectId);
       setSelectedActivity((current) => (current?.id === updated.id ? updated : current));
@@ -933,13 +937,7 @@ export function useProjectDashboard() {
         householdId: activeHouseholdId,
       });
       setActivities((current) => current.filter((item) => item.id !== activity.id));
-      setProjects((current) =>
-        current.map((project) =>
-          project.id === activity.projectId
-            ? { ...project, activityCount: Math.max(0, project.activityCount - 1) }
-            : project,
-        ),
-      );
+      setProjects((current) => updateProjectActivityCounts(current, activity, null));
       if (selectedActivity?.id === activity.id) {
         setSelectedActivity(null);
         setActivityComments([]);
@@ -1023,6 +1021,7 @@ export function useProjectDashboard() {
         body: JSON.stringify({ status: nextStatus }),
       });
       setActivities((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setProjects((current) => updateProjectActivityCounts(current, activity, updated));
       setSelectedActivity((current) => (current?.id === updated.id ? updated : current));
       toast.success("Status da atividade atualizado.");
     } catch (exception) {
@@ -1042,6 +1041,7 @@ export function useProjectDashboard() {
     const optimisticActivity = { ...previousActivity, status: nextStatus };
 
     replaceActivityInState(optimisticActivity);
+    setProjects((current) => updateProjectActivityCounts(current, previousActivity, optimisticActivity));
 
     try {
       const updated = await apiFetch<Activity>(`/api/activities/${activity.id}/status`, {
@@ -1062,6 +1062,7 @@ export function useProjectDashboard() {
       }
 
       restoreActivityInState(previousActivity);
+      setProjects((current) => updateProjectActivityCounts(current, optimisticActivity, previousActivity));
       toast.error(getErrorMessage(exception, "Não foi possível atualizar o status."));
     }
   }

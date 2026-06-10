@@ -230,7 +230,7 @@ public sealed class ProjectService(
                 project.Universe!.ImageUpdatedAt,
                 project.Name,
                 project.CreatedByMemberId,
-                project.Activities.Count,
+                project.Activities.Count(activity => activity.Status != ActivityStatus.Concluido),
                 isManager || project.CreatedByMemberId == currentMember.Id,
                 isManager || project.CreatedByMemberId == currentMember.Id))
             .ToArrayAsync(cancellationToken);
@@ -280,7 +280,12 @@ public sealed class ProjectService(
         await db.SaveChangesAsync(cancellationToken);
 
         var activityCount = await db.Activities
-            .CountAsync(activity => activity.HouseholdId == currentMember.HouseholdId && activity.ProjectId == project.Id, cancellationToken);
+            .CountAsync(
+                activity =>
+                    activity.HouseholdId == currentMember.HouseholdId &&
+                    activity.ProjectId == project.Id &&
+                    activity.Status != ActivityStatus.Concluido,
+                cancellationToken);
 
         project.Universe = universe;
         return ToProjectDto(project, activityCount, currentMember);

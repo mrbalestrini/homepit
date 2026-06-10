@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Activity, AuthResponse } from "@/lib/api";
+import type { Activity, AuthResponse, Project } from "@/lib/api";
 import * as api from "@/lib/api";
 import { useProjectDashboard } from "./use-project-dashboard";
 
@@ -74,6 +74,23 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
     responsibleName: null,
     pendingCount: 2,
     commentCount: 4,
+    canEdit: true,
+    canDelete: true,
+    ...overrides,
+  };
+}
+
+function buildProject(overrides: Partial<Project> & Pick<Project, "id" | "name">): Project {
+  return {
+    id: overrides.id,
+    universeId: "universe-1",
+    universeName: "Universo Alfa",
+    universeImageUrl: null,
+    universeHasImage: false,
+    universeImageUpdatedAt: null,
+    name: overrides.name,
+    createdByMemberId: null,
+    activityCount: 1,
     canEdit: true,
     canDelete: true,
     ...overrides,
@@ -192,5 +209,60 @@ describe("useProjectDashboard activity status optimism", () => {
     expect(result.current.groupedActivities.find((group) => group.status === "EmAndamento")?.items).toHaveLength(0);
     expect(mockedToast.error).toHaveBeenCalledWith("Falha simulada");
     expect(mockedToast.success).not.toHaveBeenCalled();
+  });
+
+  it("keeps project counts limited to open activities when an activity is completed", async () => {
+    const session = buildSession();
+    const activity = buildActivity({ id: "activity-1", title: "Fechar card" });
+    const project = buildProject({ id: "project-1", name: "Projeto Alfa" });
+    let resolveStatusUpdate!: (value: Activity) => void;
+    const statusUpdatePromise = new Promise<Activity>((resolve) => {
+      resolveStatusUpdate = resolve;
+    });
+
+    mockedReadSession.mockReturnValue(session);
+    mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
+    mockedApiFetch.mockImplementation(async (path: string) => {
+      if (path === "/api/universes" || path === "/api/households/members") {
+        return [];
+      }
+
+      if (path === "/api/projects") {
+        return [project];
+      }
+
+      if (path === "/api/activities") {
+        return [activity];
+      }
+
+      if (path === `/api/activities/${activity.id}/status`) {
+        return statusUpdatePromise;
+      }
+
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const { result } = renderHook(() => useProjectDashboard());
+
+    await waitFor(() => expect(result.current.projects).toHaveLength(1));
+
+    let mutationPromise: Promise<void> | undefined;
+    act(() => {
+      mutationPromise = result.current.updateActivityStatusOptimistic(activity, "Concluido");
+    });
+
+    expect(result.current.activities.find((item) => item.id === activity.id)?.status).toBe("Concluido");
+    expect(result.current.projects.find((item) => item.id === project.id)?.activityCount).toBe(0);
+
+    resolveStatusUpdate({
+      ...activity,
+      status: "Concluido",
+    });
+
+    await act(async () => {
+      await mutationPromise;
+    });
+
+    expect(result.current.projects.find((item) => item.id === project.id)?.activityCount).toBe(0);
   });
 });
