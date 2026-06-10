@@ -35,6 +35,28 @@ public sealed class PromptServiceTests
     }
 
     [Fact]
+    public async Task Create_prompt_rejects_text_over_the_limit()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() =>
+            service.CreatePromptAsync(
+                new CreatePromptRequest(
+                    fixture.UniverseId,
+                    "Prompt muito grande",
+                    null,
+                    new string('a', 20001),
+                    [fixture.CategoryAId],
+                    null,
+                    null),
+                CancellationToken.None));
+
+        Assert.Equal("O texto do prompt deve ter no máximo 20000 caracteres.", exception.Message);
+    }
+
+    [Fact]
     public async Task Create_prompt_requires_link_title_when_url_is_informed()
     {
         await using var context = CreateDbContext();

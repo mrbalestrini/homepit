@@ -14,6 +14,7 @@ public sealed class PromptService(
 {
     private const int DefaultPageSize = 12;
     private const int MaxPageSize = 48;
+    private const int PromptTextMaxLength = 20000;
     private const long PromptImageMaxBytes = 5 * 1024 * 1024;
     private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
@@ -124,7 +125,7 @@ public sealed class PromptService(
             UniverseId = request.UniverseId,
             Title = RequiredText(request.Title, "Informe o título do prompt."),
             Description = NormalizeOptional(request.Description),
-            PromptText = RequiredText(request.PromptText, "Informe o texto do prompt."),
+            PromptText = RequiredPromptText(request.PromptText),
             LinkUrl = NormalizeUrl(request.LinkUrl, "Informe um link válido."),
             LinkTitle = NormalizeOptional(request.LinkTitle)
         };
@@ -170,7 +171,7 @@ public sealed class PromptService(
         prompt.UniverseId = request.UniverseId;
         prompt.Title = RequiredText(request.Title, "Informe o título do prompt.");
         prompt.Description = NormalizeOptional(request.Description);
-        prompt.PromptText = RequiredText(request.PromptText, "Informe o texto do prompt.");
+        prompt.PromptText = RequiredPromptText(request.PromptText);
         prompt.LinkUrl = NormalizeUrl(request.LinkUrl, "Informe um link válido.");
         prompt.LinkTitle = NormalizeOptional(request.LinkTitle);
 
@@ -457,7 +458,7 @@ public sealed class PromptService(
         CancellationToken cancellationToken)
     {
         RequiredText(title, "Informe o título do prompt.");
-        RequiredText(promptText, "Informe o texto do prompt.");
+        RequiredPromptText(promptText);
         NormalizeOptional(description);
 
         var normalizedLinkUrl = NormalizeOptional(linkUrl);
@@ -633,6 +634,17 @@ public sealed class PromptService(
         }
 
         return value.Trim();
+    }
+
+    private static string RequiredPromptText(string value)
+    {
+        var normalized = RequiredText(value, "Informe o texto do prompt.");
+        if (normalized.Length > PromptTextMaxLength)
+        {
+            throw new ValidationException($"O texto do prompt deve ter no máximo {PromptTextMaxLength} caracteres.");
+        }
+
+        return normalized;
     }
 
     private static string? NormalizeOptional(string? value)

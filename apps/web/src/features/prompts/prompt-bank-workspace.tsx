@@ -54,6 +54,7 @@ import type { PromptBankController, PromptFormInput } from "./use-prompt-bank";
 
 const DESCRIPTION_PREVIEW_LIMIT = 120;
 const PROMPT_PREVIEW_LIMIT = 150;
+const PROMPT_TEXT_MAX_LENGTH = 20000;
 const PROMPT_CARD_MIN_WIDTH = 320;
 const PROMPT_MASONRY_GAP = 16;
 const PROMPT_MASONRY_MAX_COLUMNS = 4;
@@ -1019,7 +1020,14 @@ function PromptDialog({
                   <span className="text-sm font-semibold text-foreground/85">Prompt</span>
                   <CopyPromptButton value={promptText} />
                 </div>
-                <Textarea value={promptText} onChange={(event) => setPromptText(event.target.value)} rows={10} required />
+                <Textarea
+                  value={promptText}
+                  onChange={(event) => setPromptText(event.target.value)}
+                  rows={10}
+                  maxLength={PROMPT_TEXT_MAX_LENGTH}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">Limite de 20000 caracteres para o texto do prompt.</p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">

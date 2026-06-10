@@ -233,7 +233,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
                     """));
             builder.Property(prompt => prompt.Title).HasMaxLength(240).IsRequired();
             builder.Property(prompt => prompt.Description).HasMaxLength(4000);
-            builder.Property(prompt => prompt.PromptText).HasMaxLength(16000).IsRequired();
+            builder.Property(prompt => prompt.PromptText).HasMaxLength(20000).IsRequired();
             builder.Property(prompt => prompt.LinkUrl).HasMaxLength(2000);
             builder.Property(prompt => prompt.LinkTitle).HasMaxLength(240);
             builder.Property(prompt => prompt.ImageObjectKey).HasMaxLength(512);

@@ -6,6 +6,9 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ## [1.1.0] - 2026-06-10
 
+### Changed
+- O texto de prompt passou a aceitar até 20000 caracteres, com validação e armazenamento alinhados ao novo limite.
+
 ### Added
 - Nova página de administração da casa em `/household`, com visão em estilo dashboard para nome, membros, permissões e atalhos.
 - Atalho de acesso à administração da casa no topo e na navegação lateral compartilhada.

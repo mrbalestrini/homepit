@@ -894,6 +894,7 @@ components:
           nullable: true
         promptText:
           type: string
+          maxLength: 20000
         categoryIds:
           type: array
           minItems: 1
@@ -922,6 +923,7 @@ components:
           nullable: true
         promptText:
           type: string
+          maxLength: 20000
         categoryIds:
           type: array
           minItems: 1
