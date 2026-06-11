@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Layers, Pencil, RefreshCw, Share2, ShieldCheck, Sparkles, UserMinus, Users } from "lucide-react";
+import { Layers, Pencil, Share2, ShieldCheck, Sparkles, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -201,87 +201,6 @@ function HouseholdDashboardWorkspace({ dashboard }: { dashboard: ReturnType<type
           </div>
 
           <div className="space-y-3">
-            <Card>
-              <CardHeader>
-                <CardTitle>Atalhos</CardTitle>
-                <CardDescription>Acesso direto às ações mais recorrentes da casa.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <ShortcutButton
-                  icon={<Pencil />}
-                  title="Editar casa"
-                  description="Ajuste o nome e mantenha a estrutura alinhada ao momento atual."
-                  action={
-                    <Button variant="ghost" size="sm" onClick={dashboard.openEditHousehold} disabled={!dashboard.canManageHousehold}>
-                      Abrir
-                      <ArrowRight />
-                    </Button>
-                  }
-                />
-                <ShortcutButton
-                  icon={<Share2 />}
-                  title="Compartilhar"
-                  description="Convide administradores e membros sem sair do contexto da casa."
-                  action={
-                    <Button variant="ghost" size="sm" onClick={dashboard.openShareHousehold} disabled={!dashboard.canShareHousehold}>
-                      Abrir
-                      <ArrowRight />
-                    </Button>
-                  }
-                />
-                <ShortcutButton
-                  icon={<RefreshCw />}
-                  title="Atualizar dados"
-                  description="Recarregue membros e contexto quando algo mudar fora da aba atual."
-                  action={
-                    <Button variant="ghost" size="sm" onClick={() => void dashboard.loadWorkspace()}>
-                      Atualizar
-                    </Button>
-                  }
-                />
-                <ShortcutButton
-                  icon={<Users />}
-                  title="Voltar ao trabalho"
-                  description="Acesse rapidamente os módulos de operação mais usados."
-                  action={
-                    <div className="flex flex-wrap gap-2">
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href="/projects">Projetos</Link>
-                      </Button>
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href="/prompts">Prompts</Link>
-                      </Button>
-                    </div>
-                  }
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Retirada de membros</CardTitle>
-                <CardDescription>Estrutura preparada para remoção sem apagar a história da pessoa na casa.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Notice tone="warning">
-                  A interface já reserva o espaço para retirada individual, mas o endpoint de remoção ainda não está
-                  exposto no contrato atual da API.
-                </Notice>
-                <div className="rounded-[18px] border border-dashed border-border/70 bg-surface-muted p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="grid size-10 place-items-center rounded-full bg-surface-strong text-muted-foreground">
-                      <UserMinus className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">Retirar membro</p>
-                      <p className="text-sm text-muted-foreground">
-                        Quando a operação chegar na API, ela poderá ser conectada aqui sem mexer no restante da tela.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       )}
