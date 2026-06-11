@@ -574,7 +574,7 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
 
             <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
               <Select
-                className="min-w-[10rem] xl:w-[10rem] text-[13px]"
+                className="min-w-[10rem] xl:w-[10rem] text-[12px] leading-none xl:text-[13px]"
                 value={dashboard.filters.status}
                 onChange={(event) => dashboard.updateFilter("status", event.target.value as ActivityStatus | "all")}
               >
@@ -587,7 +587,7 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
               </Select>
 
               <Select
-                className="min-w-[10rem] xl:w-[10rem] text-[13px]"
+                className="min-w-[10rem] xl:w-[10rem] text-[12px] leading-none xl:text-[13px]"
                 value={dashboard.filters.priority}
                 onChange={(event) => dashboard.updateFilter("priority", event.target.value as Priority | "all")}
               >
@@ -600,7 +600,7 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
               </Select>
 
               <Select
-                className="min-w-[10.5rem] xl:w-[10.5rem] text-[13px]"
+                className="min-w-[10.5rem] xl:w-[10.5rem] text-[12px] leading-none xl:text-[13px]"
                 value={dashboard.filters.responsibleMemberId}
                 onChange={(event) => dashboard.updateFilter("responsibleMemberId", event.target.value)}
               >
@@ -614,7 +614,7 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
               </Select>
 
               <Select
-                className="min-w-[10rem] xl:w-[10rem] text-[13px]"
+                className="min-w-[10rem] xl:w-[10rem] text-[12px] leading-none xl:text-[13px]"
                 value={dashboard.filters.sort}
                 onChange={(event) => dashboard.updateFilter("sort", event.target.value as typeof dashboard.filters.sort)}
               >
