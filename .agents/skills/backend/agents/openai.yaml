@@ -1,0 +1,4 @@
+interface:
+  display_name: "HomePit Backend"
+  short_description: "Implementar backend ASP.NET Core do HomePit"
+  default_prompt: "Use a skill backend para trabalhar na API ASP.NET Core do HomePit."

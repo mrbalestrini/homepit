@@ -1,28 +1,46 @@
 # AGENTS.md
 
-Este repositório usa uma política simples e consistente de versionamento e changelog.
+Este arquivo e o ponto de entrada para trabalho assistido por IA no HomePit.
 
-## Regras de versão
+## Como iniciar
 
-- A versão oficial do projeto deve ser a mesma em todos os arquivos `package.json` do repositório.
-- A versão atual começa em `1.0.0`.
-- Quando eu disser `Suba a versão`, isso significa aplicar a próxima versão seguindo Semantic Versioning:
-  - `patch` para correções e ajustes internos compatíveis.
-  - `minor` para novas funcionalidades compatíveis.
-  - `major` para mudanças incompatíveis ou de quebra.
-- Não altere a versão sem essa instrução, a menos que seja necessário para iniciar o projeto ou corrigir inconsistência entre manifests.
+1. Leia `.specs/README.md`.
+2. Consulte somente os arquivos relevantes em `.specs/memory/` e `.specs/shared/`.
+3. Verifique se existe uma mudanca ativa em `.specs/changes/`.
+4. Escolha em `.agents/skills/` somente a skill cujo gatilho corresponda a tarefa.
+5. Antes de editar, apresente um plano proporcional ao impacto.
 
-## Regras de changelog
+Nao assuma stack, comando, contrato ou regra marcada como `NÃO IDENTIFICADO`.
 
-- Mantenha um `CHANGELOG.md` na raiz do repositório.
-- Registre no changelog todas as alterações relevantes que afetem comportamento, contrato, integração, operação ou entrega.
-- Sempre que houver mudanças e a versão não for explicitamente elevada, atualize o changelog mantendo a versão corrente.
-- Quando a versão subir, crie a nova seção correspondente no topo do changelog e mantenha as versões anteriores preservadas.
-- Use um formato claro, preferencialmente compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
+## Skills
 
-## Fluxo recomendado
+Use skills sob demanda; nao carregue todas. Quando aplicavel, uma skill especifica prevalece
+sobre orientacao generica. Use `architect`, `reviewer` e `tester` para trabalho transversal
+ou quando nenhuma especializacao corresponder claramente.
 
-- Antes de publicar uma mudança, confira se os `package.json` continuam consistentes com o `CHANGELOG.md`.
-- Se houver arquivos gerados como `package-lock.json`, mantenha-os alinhados com a versão vigente quando isso fizer sentido para o repositório.
-- Evite misturar mudanças de versão com refatorações grandes sem registrar o motivo no changelog.
+## Mudancas sensiveis
 
+Nao altere codigo sem plano quando houver impacto em banco, autenticacao, autorizacao,
+deploy, variaveis de ambiente, dados, arquitetura ou regras de negocio. Registre decisoes
+duraveis em `.specs/changes/<mudanca>/decisions.md`.
+
+Nao inclua segredos no repositorio e nao execute `commit`, `push` ou `git add` sem ordem
+explicita.
+
+## Versao e changelog
+
+- A versao oficial deve ser igual em todos os `package.json`.
+- So altere a versao quando o usuario disser `Suba a versao`, salvo correcao de inconsistencia.
+- Use Semantic Versioning: `patch` para correcoes compativeis, `minor` para funcionalidades
+  compativeis e `major` para quebras.
+- Registre no `CHANGELOG.md` mudancas relevantes de comportamento, contrato, integracao,
+  operacao ou entrega, preservando as secoes anteriores.
+- Mantenha `package-lock.json` alinhado quando a versao mudar.
+
+## Referencias
+
+- Memoria factual: `.specs/memory/`
+- Regras compartilhadas: `.specs/shared/`
+- Mudancas e decisoes: `.specs/changes/`
+- Templates: `.specs/templates/`
+- Skills sob demanda: `.agents/skills/`
