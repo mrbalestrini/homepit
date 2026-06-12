@@ -465,7 +465,7 @@ export function usePromptBank() {
   }
 
   async function deleteHousehold(household: Household) {
-    if (!session || !window.confirm(`Excluir a casa "${household.name}" e todos os dados dela?`)) {
+    if (!session) {
       return;
     }
 

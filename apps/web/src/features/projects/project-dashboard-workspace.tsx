@@ -63,6 +63,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmation-dialog";
 import {
   EmptyState,
   Field,
@@ -316,6 +317,8 @@ function UniverseAvatar({
 
 function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController }) {
   const [collapsedUniverses, setCollapsedUniverses] = useState<Record<string, boolean>>({});
+  const [deletingUniverse, setDeletingUniverse] = useState<Universe | null>(null);
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null);
   const openActivityCount = dashboard.projects.reduce((total, project) => total + project.activityCount, 0);
 
   function toggleUniverse(universeId: string) {
@@ -433,11 +436,7 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
                       title={universe.name}
                       onCreate={() => dashboard.openCreateProject(universe.id)}
                       onEdit={universe.canEdit ? () => dashboard.openEditUniverse(universe) : undefined}
-                      onDelete={
-                        universe.canDelete
-                          ? () => void dashboard.deleteUniverse(universe).catch(() => undefined)
-                          : undefined
-                      }
+                      onDelete={universe.canDelete ? () => setDeletingUniverse(universe) : undefined}
                       createLabel="Novo projeto"
                       editLabel="Editar universo"
                       deleteLabel="Excluir universo"
@@ -483,11 +482,7 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
                               title={project.name}
                               onCreate={() => dashboard.openCreateActivity(project.id)}
                               onEdit={project.canEdit ? () => dashboard.openEditProject(project) : undefined}
-                              onDelete={
-                                project.canDelete
-                                  ? () => void dashboard.deleteProject(project).catch(() => undefined)
-                                  : undefined
-                              }
+                              onDelete={project.canDelete ? () => setDeletingProject(project) : undefined}
                               createLabel="Nova atividade"
                               editLabel="Editar projeto"
                               deleteLabel="Excluir projeto"
@@ -503,6 +498,46 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
           )}
         </div>
       </CardContent>
+
+      {deletingUniverse ? (
+        <DeleteConfirmationDialog
+          key={`universe-delete-${deletingUniverse.id}`}
+          open={Boolean(deletingUniverse)}
+          title="Excluir universo"
+          description="Essa ação é permanente e remove este universo junto com a estrutura que depende dele."
+          confirmationTarget={deletingUniverse.name}
+          confirmationLabel={`Digite o nome do universo, ${deletingUniverse.name}, para confirmar`}
+          confirmLabel="Excluir universo"
+          impactItems={[
+            "Todos os projetos deste universo, junto com suas atividades, comentários e pendências.",
+            "Os prompts que usam este universo continuarão existindo, mas ficarão sem universo.",
+            "A imagem vinculada ao universo será removida.",
+          ]}
+          onOpenChange={(open) => !open && setDeletingUniverse(null)}
+          onConfirm={async () => {
+            await dashboard.deleteUniverse(deletingUniverse);
+          }}
+        />
+      ) : null}
+
+      {deletingProject ? (
+        <DeleteConfirmationDialog
+          key={`project-delete-${deletingProject.id}`}
+          open={Boolean(deletingProject)}
+          title="Excluir projeto"
+          description="Essa ação é permanente e remove o projeto e tudo o que foi criado dentro dele."
+          confirmLabel="Excluir projeto"
+          impactItems={[
+            "Todas as atividades deste projeto.",
+            "Comentários e pendências vinculados a essas atividades.",
+            "O universo ao redor do projeto permanecerá intacto.",
+          ]}
+          onOpenChange={(open) => !open && setDeletingProject(null)}
+          onConfirm={async () => {
+            await dashboard.deleteProject(deletingProject);
+          }}
+        />
+      ) : null}
     </Card>
   );
 }

@@ -497,7 +497,7 @@ export function useProjectDashboard() {
   }
 
   async function deleteHousehold(household: Household) {
-    if (!session || !window.confirm(`Excluir a casa "${household.name}" e todos os dados dela?`)) {
+    if (!session) {
       return;
     }
 
@@ -682,12 +682,7 @@ export function useProjectDashboard() {
   }
 
   async function deleteUniverse(universe: Universe) {
-    if (
-      !session ||
-      !activeHouseholdId ||
-      !universe.canDelete ||
-      !window.confirm(`Excluir o universo "${universe.name}" e tudo dentro dele?`)
-    ) {
+    if (!session || !activeHouseholdId || !universe.canDelete) {
       return;
     }
 
@@ -828,12 +823,7 @@ export function useProjectDashboard() {
   }
 
   async function deleteProject(project: Project) {
-    if (
-      !session ||
-      !activeHouseholdId ||
-      !project.canDelete ||
-      !window.confirm(`Excluir o projeto "${project.name}" e suas atividades?`)
-    ) {
+    if (!session || !activeHouseholdId || !project.canDelete) {
       return;
     }
 

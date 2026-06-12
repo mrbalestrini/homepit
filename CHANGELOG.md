@@ -4,6 +4,11 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.2.0] - 2026-06-12
+
+### Changed
+- As exclusões de casa, universo e projeto agora usam modais de confirmação com resumo explícito dos impactos; casa e universo exigem digitação do nome antes da exclusão.
+
 ## [1.1.0] - 2026-06-10
 
 ### Changed

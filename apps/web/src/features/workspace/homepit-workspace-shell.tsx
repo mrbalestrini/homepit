@@ -51,6 +51,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 import { AvatarCircle, ProtectedUserAvatar } from "./protected-user-avatar";
 
 type WorkspaceTheme = "cozy" | "earthy" | "dark";
@@ -150,6 +151,9 @@ export function HomePitWorkspaceShell({
 }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [deleteHouseholdId, setDeleteHouseholdId] = useState<string | null>(null);
+  const householdToDelete =
+    deleteHouseholdId && deleteHouseholdId === controller.activeHousehold?.id ? controller.activeHousehold : null;
 
   return (
     <div className="min-h-screen bg-background lg:flex">
@@ -164,6 +168,7 @@ export function HomePitWorkspaceShell({
           collapsed={controller.sidebarCollapsed}
           activeModule={activeModule}
           onOpenProfile={() => setProfileDialogOpen(true)}
+          onRequestDeleteHousehold={() => setDeleteHouseholdId(controller.activeHousehold?.id ?? null)}
         />
       </aside>
 
@@ -203,12 +208,13 @@ export function HomePitWorkspaceShell({
 
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
         <SheetContent side="left" className="p-0 lg:hidden">
-          <SidebarContent
-            controller={controller}
-            collapsed={false}
-            activeModule={activeModule}
-            onOpenProfile={() => setProfileDialogOpen(true)}
-          />
+        <SidebarContent
+          controller={controller}
+          collapsed={false}
+          activeModule={activeModule}
+          onOpenProfile={() => setProfileDialogOpen(true)}
+          onRequestDeleteHousehold={() => setDeleteHouseholdId(controller.activeHousehold?.id ?? null)}
+        />
         </SheetContent>
       </Sheet>
 
@@ -243,6 +249,34 @@ export function HomePitWorkspaceShell({
           onSave={controller.updateProfile}
         />
       ) : null}
+
+      <DeleteConfirmationDialog
+        key={`household-delete-${deleteHouseholdId ?? "none"}-${householdToDelete?.id ?? "none"}`}
+        open={Boolean(householdToDelete)}
+        title="Excluir casa"
+        description="Essa ação é permanente e remove toda a estrutura e o conteúdo vinculados a esta casa."
+        confirmationTarget={householdToDelete?.name}
+        confirmationLabel={`Digite o nome da casa, ${householdToDelete?.name ?? ""}, para confirmar`}
+        confirmLabel="Excluir casa"
+        impactItems={[
+          "Todos os universos, projetos, atividades e pendências vinculados à casa.",
+          "Comentários associados às atividades e o histórico operacional relacionado.",
+          "Prompts, categorias e associações do banco de prompts desta casa.",
+          "Membros, permissões, convites e preferências de notificação.",
+        ]}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteHouseholdId(null);
+          }
+        }}
+        onConfirm={async () => {
+          if (!householdToDelete) {
+            return;
+          }
+
+          await controller.deleteHousehold(householdToDelete);
+        }}
+      />
     </div>
   );
 }
@@ -252,11 +286,13 @@ function SidebarContent({
   collapsed,
   activeModule,
   onOpenProfile,
+  onRequestDeleteHousehold,
 }: {
   controller: HomePitWorkspaceController;
   collapsed: boolean;
   activeModule: ActiveModule;
   onOpenProfile: () => void;
+  onRequestDeleteHousehold: () => void;
 }) {
   return (
     <div className="flex h-full w-full flex-col gap-3 p-3">
@@ -392,11 +428,7 @@ function SidebarContent({
                 <Button
                   variant="ghost"
                   size={collapsed ? "icon" : "default"}
-                  onClick={() => {
-                    if (controller.activeHousehold) {
-                      void controller.deleteHousehold(controller.activeHousehold).catch(() => undefined);
-                    }
-                  }}
+                  onClick={onRequestDeleteHousehold}
                   disabled={!controller.canManageHousehold}
                   title="Excluir casa"
                 >
