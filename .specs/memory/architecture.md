@@ -15,9 +15,18 @@
 - PostgreSQL e acessado por EF Core/Npgsql; o schema padrao e `homepit`.
 - O frontend usa App Router, paginas finas, hooks-controladores por feature e cliente HTTP
   centralizado em `src/lib/api.ts`.
+- A rota `/` renderiza uma pagina institucional publica a partir da API, enquanto
+  `/admin/institutional` oferece um CMS separado para SuperAdmin.
+- O conteudo institucional e global, usa o slug unico `home`, listas filhas ordenadas e
+  imagens publicas armazenadas no mesmo object storage.
+- O frontend persiste a casa ativa por usuario em `src/lib/household-selection.ts`,
+  validando a selecao salva contra a sessao atual e limpando entradas obsoletas.
+- O contrato de casas expõe `CreatedAt`, permitindo que o frontend escolha a casa mais
+  recente quando a selecao salva nao for mais valida.
 - Fluxo de autenticacao: cadastro/login em rotas publicas, JWT no grupo protegido `/api`,
   refresh rotacionado e sessao persistida pelo frontend. `/api/auth` e `/api/system/info`
-  ficam fora desse grupo protegido.
+  ficam fora desse grupo protegido; leitura da pagina e das imagens institucionais tambem
+  e publica.
 - Fluxo de tenancy: `X-Household-Id` seleciona a casa; uma unica casa pode ser inferida.
 - Integracoes: Supabase Postgres, MinIO, Evolution API, Redis, Coolify e OpenAPI versionado.
 - O worker de resumo consulta atividades abertas atribuidas ao membro e registra envios para

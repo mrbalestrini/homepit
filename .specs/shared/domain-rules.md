@@ -24,7 +24,10 @@
 - Categoria e unica por nome dentro da casa.
 - Excluir categoria exige substituta quando algum prompt ficaria sem categoria.
 - Imagens privadas pertencem ao usuario, universo ou prompt correspondente.
-- SuperAdmin lista casas e conteudo globalmente, mas operacoes de escrita sao proibidas.
+- SuperAdmin lista casas e conteudo globalmente, mas operacoes de escrita nos modulos das
+  casas sao proibidas.
+- SuperAdmin e o unico perfil que pode escrever no CMS institucional global.
+- A pagina institucional possui entre 1 e 6 beneficios e entre 1 e 6 etapas ordenadas.
 - Resumo diario considera atividades abertas atribuidas ao membro e ate tres pendencias
   abertas por atividade.
 

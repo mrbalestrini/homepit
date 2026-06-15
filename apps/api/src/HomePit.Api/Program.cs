@@ -5,6 +5,7 @@ using HomePit.Application;
 using HomePit.Application.Auth;
 using HomePit.Application.Common;
 using HomePit.Application.Households;
+using HomePit.Application.Institutional;
 using HomePit.Application.Prompts;
 using HomePit.Application.Projects;
 using HomePit.Infrastructure;
@@ -97,7 +98,62 @@ auth.MapPost("/login", async (LoginRequest request, AuthService service, Cancell
 auth.MapPost("/refresh", async (RefreshRequest request, AuthService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.RefreshAsync(request, cancellationToken)));
 
+app.MapGet("/api/institutional-page", async (
+    HttpContext context,
+    InstitutionalPageService service,
+    CancellationToken cancellationToken) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.Ok(await service.GetPublicAsync(cancellationToken));
+});
+app.MapGet("/api/institutional-page/images/{slot}", async (
+    string slot,
+    HttpContext context,
+    InstitutionalPageService service,
+    CancellationToken cancellationToken) =>
+{
+    var image = await service.GetImageAsync(slot, cancellationToken);
+    context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+    return Results.File(image.Content, image.ContentType);
+});
+
 var api = app.MapGroup("/api").RequireAuthorization();
+
+api.MapGet("/admin/institutional-page", async (
+    InstitutionalPageService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.GetAdminAsync(cancellationToken)));
+api.MapPut("/admin/institutional-page", async (
+    UpdateInstitutionalPageRequest request,
+    InstitutionalPageService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateAsync(request, cancellationToken)));
+api.MapPost("/admin/institutional-page/images/{slot}", async (
+    string slot,
+    HttpRequest request,
+    InstitutionalPageService service,
+    CancellationToken cancellationToken) =>
+{
+    if (!request.HasFormContentType)
+    {
+        throw new ValidationException("Envie a imagem institucional em multipart/form-data.");
+    }
+
+    var form = await request.ReadFormAsync(cancellationToken);
+    var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+    if (file is null)
+    {
+        throw new ValidationException("Selecione uma imagem para a página institucional.");
+    }
+
+    await using var stream = file.OpenReadStream();
+    return Results.Ok(await service.UploadImageAsync(slot, stream, file.Length, file.ContentType, cancellationToken));
+});
+api.MapDelete("/admin/institutional-page/images/{slot}", async (
+    string slot,
+    InstitutionalPageService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.DeleteImageAsync(slot, cancellationToken)));
 
 api.MapGet("/households", async (HouseholdService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.ListAsync(cancellationToken)));

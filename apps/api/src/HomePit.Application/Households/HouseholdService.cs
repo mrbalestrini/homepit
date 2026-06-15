@@ -34,7 +34,7 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
             return await db.Households
                 .AsNoTracking()
                 .OrderBy(household => household.Name)
-                .Select(household => new HouseholdDto(household.Id, household.Name, HouseholdRole.Member))
+                .Select(household => new HouseholdDto(household.Id, household.Name, HouseholdRole.Member, household.CreatedAt))
                 .ToArrayAsync(cancellationToken);
         }
 
@@ -42,7 +42,7 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
             .AsNoTracking()
             .Where(member => member.UserId == userContext.UserId && member.IsActive)
             .OrderBy(member => member.Household!.Name)
-            .Select(member => new HouseholdDto(member.HouseholdId, member.Household!.Name, member.Role))
+            .Select(member => new HouseholdDto(member.HouseholdId, member.Household!.Name, member.Role, member.Household!.CreatedAt))
             .ToArrayAsync(cancellationToken);
     }
 
@@ -71,7 +71,7 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
         });
 
         await db.SaveChangesAsync(cancellationToken);
-        return new HouseholdDto(household.Id, household.Name, member.Role);
+        return new HouseholdDto(household.Id, household.Name, member.Role, household.CreatedAt);
     }
 
     public async Task<HouseholdDto> UpdateAsync(
@@ -91,7 +91,7 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
         member.Household!.Name = request.Name.Trim();
         await db.SaveChangesAsync(cancellationToken);
 
-        return new HouseholdDto(member.HouseholdId, member.Household.Name, member.Role);
+        return new HouseholdDto(member.HouseholdId, member.Household.Name, member.Role, member.Household.CreatedAt);
     }
 
     public async Task DeleteAsync(Guid householdId, CancellationToken cancellationToken)

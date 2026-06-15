@@ -13,7 +13,15 @@
 - Exclusoes usam combinacao de cascata, `SetNull`, `Restrict` e inativacao conforme o vinculo.
 - Erros de aplicacao viram Problem Details; erros inesperados nao retornam detalhe interno.
 - Arquivos privados sao lidos por endpoints autenticados com `Cache-Control: no-store`.
+- Imagens institucionais sao a excecao publica do object storage e usam
+  `Cache-Control: public, max-age=31536000, immutable` com timestamp na URL.
+- O CMS institucional e global, nao usa `X-Household-Id` e valida `SystemRole.SuperAdmin`
+  no servico de Application.
 - Frontend centraliza tipos, fetch, refresh e eventos de sessao em `src/lib/api.ts`.
+- A selecao da casa ativa usa helper compartilhado em `src/lib/household-selection.ts`
+  para persistencia segura, validacao contra a sessao e limpeza de valores obsoletos.
+- Casas na sessao agora incluem `CreatedAt`, permitindo fallback por recencia quando a
+  selecao salva nao existe mais.
 - Hooks de feature funcionam como controladores de estado e mutacao.
 - Telas reutilizam `HomePitWorkspaceShell` e componentes em `components/ui`.
 - Next.js gera output `standalone`; Docker usa build multi-stage e usuario nao root na web.

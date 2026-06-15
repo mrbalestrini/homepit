@@ -1,5 +1,6 @@
 using HomePit.Application.Auth;
 using HomePit.Application.Households;
+using HomePit.Application.Institutional;
 using HomePit.Application.Prompts;
 using HomePit.Application.Projects;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +13,7 @@ public static class DependencyInjection
     {
         services.AddScoped<AuthService>();
         services.AddScoped<HouseholdService>();
+        services.AddScoped<InstitutionalPageService>();
         services.AddScoped<ProjectService>();
         services.AddScoped<PromptService>();
 

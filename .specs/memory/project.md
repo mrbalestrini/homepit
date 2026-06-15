@@ -6,12 +6,13 @@
   automacoes domesticas e prompts da familia.
 - A interface se apresenta como operacao compartilhada de uma casa.
 - Modulos implementados: autenticacao/perfil, casas e membros, projetos, banco de prompts,
-  armazenamento privado e notificacoes por WhatsApp.
+  pagina institucional com CMS, armazenamento e notificacoes por WhatsApp.
 - Projetos seguem `Universo > Projeto > Atividade > Pendencia`, com comentarios em atividades.
-- O frontend possui paginas para `/projects`, `/prompts` e `/household`.
+- O frontend possui landing publica em `/`, CMS em `/admin/institutional` e paginas internas
+  para `/projects`, `/prompts` e `/household`.
 - Financeiro e supermercado existem apenas como documentacao de modulos planejados.
 - A versao em `apps/web/package.json`, `apps/web/package-lock.json` e `CHANGELOG.md` e
-  `1.2.0`.
+  `1.2.1`.
 
 ## INFERÊNCIA
 

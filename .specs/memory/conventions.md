@@ -17,6 +17,8 @@
 - Paginas em `src/app` delegam para componentes em `src/features`.
 - Componentes compartilhados ficam em `components/ui` e `features/workspace`.
 - Estado e mutacoes das telas ficam em hooks como `useProjectDashboard` e `usePromptBank`.
+- Persistencia local compartilhada fica em helpers de `src/lib`, como a selecao da casa
+  ativa por usuario em `household-selection.ts`.
 - Testes frontend `*.test.ts(x)` ficam junto ao codigo; backend separa unidade e integracao.
 - Commits seguem Conventional Commits em portugues, minusculas e sem acentuacao.
 

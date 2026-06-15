@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity, AuthResponse, Project } from "@/lib/api";
 import * as api from "@/lib/api";
+import { readStoredActiveHouseholdId, storeActiveHouseholdId } from "@/lib/household-selection";
 import { useProjectDashboard } from "./use-project-dashboard";
 
 vi.mock("@/lib/api", async () => {
@@ -264,5 +265,85 @@ describe("useProjectDashboard activity status optimism", () => {
     });
 
     expect(result.current.projects.find((item) => item.id === project.id)?.activityCount).toBe(0);
+  });
+});
+
+describe("useProjectDashboard household selection persistence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("restores the stored household and persists later changes for the same user", async () => {
+    const session = {
+      ...buildSession(),
+      households: [
+        {
+          id: "household-1",
+          name: "Casa A",
+          role: "Owner" as const,
+        },
+        {
+          id: "household-2",
+          name: "Casa B",
+          role: "Admin" as const,
+        },
+      ],
+    };
+
+    storeActiveHouseholdId(session.user.id, "household-2");
+    mockedReadSession.mockReturnValue(session);
+    mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
+    mockedApiFetch.mockImplementation(async (path: string) => {
+      if (path === "/api/universes" || path === "/api/projects" || path === "/api/activities" || path === "/api/households/members") {
+        return [];
+      }
+
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const { result } = renderHook(() => useProjectDashboard());
+
+    await waitFor(() => expect(result.current.activeHouseholdId).toBe("household-2"));
+
+    act(() => {
+      result.current.handleHouseholdChange("household-1");
+    });
+
+    await waitFor(() => expect(readStoredActiveHouseholdId(session.user.id)).toBe("household-1"));
+  });
+
+  it("clears an invalid stored household and falls back to the last available one", async () => {
+    const session = {
+      ...buildSession(),
+      households: [
+        {
+          id: "household-1",
+          name: "Casa A",
+          role: "Owner" as const,
+        },
+        {
+          id: "household-2",
+          name: "Casa B",
+          role: "Member" as const,
+        },
+      ],
+    };
+
+    storeActiveHouseholdId(session.user.id, "household-missing");
+    mockedReadSession.mockReturnValue(session);
+    mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
+    mockedApiFetch.mockImplementation(async (path: string) => {
+      if (path === "/api/universes" || path === "/api/projects" || path === "/api/activities" || path === "/api/households/members") {
+        return [];
+      }
+
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const { result } = renderHook(() => useProjectDashboard());
+
+    await waitFor(() => expect(result.current.activeHouseholdId).toBe("household-2"));
+    await waitFor(() => expect(readStoredActiveHouseholdId(session.user.id)).toBe("household-2"));
   });
 });

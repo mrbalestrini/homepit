@@ -4,6 +4,16 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.2.1] - 2026-06-15
+
+### Added
+- Nova página institucional pública em `/`, com conteúdo de aquisição, metadata de SEO e imagens responsivas.
+- CMS separado em `/admin/institutional`, com edição estruturada, publicação imediata e acesso exclusivo ao SuperAdmin.
+- API pública e administrativa para conteúdo institucional, incluindo imagens públicas versionadas em object storage.
+
+### Changed
+- A seleção da casa ativa agora é lembrada por usuário no navegador, com limpeza automática quando a casa salva não existe mais e fallback seguro para a casa existente mais recente.
+
 ## [1.2.0] - 2026-06-12
 
 ### Changed

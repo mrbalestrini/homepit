@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Home,
+  Globe2,
   Layers,
   Leaf,
   LogOut,
@@ -103,15 +104,17 @@ const moduleIcons = {
   market: ShoppingCart,
   finance: Wallet,
   routines: Repeat2,
+  institutional: Globe2,
 };
 
 const modules = [
-  { key: "projects", label: "Projetos", href: "/projects", state: "active" as const },
-  { key: "prompts", label: "Prompts", href: "/prompts", state: "active" as const },
-  { key: "household", label: "Casa", href: "/household", state: "active" as const },
-  { key: "market", label: "Mercado", href: "#", state: "roadmap" as const },
-  { key: "finance", label: "Financeiro", href: "#", state: "roadmap" as const },
-  { key: "routines", label: "Rotinas", href: "#", state: "roadmap" as const },
+  { key: "projects", label: "Projetos", href: "/projects", state: "active" as const, superAdminOnly: false },
+  { key: "prompts", label: "Prompts", href: "/prompts", state: "active" as const, superAdminOnly: false },
+  { key: "household", label: "Casa", href: "/household", state: "active" as const, superAdminOnly: false },
+  { key: "institutional", label: "Site institucional", href: "/admin/institutional", state: "active" as const, superAdminOnly: true },
+  { key: "market", label: "Mercado", href: "#", state: "roadmap" as const, superAdminOnly: false },
+  { key: "finance", label: "Financeiro", href: "#", state: "roadmap" as const, superAdminOnly: false },
+  { key: "routines", label: "Rotinas", href: "#", state: "roadmap" as const, superAdminOnly: false },
 ];
 
 const roleLabels: Record<Household["role"], string> = {
@@ -329,6 +332,10 @@ function SidebarContent({
             Módulos
           </p>
           {modules.map((module) => {
+            if (module.superAdminOnly && controller.session?.user.systemRole !== "SuperAdmin") {
+              return null;
+            }
+
             const Icon = moduleIcons[module.key as keyof typeof moduleIcons];
             const isActive = module.key === activeModule;
             const isEnabled = module.state === "active";

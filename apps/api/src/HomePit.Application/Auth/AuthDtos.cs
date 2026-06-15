@@ -31,4 +31,4 @@ public sealed record UserDto(
     bool HasProfilePhoto,
     DateTimeOffset? ProfilePhotoUpdatedAt);
 
-public sealed record HouseholdDto(Guid Id, string Name, HouseholdRole Role);
+public sealed record HouseholdDto(Guid Id, string Name, HouseholdRole Role, DateTimeOffset CreatedAt);

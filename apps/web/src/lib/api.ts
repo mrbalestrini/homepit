@@ -2,6 +2,7 @@ export type Household = {
   id: string;
   name: string;
   role: "Owner" | "Admin" | "Member";
+  createdAt?: string | null;
 };
 
 export type HouseholdMember = {
@@ -161,7 +162,45 @@ export type PromptDetail = {
   canDelete: boolean;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+export type InstitutionalContentItem = {
+  position: number;
+  title: string;
+  description: string;
+};
+
+export type InstitutionalPageContent = {
+  slug: string;
+  seoTitle: string;
+  seoDescription: string;
+  brandName: string;
+  brandTagline: string;
+  heroEyebrow: string;
+  heroTitle: string;
+  heroDescription: string;
+  primaryCtaLabel: string;
+  primaryCtaUrl: string;
+  benefitsTitle: string;
+  benefitsDescription: string;
+  benefits: InstitutionalContentItem[];
+  stepsTitle: string;
+  stepsDescription: string;
+  steps: InstitutionalContentItem[];
+  highlightEyebrow: string;
+  highlightTitle: string;
+  highlightDescription: string;
+  finalCtaTitle: string;
+  finalCtaDescription: string;
+  footerText: string;
+  heroImageAlt: string;
+  hasHeroImage: boolean;
+  heroImageUpdatedAt?: string | null;
+  highlightImageAlt: string;
+  hasHighlightImage: boolean;
+  highlightImageUpdatedAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const SESSION_STORAGE_KEY = "homepit.session";
 const SESSION_EVENT_NAME = "homepit:session-changed";
 const ACCESS_TOKEN_REFRESH_LEEWAY_MS = 2 * 60 * 1000;

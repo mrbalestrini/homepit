@@ -18,6 +18,12 @@ import {
   subscribeToSessionChanges,
   updateStoredSession,
 } from "@/lib/api";
+import {
+  clearStoredActiveHouseholdId,
+  readStoredActiveHouseholdId,
+  resolveActiveHouseholdSelection,
+  storeActiveHouseholdId,
+} from "@/lib/household-selection";
 import { defaultAppTheme, uiStorageKeys } from "@/features/projects/project-dashboard.constants";
 import type { AppTheme } from "@/features/projects/project-dashboard.types";
 import { getErrorMessage } from "@/features/projects/project-dashboard.utils";
@@ -69,6 +75,7 @@ export function usePromptBank() {
   const [loadingPrompts, setLoadingPrompts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sessionUserIdRef = useRef<string | null>(null);
+  const activeHouseholdIdRef = useRef("");
 
   const resetWorkspaceState = useCallback(() => {
     setUniverses([]);
@@ -102,15 +109,23 @@ export function usePromptBank() {
       }
 
       setSession(nextSession);
-      setActiveHouseholdId((current) => {
-        if (!nextSession) {
-          return "";
-        }
+      if (!nextSession) {
+        setActiveHouseholdId("");
+        return;
+      }
 
-        return current && nextSession.households.some((household) => household.id === current)
-          ? current
-          : nextSession.households[0]?.id ?? "";
-      });
+      const storedHouseholdId = readStoredActiveHouseholdId(nextSession.user.id);
+      const { householdId, shouldClearStoredHouseholdId } = resolveActiveHouseholdSelection(
+        nextSession.households,
+        activeHouseholdIdRef.current,
+        storedHouseholdId,
+      );
+
+      if (shouldClearStoredHouseholdId) {
+        clearStoredActiveHouseholdId(nextSession.user.id);
+      }
+
+      setActiveHouseholdId(householdId);
       const hasHouseholds = Boolean(nextSession && nextSession.households.length > 0);
       setLoadingReferences(hasHouseholds);
       setLoadingPrompts(hasHouseholds);
@@ -153,6 +168,25 @@ export function usePromptBank() {
   useEffect(() => {
     applyDocumentTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    activeHouseholdIdRef.current = activeHouseholdId;
+  }, [activeHouseholdId]);
+
+  useEffect(() => {
+    const userId = session?.user.id;
+
+    if (!userId) {
+      return;
+    }
+
+    if (activeHouseholdId) {
+      storeActiveHouseholdId(userId, activeHouseholdId);
+      return;
+    }
+
+    clearStoredActiveHouseholdId(userId);
+  }, [activeHouseholdId, session?.user.id]);
 
   const activeHousehold = useMemo(() => {
     return session?.households.find((household) => household.id === activeHouseholdId) ?? null;
@@ -359,15 +393,21 @@ export function usePromptBank() {
 
       setSession(nextSession);
 
-      const nextHouseholdId =
-        preferredHouseholdId ??
-        (activeHouseholdId && nextHouseholds.some((household) => household.id === activeHouseholdId)
-          ? activeHouseholdId
-          : nextHouseholds[0]?.id ?? "");
+      const storedHouseholdId = readStoredActiveHouseholdId(nextSession.user.id);
+      const { householdId, shouldClearStoredHouseholdId } = resolveActiveHouseholdSelection(
+        nextHouseholds,
+        activeHouseholdIdRef.current,
+        storedHouseholdId,
+        preferredHouseholdId,
+      );
 
-      setActiveHouseholdId(nextHouseholdId);
+      if (shouldClearStoredHouseholdId) {
+        clearStoredActiveHouseholdId(nextSession.user.id);
+      }
+
+      setActiveHouseholdId(householdId);
     },
-    [activeHouseholdId],
+    [],
   );
 
   const applyUpdatedUser = useCallback(

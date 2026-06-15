@@ -3,6 +3,97 @@ import { describe, expect, it, vi } from "vitest";
 import { HomePitWorkspaceShell } from "./homepit-workspace-shell";
 
 describe("HomePitWorkspaceShell header", () => {
+  it("shows the institutional CMS shortcut only to SuperAdmin", () => {
+    const baseController = {
+      activeHouseholdId: "",
+      activeHousehold: null,
+      members: [],
+      theme: "cozy" as const,
+      sidebarCollapsed: false,
+      loading: false,
+      error: null,
+      canShareHousehold: false,
+      canManageHousehold: false,
+      editingHousehold: null,
+      isHouseholdDialogOpen: false,
+      isShareDialogOpen: false,
+      setError: () => undefined,
+      setSidebarCollapsed: () => undefined,
+      setTheme: () => undefined,
+      handleHouseholdChange: () => undefined,
+      handleLogout: () => undefined,
+      refreshHouseholds: async () => undefined,
+      refreshWorkspace: async () => undefined,
+      openCreateHousehold: () => undefined,
+      openEditHousehold: () => undefined,
+      openShareHousehold: () => undefined,
+      closeCommonModal: () => undefined,
+      createHousehold: async () => undefined,
+      updateHousehold: async () => undefined,
+      deleteHousehold: async () => undefined,
+      shareHousehold: async () => undefined,
+      updateProfile: async () => undefined,
+    };
+    const { rerender, unmount } = render(
+      <HomePitWorkspaceShell
+        controller={{
+          ...baseController,
+          session: {
+            accessToken: "token",
+            refreshToken: "refresh",
+            expiresAt: "2026-06-15T18:00:00Z",
+            user: {
+              id: "user-1",
+              email: "user@homepit.dev",
+              displayName: "User",
+              systemRole: "User",
+              hasProfilePhoto: false,
+            },
+            households: [],
+          },
+        }}
+        activeModule="projects"
+        subtitle="Escopo atual"
+        visibleCount={0}
+        headerStats={[]}
+      >
+        <div>Conteúdo</div>
+      </HomePitWorkspaceShell>,
+    );
+
+    expect(screen.queryByRole("link", { name: "Site institucional" })).not.toBeInTheDocument();
+
+    rerender(
+      <HomePitWorkspaceShell
+        controller={{
+          ...baseController,
+          session: {
+            accessToken: "token",
+            refreshToken: "refresh",
+            expiresAt: "2026-06-15T18:00:00Z",
+            user: {
+              id: "superadmin-1",
+              email: "superadmin@homepit.dev",
+              displayName: "SuperAdmin",
+              systemRole: "SuperAdmin",
+              hasProfilePhoto: false,
+            },
+            households: [],
+          },
+        }}
+        activeModule="projects"
+        subtitle="Escopo atual"
+        visibleCount={0}
+        headerStats={[]}
+      >
+        <div>Conteúdo</div>
+      </HomePitWorkspaceShell>,
+    );
+
+    expect(screen.getByRole("link", { name: "Site institucional" })).toHaveAttribute("href", "/admin/institutional");
+    unmount();
+  });
+
   it("renders compact header stats without card containers", () => {
     render(
       <HomePitWorkspaceShell

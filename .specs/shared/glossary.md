@@ -17,7 +17,9 @@
 - `PromptCategoryAssignment`: associacao muitos-para-muitos entre prompt e categoria.
 - `NotificationPreference`: configuracao de resumo diario por membro.
 - `NotificationRun`: registro de envio usado para idempotencia.
-- `SuperAdmin`: usuario global configurado por ambiente, com leitura entre casas e sem escrita.
+- `InstitutionalPage`: configuracao global da landing publica, sem vinculo com casa.
+- `SuperAdmin`: usuario global configurado por ambiente, com leitura entre casas e escrita
+  restrita ao CMS institucional.
 - `Daily digest`: resumo de atividades abertas atribuidas ao membro, enviado por WhatsApp.
 
 ## INFERÊNCIA

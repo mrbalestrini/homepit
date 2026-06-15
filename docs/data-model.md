@@ -29,6 +29,16 @@
 - Prompt/category assignments are unique through the `(PromptId, CategoryId)` key.
 - Prompt listing is optimized by indexes on `(HouseholdId, UpdatedAt)` and `(HouseholdId, UniverseId, UpdatedAt)`.
 
+## Institutional Page
+
+- `InstitutionalPage`: global, auditable landing page configuration identified by the
+  unique slug `home`; it is not scoped to a household.
+- `InstitutionalBenefit`: ordered benefit item deleted with its institutional page.
+- `InstitutionalStep`: ordered process item deleted with its institutional page.
+- Hero and highlight image metadata live on `InstitutionalPage`; binary objects use the
+  existing object storage under `institutional/home/{slot}`.
+- `(InstitutionalPageId, Position)` is unique inside each ordered child collection.
+
 ## Status and Priority
 
 Activity status values:

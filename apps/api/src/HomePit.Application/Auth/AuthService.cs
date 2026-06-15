@@ -243,14 +243,18 @@ public sealed class AuthService(
         IReadOnlyCollection<HouseholdMember> memberships,
         CancellationToken cancellationToken)
     {
-        var households = user.SystemRole == SystemRole.SuperAdmin
-            ? await db.Households
+            var households = user.SystemRole == SystemRole.SuperAdmin
+                ? await db.Households
                 .AsNoTracking()
                 .OrderBy(household => household.Name)
-                .Select(household => new HouseholdDto(household.Id, household.Name, HouseholdRole.Member))
+                .Select(household => new HouseholdDto(household.Id, household.Name, HouseholdRole.Member, household.CreatedAt))
                 .ToArrayAsync(cancellationToken)
             : memberships
-                .Select(member => new HouseholdDto(member.HouseholdId, member.Household?.Name ?? string.Empty, member.Role))
+                .Select(member => new HouseholdDto(
+                    member.HouseholdId,
+                    member.Household?.Name ?? string.Empty,
+                    member.Role,
+                    member.Household!.CreatedAt))
                 .ToArray();
 
         return new AuthResponse(

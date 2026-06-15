@@ -1,6 +1,7 @@
 using HomePit.Application.Common;
 using HomePit.Domain.Common;
 using HomePit.Domain.Households;
+using HomePit.Domain.Institutional;
 using HomePit.Domain.Notifications;
 using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
@@ -15,6 +16,9 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<Household> Households => Set<Household>();
     public DbSet<HouseholdMember> HouseholdMembers => Set<HouseholdMember>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<InstitutionalPage> InstitutionalPages => Set<InstitutionalPage>();
+    public DbSet<InstitutionalBenefit> InstitutionalBenefits => Set<InstitutionalBenefit>();
+    public DbSet<InstitutionalStep> InstitutionalSteps => Set<InstitutionalStep>();
     public DbSet<Universe> Universes => Set<Universe>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Activity> Activities => Set<Activity>();
@@ -31,9 +35,69 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
         modelBuilder.HasDefaultSchema("homepit");
 
         ConfigureHouseholds(modelBuilder);
+        ConfigureInstitutional(modelBuilder);
         ConfigureProjects(modelBuilder);
         ConfigurePrompts(modelBuilder);
         ConfigureNotifications(modelBuilder);
+    }
+
+    private static void ConfigureInstitutional(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<InstitutionalPage>(builder =>
+        {
+            builder.ToTable("institutional_pages");
+            builder.Property(page => page.Slug).HasMaxLength(80).IsRequired();
+            builder.Property(page => page.SeoTitle).HasMaxLength(160).IsRequired();
+            builder.Property(page => page.SeoDescription).HasMaxLength(320).IsRequired();
+            builder.Property(page => page.BrandName).HasMaxLength(80).IsRequired();
+            builder.Property(page => page.BrandTagline).HasMaxLength(200).IsRequired();
+            builder.Property(page => page.HeroEyebrow).HasMaxLength(120).IsRequired();
+            builder.Property(page => page.HeroTitle).HasMaxLength(240).IsRequired();
+            builder.Property(page => page.HeroDescription).HasMaxLength(1200).IsRequired();
+            builder.Property(page => page.PrimaryCtaLabel).HasMaxLength(80).IsRequired();
+            builder.Property(page => page.PrimaryCtaUrl).HasMaxLength(2000).IsRequired();
+            builder.Property(page => page.BenefitsTitle).HasMaxLength(200).IsRequired();
+            builder.Property(page => page.BenefitsDescription).HasMaxLength(600).IsRequired();
+            builder.Property(page => page.StepsTitle).HasMaxLength(200).IsRequired();
+            builder.Property(page => page.StepsDescription).HasMaxLength(600).IsRequired();
+            builder.Property(page => page.HighlightEyebrow).HasMaxLength(120).IsRequired();
+            builder.Property(page => page.HighlightTitle).HasMaxLength(240).IsRequired();
+            builder.Property(page => page.HighlightDescription).HasMaxLength(1200).IsRequired();
+            builder.Property(page => page.FinalCtaTitle).HasMaxLength(240).IsRequired();
+            builder.Property(page => page.FinalCtaDescription).HasMaxLength(1200).IsRequired();
+            builder.Property(page => page.FooterText).HasMaxLength(600).IsRequired();
+            builder.Property(page => page.HeroImageAlt).HasMaxLength(300).IsRequired();
+            builder.Property(page => page.HeroImageObjectKey).HasMaxLength(512);
+            builder.Property(page => page.HeroImageContentType).HasMaxLength(120);
+            builder.Property(page => page.HighlightImageAlt).HasMaxLength(300).IsRequired();
+            builder.Property(page => page.HighlightImageObjectKey).HasMaxLength(512);
+            builder.Property(page => page.HighlightImageContentType).HasMaxLength(120);
+            builder.HasIndex(page => page.Slug).IsUnique();
+        });
+
+        modelBuilder.Entity<InstitutionalBenefit>(builder =>
+        {
+            builder.ToTable("institutional_benefits");
+            builder.Property(item => item.Title).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.Description).HasMaxLength(600).IsRequired();
+            builder.HasIndex(item => new { item.InstitutionalPageId, item.Position }).IsUnique();
+            builder.HasOne(item => item.InstitutionalPage)
+                .WithMany(page => page.Benefits)
+                .HasForeignKey(item => item.InstitutionalPageId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<InstitutionalStep>(builder =>
+        {
+            builder.ToTable("institutional_steps");
+            builder.Property(item => item.Title).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.Description).HasMaxLength(600).IsRequired();
+            builder.HasIndex(item => new { item.InstitutionalPageId, item.Position }).IsUnique();
+            builder.HasOne(item => item.InstitutionalPage)
+                .WithMany(page => page.Steps)
+                .HasForeignKey(item => item.InstitutionalPageId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

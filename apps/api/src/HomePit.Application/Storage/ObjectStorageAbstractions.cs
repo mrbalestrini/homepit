@@ -36,4 +36,5 @@ public static class ObjectStorageKeys
     public static string UserProfilePhoto(Guid userId) => $"users/{userId:D}/profile-photo";
     public static string UniverseImage(Guid universeId) => $"universes/{universeId:D}/image";
     public static string PromptImage(Guid promptId) => $"prompts/{promptId:D}/image";
+    public static string InstitutionalImage(string slug, string slot) => $"institutional/{slug}/{slot}";
 }

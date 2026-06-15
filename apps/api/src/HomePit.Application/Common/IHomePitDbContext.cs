@@ -1,4 +1,5 @@
 using HomePit.Domain.Households;
+using HomePit.Domain.Institutional;
 using HomePit.Domain.Notifications;
 using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
@@ -12,6 +13,9 @@ public interface IHomePitDbContext
     DbSet<Household> Households { get; }
     DbSet<HouseholdMember> HouseholdMembers { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
+    DbSet<InstitutionalPage> InstitutionalPages { get; }
+    DbSet<InstitutionalBenefit> InstitutionalBenefits { get; }
+    DbSet<InstitutionalStep> InstitutionalSteps { get; }
     DbSet<Universe> Universes { get; }
     DbSet<Project> Projects { get; }
     DbSet<Activity> Activities { get; }

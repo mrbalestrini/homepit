@@ -5,8 +5,20 @@ HomePit separa permissoes em dois niveis: perfil do sistema e perfil dentro de c
 ## Perfil do sistema
 
 - `Admin`: concedido automaticamente ao primeiro usuario cadastrado. Este perfil fica guardado para futuras telas de administracao da ferramenta.
-- `SuperAdmin`: acesso global somente leitura quando configurado via `.env`/Coolify. Pode navegar por qualquer casa e modulo existente para suporte e testes, mas nao cria, edita, exclui ou compartilha dados nesta etapa.
+- `SuperAdmin`: acesso global quando configurado via `.env`/Coolify. Pode navegar por
+  qualquer casa e modulo existente para suporte e testes, mas continua sem criar, editar,
+  excluir ou compartilhar dados das casas.
 - `User`: perfil padrao dos demais usuarios.
+
+## CMS institucional
+
+- Somente `SystemRole.SuperAdmin` acessa `/admin/institutional`.
+- O SuperAdmin pode editar e publicar o conteudo global da pagina institucional e gerenciar
+  as imagens de hero e destaque.
+- `SystemRole.Admin`, `SystemRole.User` e acessos anonimos nao podem ler nem alterar o painel.
+- A pagina e as imagens publicadas possuem leitura anonima.
+- Esta e a unica excecao de escrita ao perfil global SuperAdmin; as regras das casas nao
+  mudam.
 
 ## Perfis da casa
 

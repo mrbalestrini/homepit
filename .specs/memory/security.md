@@ -13,9 +13,13 @@
 - JWT inclui identidade, perfil do sistema, casas e papeis por casa.
 - O frontend guarda access token e refresh token em `localStorage`.
 - SuperAdmin e habilitado por configuracao e bloqueado para escrita nos servicos observados.
+- A unica excecao de escrita do SuperAdmin e o CMS institucional global; a verificacao
+  ocorre no servico de Application.
 - `Owner`, `Admin` e `Member` possuem autorizacao adicional aplicada nos servicos.
 - CORS aceita qualquer origem quando a lista configurada esta vazia.
 - Uploads de perfil, universo e prompt aceitam JPG, PNG ou WEBP e limitam 5 MB.
+- Imagens institucionais aceitam os mesmos tipos e limite, mas possuem leitura publica
+  intencional e cache por URL versionada.
 - Dados com indicio de sensibilidade: e-mail, hash de senha, telefone/WhatsApp, tokens,
   objetos privados e identificadores de mensagens.
 
