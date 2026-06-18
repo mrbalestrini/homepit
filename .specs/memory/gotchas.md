@@ -14,6 +14,9 @@
 - `npm test` passa, mas emite aviso de deprecacao da API CJS do Vite.
 - Migrations podem ser aplicadas no startup; quando desativadas, migrations pendentes
   impedem a inicializacao.
+- Em deploy automatico, uma migration manual sem metadados de descoberta do EF pode gerar
+  falso positivo de "database is up to date" e a falha so aparece depois, em runtime,
+  quando uma query toca colunas novas.
 - A configuracao observada habilita criacao/verificacao do bucket no startup, com tentativas
   de repeticao antes da API iniciar.
 - O setup nao sobrescreve `.env` existentes; configuracao antiga pode permanecer ativa.
@@ -30,6 +33,8 @@
   tenta acessar `8080`; validar antes de confiar nos enderecos documentados.
 - Alterar cascatas, autoria nula/inativa ou exclusoes sem revisar migrations e testes pode
   quebrar preservacao de historico.
+- Ao investigar `errorMissingColumn` apos deploy, nao assumir primeiro que faltou aplicar
+  migration manualmente; validar tambem se a migration foi descoberta pelo EF no assembly.
 - Nao "corrigir" as divergencias de versao, OpenAPI, rede ou portas sem definir primeiro qual
   arquivo e a fonte de verdade.
 

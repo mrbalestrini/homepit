@@ -1,9 +1,13 @@
+using HomePit.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace HomePit.Infrastructure.Migrations;
 
+[DbContext(typeof(HomePitDbContext))]
+[Migration("20260618110000_AddInstitutionalSeoImage")]
 public partial class AddInstitutionalSeoImage : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

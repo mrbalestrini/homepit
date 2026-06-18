@@ -24,6 +24,14 @@ Nao altere codigo sem plano quando houver impacto em banco, autenticacao, autori
 deploy, variaveis de ambiente, dados, arquitetura ou regras de negocio. Registre decisoes
 duraveis em `.specs/changes/<mudanca>/decisions.md`.
 
+Em mudancas com EF Core e banco:
+- Nao trate a criacao do arquivo de migration como suficiente. Se a migration for criada ou
+  editada manualmente, preserve os metadados que permitem ao EF detecta-la automaticamente
+  no startup e no deploy.
+- Considere o fluxo real de deploy: no ambiente padrao a API pode depender de aplicacao
+  automatica de migrations; uma migration "invisivel" para o EF pode deixar o banco
+  defasado mesmo quando o log disser que nao ha pendencias.
+
 Nao inclua segredos no repositorio e nao execute `commit`, `push` ou `git add` sem ordem
 explicita.
 

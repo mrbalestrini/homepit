@@ -14,3 +14,6 @@
    salvamento destinado a producao.
 10. O compartilhamento social usa uma imagem SEO dedicada no slot publico `seo`, restrita a
     WEBP em `1200 x 630 px`, para nao acoplar o preview externo a imagem principal da landing.
+11. Como o deploy padrao depende de aplicacao automatica de migrations no startup, migrations
+    criadas ou ajustadas manualmente devem manter explicitamente os metadados de descoberta do
+    EF Core, evitando falso positivo de banco atualizado em producao.

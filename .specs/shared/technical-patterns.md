@@ -9,6 +9,12 @@
 - `IHomePitDbContext`, `IPasswordHasher`, `ITokenService`, `IObjectStorage` e
   `IWhatsAppClient` isolam dependencias.
 - EF Core usa schema `homepit`, configuracao Fluent API, indices, constraints e migrations.
+- `appsettings.json` habilita `Database:ApplyMigrationsOnStartup`; em
+  `appsettings.Development.json` essa automacao fica desativada e a API exige banco sem
+  migrations pendentes.
+- Migrations escritas ou ajustadas manualmente precisam manter os metadados que o EF Core
+  usa para descobri-las no assembly, incluindo `[DbContext(typeof(HomePitDbContext))]` e
+  `[Migration("yyyyMMddHHmmss_NomeDaMigration")]`.
 - Entidades auditaveis recebem `CreatedAt` e `UpdatedAt` no `SaveChangesAsync`.
 - Exclusoes usam combinacao de cascata, `SetNull`, `Restrict` e inativacao conforme o vinculo.
 - Erros de aplicacao viram Problem Details; erros inesperados nao retornam detalhe interno.
@@ -34,6 +40,8 @@
   introduzir uma nova camada.
 - Alteracoes de contrato devem atualizar implementacao, tipos frontend, OpenAPI e testes
   relacionados, pois hoje esses artefatos sao mantidos separadamente.
+- Em HomePit, validar migration significa tambem validar descobribilidade no startup do
+  deploy; arquivo presente no repositorio nao garante que o EF a considere pendente.
 
 ## NÃO IDENTIFICADO
 
