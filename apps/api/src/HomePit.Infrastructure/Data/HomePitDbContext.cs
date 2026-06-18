@@ -49,6 +49,8 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(page => page.Slug).HasMaxLength(80).IsRequired();
             builder.Property(page => page.SeoTitle).HasMaxLength(160).IsRequired();
             builder.Property(page => page.SeoDescription).HasMaxLength(320).IsRequired();
+            builder.Property(page => page.SeoImageObjectKey).HasMaxLength(512);
+            builder.Property(page => page.SeoImageContentType).HasMaxLength(120);
             builder.Property(page => page.BrandName).HasMaxLength(80).IsRequired();
             builder.Property(page => page.BrandTagline).HasMaxLength(200).IsRequired();
             builder.Property(page => page.HeroEyebrow).HasMaxLength(120).IsRequired();

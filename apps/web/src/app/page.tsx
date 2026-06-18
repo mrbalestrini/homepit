@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { API_BASE_URL, type InstitutionalPageContent } from "@/lib/api";
 import { InstitutionalLanding } from "@/features/institutional/institutional-landing";
+import { buildInstitutionalMetadata } from "@/features/institutional/institutional-metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -17,21 +18,7 @@ async function loadInstitutionalPage(): Promise<InstitutionalPageContent> {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await loadInstitutionalPage();
-  const heroImageUrl = page.hasHeroImage
-    ? `${API_BASE_URL}/api/institutional-page/images/hero?v=${encodeURIComponent(page.heroImageUpdatedAt ?? "")}`
-    : undefined;
-
-  return {
-    title: page.seoTitle,
-    description: page.seoDescription,
-    openGraph: {
-      title: page.seoTitle,
-      description: page.seoDescription,
-      type: "website",
-      images: heroImageUrl ? [{ url: heroImageUrl, alt: page.heroImageAlt }] : undefined,
-    },
-  };
+  return buildInstitutionalMetadata(await loadInstitutionalPage());
 }
 
 export default async function Home() {

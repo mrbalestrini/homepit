@@ -34,8 +34,19 @@ import {
   storeSession,
   subscribeToSessionChanges,
 } from "@/lib/api";
+import { SeoImageCropDialog, type SeoImageCropDraft } from "./seo-image-crop-dialog";
+import {
+  SEO_IMAGE_HEIGHT,
+  SEO_IMAGE_IDEAL_BYTES,
+  SEO_IMAGE_MAX_BYTES,
+  SEO_IMAGE_WIDTH,
+  cropSeoImageFile,
+  optimizeSeoImageFile,
+  readImageDimensions,
+  type PixelCrop,
+} from "./seo-image-utils";
 
-type ImageSlot = "hero" | "highlight";
+type ImageSlot = "hero" | "highlight" | "seo";
 type ListField = "benefits" | "steps";
 
 export function InstitutionalAdmin() {
@@ -45,7 +56,16 @@ export function InstitutionalAdmin() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [mediaLoading, setMediaLoading] = useState<ImageSlot | null>(null);
+  const [seoCropDraft, setSeoCropDraft] = useState<SeoImageCropDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (seoCropDraft) {
+        URL.revokeObjectURL(seoCropDraft.previewUrl);
+      }
+    };
+  }, [seoCropDraft]);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,7 +254,7 @@ export function InstitutionalAdmin() {
 
   async function uploadImage(slot: ImageSlot, file: File) {
     if (!session) {
-      return;
+      return false;
     }
 
     const form = new FormData();
@@ -249,9 +269,17 @@ export function InstitutionalAdmin() {
         body: form,
       });
       setPage((current) => mergeMedia(current, updated));
-      toast.success(slot === "hero" ? "Imagem principal publicada." : "Imagem de destaque publicada.");
+      toast.success(
+        slot === "hero"
+          ? "Imagem principal publicada."
+          : slot === "highlight"
+            ? "Imagem de destaque publicada."
+            : "Imagem SEO publicada.",
+      );
+      return true;
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Não foi possível enviar a imagem.");
+      return false;
     } finally {
       setMediaLoading(null);
     }
@@ -278,9 +306,67 @@ export function InstitutionalAdmin() {
     }
   }
 
+  async function handleImageSelection(slot: ImageSlot, file: File) {
+    if (slot !== "seo") {
+      await uploadImage(slot, file);
+      return;
+    }
+
+    await handleSeoImageSelection(file);
+  }
+
+  async function handleSeoImageSelection(file: File) {
+    setError(null);
+
+    if (file.type !== "image/webp") {
+      setError("A imagem de SEO deve estar em WEBP.");
+      return;
+    }
+
+    try {
+      const dimensions = await readImageDimensions(file);
+      if (dimensions.width === SEO_IMAGE_WIDTH && dimensions.height === SEO_IMAGE_HEIGHT) {
+        const preparedFile = file.size <= SEO_IMAGE_IDEAL_BYTES ? file : await optimizeSeoImageFile(file);
+        await uploadImage("seo", preparedFile);
+        return;
+      }
+
+      setSeoCropDraft({
+        file,
+        previewUrl: URL.createObjectURL(file),
+        width: dimensions.width,
+        height: dimensions.height,
+      });
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Não foi possível preparar a imagem SEO.");
+    }
+  }
+
+  async function handleSeoCropConfirm(crop: PixelCrop) {
+    if (!seoCropDraft) {
+      return;
+    }
+
+    setError(null);
+    try {
+      const croppedFile = await cropSeoImageFile(seoCropDraft.file, crop);
+      const uploaded = await uploadImage("seo", croppedFile);
+      if (uploaded) {
+        setSeoCropDraft(null);
+      }
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Não foi possível gerar a imagem SEO.");
+    }
+  }
+
+  function closeSeoCropDialog() {
+    setSeoCropDraft(null);
+  }
+
   return (
-    <main className="min-h-screen bg-background">
-      <header className="sticky top-0 z-20 border-b border-border/70 bg-surface-strong/95 backdrop-blur-xl">
+    <>
+      <main className="min-h-screen bg-background">
+        <header className="sticky top-0 z-20 border-b border-border/70 bg-surface-strong/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-primary text-primary-foreground">
@@ -338,6 +424,19 @@ export function InstitutionalAdmin() {
                 <Field label="Assinatura da marca">
                   <Input value={page.brandTagline} maxLength={200} onChange={(event) => updateField("brandTagline", event.target.value)} required />
                 </Field>
+                <ImageManager
+                  slot="seo"
+                  label="Imagem de SEO"
+                  description={`Apenas WEBP em ${SEO_IMAGE_WIDTH} x ${SEO_IMAGE_HEIGHT} px. Máximo ${Math.round(SEO_IMAGE_MAX_BYTES / 1024)} KB e ideal abaixo de ${Math.round(SEO_IMAGE_IDEAL_BYTES / 1024)} KB. Se a resolução vier diferente, o sistema abre um crop para ajustar.`}
+                  accept="image/webp"
+                  previewClassName="aspect-[1200/630]"
+                  hasImage={page.hasSeoImage}
+                  updatedAt={page.seoImageUpdatedAt}
+                  alt={page.seoTitle}
+                  loading={mediaLoading === "seo"}
+                  onUpload={(file) => void handleImageSelection("seo", file)}
+                  onDelete={() => void deleteImage("seo")}
+                />
               </EditorSection>
 
               <EditorSection title="Hero e conversão" description="Primeira mensagem da página e destino principal de contato.">
@@ -364,11 +463,13 @@ export function InstitutionalAdmin() {
                 <ImageManager
                   slot="hero"
                   label="Imagem principal"
+                  description="JPG, PNG ou WEBP, com até 5 MB."
+                  accept="image/jpeg,image/png,image/webp"
                   hasImage={page.hasHeroImage}
                   updatedAt={page.heroImageUpdatedAt}
                   alt={page.heroImageAlt}
                   loading={mediaLoading === "hero"}
-                  onUpload={(file) => void uploadImage("hero", file)}
+                  onUpload={(file) => void handleImageSelection("hero", file)}
                   onDelete={() => void deleteImage("hero")}
                 />
               </EditorSection>
@@ -417,11 +518,13 @@ export function InstitutionalAdmin() {
                 <ImageManager
                   slot="highlight"
                   label="Imagem de destaque"
+                  description="JPG, PNG ou WEBP, com até 5 MB."
+                  accept="image/jpeg,image/png,image/webp"
                   hasImage={page.hasHighlightImage}
                   updatedAt={page.highlightImageUpdatedAt}
                   alt={page.highlightImageAlt}
                   loading={mediaLoading === "highlight"}
-                  onUpload={(file) => void uploadImage("highlight", file)}
+                  onUpload={(file) => void handleImageSelection("highlight", file)}
                   onDelete={() => void deleteImage("highlight")}
                 />
               </EditorSection>
@@ -492,7 +595,15 @@ export function InstitutionalAdmin() {
           </form>
         )}
       </div>
-    </main>
+      </main>
+
+      <SeoImageCropDialog
+        key={seoCropDraft?.previewUrl ?? "seo-crop-closed"}
+        draft={seoCropDraft}
+        onCancel={closeSeoCropDialog}
+        onConfirm={handleSeoCropConfirm}
+      />
+    </>
   );
 }
 
@@ -586,6 +697,9 @@ function ListEditor({
 function ImageManager({
   slot,
   label,
+  description,
+  accept,
+  previewClassName,
   hasImage,
   updatedAt,
   alt,
@@ -595,6 +709,9 @@ function ImageManager({
 }: {
   slot: ImageSlot;
   label: string;
+  description: string;
+  accept: string;
+  previewClassName?: string;
   hasImage: boolean;
   updatedAt?: string | null;
   alt: string;
@@ -608,21 +725,21 @@ function ImageManager({
         <div className="overflow-hidden rounded-[16px] border border-border/70 bg-surface-strong">
           {hasImage ? (
             <Image
-              className="aspect-[4/3] h-auto w-full object-cover"
+              className={`${previewClassName ?? "aspect-[4/3]"} h-auto w-full object-cover`}
               src={institutionalImageUrl(slot, updatedAt)}
               alt={alt}
               width={480}
               height={360}
             />
           ) : (
-            <div className="grid aspect-[4/3] place-items-center">
+            <div className={`grid ${previewClassName ?? "aspect-[4/3]"} place-items-center`}>
               <ImageIcon className="size-8 text-muted-foreground" />
             </div>
           )}
         </div>
         <div>
           <p className="font-semibold">{label}</p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">JPG, PNG ou WEBP, com até 5 MB.</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border/70 bg-surface px-3.5 text-sm font-semibold shadow-xs hover:bg-surface-strong">
               {loading ? <Loader2 className="size-4 animate-spin" /> : <ImageIcon className="size-4" />}
@@ -630,7 +747,7 @@ function ImageManager({
               <input
                 className="sr-only"
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept={accept}
                 disabled={loading}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
@@ -714,6 +831,8 @@ function mergeMedia(
     heroImageUpdatedAt: updated.heroImageUpdatedAt,
     hasHighlightImage: updated.hasHighlightImage,
     highlightImageUpdatedAt: updated.highlightImageUpdatedAt,
+    hasSeoImage: updated.hasSeoImage,
+    seoImageUpdatedAt: updated.seoImageUpdatedAt,
     updatedAt: updated.updatedAt,
   };
 }

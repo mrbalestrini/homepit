@@ -107,6 +107,39 @@ public sealed class InstitutionalPageEndpointsTests
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/institutional-page/images/hero?v=2")).StatusCode);
     }
 
+    [Fact]
+    public async Task Superadmin_uploads_reads_and_deletes_public_seo_image()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+        var token = await SeedAccessTokenAsync(factory, SystemRole.SuperAdmin);
+        var seoBytes = CreateWebpWithDimensions(1200, 630);
+
+        using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, "/api/admin/institutional-page/images/seo");
+        uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var form = new MultipartFormDataContent();
+        using var file = new ByteArrayContent(seoBytes);
+        file.Headers.ContentType = new MediaTypeHeaderValue("image/webp");
+        form.Add(file, "file", "seo.webp");
+        uploadRequest.Content = form;
+
+        var uploadResponse = await client.SendAsync(uploadRequest);
+        uploadResponse.EnsureSuccessStatusCode();
+
+        var publicImage = await client.GetAsync("/api/institutional-page/images/seo?v=1");
+        publicImage.EnsureSuccessStatusCode();
+        Assert.Equal("image/webp", publicImage.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(seoBytes, await publicImage.Content.ReadAsByteArrayAsync());
+
+        var deleteResponse = await SendAuthorizedAsync(
+            client,
+            token,
+            HttpMethod.Delete,
+            "/api/admin/institutional-page/images/seo");
+        deleteResponse.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/institutional-page/images/seo?v=2")).StatusCode);
+    }
+
     private static object CreateRequest(string heroTitle) => new
     {
         seoTitle = "HomePit institucional",
@@ -245,5 +278,34 @@ public sealed class InstitutionalPageEndpointsTests
             objects.Remove(objectKey);
             return Task.CompletedTask;
         }
+    }
+
+    private static byte[] CreateWebpWithDimensions(int width, int height)
+    {
+        var data = new byte[30];
+        data[0] = (byte)'R';
+        data[1] = (byte)'I';
+        data[2] = (byte)'F';
+        data[3] = (byte)'F';
+        data[4] = 22;
+        data[8] = (byte)'W';
+        data[9] = (byte)'E';
+        data[10] = (byte)'B';
+        data[11] = (byte)'P';
+        data[12] = (byte)'V';
+        data[13] = (byte)'P';
+        data[14] = (byte)'8';
+        data[15] = (byte)'X';
+        data[16] = 10;
+
+        var widthMinusOne = width - 1;
+        var heightMinusOne = height - 1;
+        data[24] = (byte)(widthMinusOne & 0xFF);
+        data[25] = (byte)((widthMinusOne >> 8) & 0xFF);
+        data[26] = (byte)((widthMinusOne >> 16) & 0xFF);
+        data[27] = (byte)(heightMinusOne & 0xFF);
+        data[28] = (byte)((heightMinusOne >> 8) & 0xFF);
+        data[29] = (byte)((heightMinusOne >> 16) & 0xFF);
+        return data;
     }
 }

@@ -7,6 +7,9 @@ public sealed class InstitutionalPage : AuditableEntity
     public string Slug { get; set; } = "home";
     public string SeoTitle { get; set; } = string.Empty;
     public string SeoDescription { get; set; } = string.Empty;
+    public string? SeoImageObjectKey { get; set; }
+    public string? SeoImageContentType { get; set; }
+    public DateTimeOffset? SeoImageUpdatedAt { get; set; }
     public string BrandName { get; set; } = string.Empty;
     public string BrandTagline { get; set; } = string.Empty;
     public string HeroEyebrow { get; set; } = string.Empty;

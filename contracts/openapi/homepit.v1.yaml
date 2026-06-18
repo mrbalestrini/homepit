@@ -814,7 +814,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [hero, highlight]
+        enum: [hero, highlight, seo]
   schemas:
     RegisterRequest:
       type: object
@@ -901,6 +901,7 @@ components:
         - hasHeroImage
         - highlightImageAlt
         - hasHighlightImage
+        - hasSeoImage
       properties:
         slug:
           type: string
@@ -908,6 +909,12 @@ components:
           type: string
         seoDescription:
           type: string
+        hasSeoImage:
+          type: boolean
+        seoImageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
         brandName:
           type: string
         brandTagline:

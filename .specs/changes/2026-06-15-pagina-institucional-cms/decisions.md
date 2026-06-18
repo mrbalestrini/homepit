@@ -12,3 +12,5 @@
 9. Como nao existe dominio comercial identificado no repositorio, o conteudo padrao usa
    `homepit.example.com` como placeholder e deve ser substituido pelo SuperAdmin no primeiro
    salvamento destinado a producao.
+10. O compartilhamento social usa uma imagem SEO dedicada no slot publico `seo`, restrita a
+    WEBP em `1200 x 630 px`, para nao acoplar o preview externo a imagem principal da landing.

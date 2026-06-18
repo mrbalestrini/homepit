@@ -197,6 +197,8 @@ export type InstitutionalPageContent = {
   highlightImageAlt: string;
   hasHighlightImage: boolean;
   highlightImageUpdatedAt?: string | null;
+  hasSeoImage: boolean;
+  seoImageUpdatedAt?: string | null;
   updatedAt?: string | null;
 };
 

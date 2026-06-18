@@ -114,6 +114,62 @@ public sealed class InstitutionalPageServiceTests
         Assert.Empty(context.Storage.Objects);
     }
 
+    [Fact]
+    public async Task Uploading_seo_image_requires_webp_1200x630_and_600_kb()
+    {
+        var context = CreateContext(SystemRole.SuperAdmin);
+
+        var invalidTypeException = await Assert.ThrowsAsync<ValidationException>(() =>
+            context.Service.UploadImageAsync(
+                "seo",
+                new MemoryStream(CreateWebpWithDimensions(1200, 630)),
+                30,
+                "image/png",
+                CancellationToken.None));
+
+        var invalidSizeException = await Assert.ThrowsAsync<ValidationException>(() =>
+            context.Service.UploadImageAsync(
+                "seo",
+                new MemoryStream(new byte[SEOImageMaxBytes + 1]),
+                SEOImageMaxBytes + 1,
+                "image/webp",
+                CancellationToken.None));
+
+        var invalidDimensionsException = await Assert.ThrowsAsync<ValidationException>(() =>
+            context.Service.UploadImageAsync(
+                "seo",
+                new MemoryStream(CreateWebpWithDimensions(1000, 630)),
+                30,
+                "image/webp",
+                CancellationToken.None));
+
+        Assert.Equal("A imagem de SEO deve estar em WEBP.", invalidTypeException.Message);
+        Assert.Equal("A imagem de SEO deve ter no máximo 600 KB.", invalidSizeException.Message);
+        Assert.Contains("1200 x 630", invalidDimensionsException.Message);
+    }
+
+    [Fact]
+    public async Task Uploading_seo_image_updates_public_metadata()
+    {
+        var context = CreateContext(SystemRole.SuperAdmin);
+        var bytes = CreateWebpWithDimensions(1200, 630);
+
+        var uploaded = await context.Service.UploadImageAsync(
+            "seo",
+            new MemoryStream(bytes),
+            bytes.Length,
+            "image/webp",
+            CancellationToken.None);
+        var image = await context.Service.GetImageAsync("seo", CancellationToken.None);
+        var deleted = await context.Service.DeleteImageAsync("seo", CancellationToken.None);
+
+        Assert.True(uploaded.HasSeoImage);
+        Assert.NotNull(uploaded.SeoImageUpdatedAt);
+        Assert.Equal("image/webp", image.ContentType);
+        Assert.Equal(bytes, image.Content);
+        Assert.False(deleted.HasSeoImage);
+    }
+
     private static TestContext CreateContext(SystemRole role)
     {
         var db = new HomePitDbContext(
@@ -205,5 +261,36 @@ public sealed class InstitutionalPageServiceTests
             Objects.Remove(objectKey);
             return Task.CompletedTask;
         }
+    }
+
+    private const int SEOImageMaxBytes = 600 * 1024;
+
+    private static byte[] CreateWebpWithDimensions(int width, int height)
+    {
+        var data = new byte[30];
+        data[0] = (byte)'R';
+        data[1] = (byte)'I';
+        data[2] = (byte)'F';
+        data[3] = (byte)'F';
+        data[4] = 22;
+        data[8] = (byte)'W';
+        data[9] = (byte)'E';
+        data[10] = (byte)'B';
+        data[11] = (byte)'P';
+        data[12] = (byte)'V';
+        data[13] = (byte)'P';
+        data[14] = (byte)'8';
+        data[15] = (byte)'X';
+        data[16] = 10;
+
+        var widthMinusOne = width - 1;
+        var heightMinusOne = height - 1;
+        data[24] = (byte)(widthMinusOne & 0xFF);
+        data[25] = (byte)((widthMinusOne >> 8) & 0xFF);
+        data[26] = (byte)((widthMinusOne >> 16) & 0xFF);
+        data[27] = (byte)(heightMinusOne & 0xFF);
+        data[28] = (byte)((heightMinusOne >> 8) & 0xFF);
+        data[29] = (byte)((heightMinusOne >> 16) & 0xFF);
+        return data;
     }
 }

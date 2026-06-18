@@ -111,6 +111,8 @@ function buildPage(): InstitutionalPageContent {
     highlightImageAlt: "Imagem de destaque",
     hasHighlightImage: false,
     highlightImageUpdatedAt: null,
+    hasSeoImage: false,
+    seoImageUpdatedAt: null,
     updatedAt: null,
   };
 }

@@ -3,6 +3,7 @@ using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Domain.Institutional;
 using Microsoft.EntityFrameworkCore;
+using System.Buffers.Binary;
 
 namespace HomePit.Application.Institutional;
 
@@ -13,14 +14,28 @@ public sealed class InstitutionalPageService(
     TimeProvider timeProvider)
 {
     private const string PageSlug = "home";
+    private const string SeoSlot = "seo";
     private const long ImageMaxBytes = 5 * 1024 * 1024;
+    private const long SeoImageMaxBytes = 600 * 1024;
+    private const int SeoImageWidth = 1200;
+    private const int SeoImageHeight = 630;
     private const int MinimumListItems = 1;
     private const int MaximumListItems = 6;
+    private static readonly byte[] RiffHeader = "RIFF"u8.ToArray();
+    private static readonly byte[] WebpHeader = "WEBP"u8.ToArray();
+    private static readonly byte[] Vp8Header = "VP8 "u8.ToArray();
+    private static readonly byte[] Vp8LHeader = "VP8L"u8.ToArray();
+    private static readonly byte[] Vp8XHeader = "VP8X"u8.ToArray();
 
     private static readonly HashSet<string> AllowedImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg",
         "image/png",
+        "image/webp"
+    };
+
+    private static readonly HashSet<string> AllowedSeoImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
         "image/webp"
     };
 
@@ -70,31 +85,38 @@ public sealed class InstitutionalPageService(
             throw new ValidationException("Envie uma imagem com conteúdo para a página institucional.");
         }
 
-        if (contentLength > ImageMaxBytes)
+        if (normalizedSlot == SeoSlot && contentLength > SeoImageMaxBytes)
+        {
+            throw new ValidationException("A imagem de SEO deve ter no máximo 600 KB.");
+        }
+
+        if (normalizedSlot != SeoSlot && contentLength > ImageMaxBytes)
         {
             throw new ValidationException("A imagem institucional deve ter no máximo 5 MB.");
         }
 
-        var normalizedContentType = NormalizeImageContentType(contentType);
+        var normalizedContentType = NormalizeImageContentType(normalizedSlot, contentType);
         var page = await GetOrCreatePageAsync(cancellationToken);
         var objectKey = ObjectStorageKeys.InstitutionalImage(PageSlug, normalizedSlot);
 
-        await objectStorage.PutAsync(
-            new ObjectStoragePutRequest(objectKey, content, contentLength, normalizedContentType),
-            cancellationToken);
-
-        if (normalizedSlot == "hero")
+        if (normalizedSlot == SeoSlot)
         {
-            page.HeroImageObjectKey = objectKey;
-            page.HeroImageContentType = normalizedContentType;
-            page.HeroImageUpdatedAt = timeProvider.GetUtcNow();
+            var buffer = await ReadSeoImageBufferAsync(content, cancellationToken);
+            EnsureSeoImageDimensions(buffer);
+
+            await using var uploadStream = new MemoryStream(buffer, writable: false);
+            await objectStorage.PutAsync(
+                new ObjectStoragePutRequest(objectKey, uploadStream, buffer.Length, normalizedContentType),
+                cancellationToken);
         }
         else
         {
-            page.HighlightImageObjectKey = objectKey;
-            page.HighlightImageContentType = normalizedContentType;
-            page.HighlightImageUpdatedAt = timeProvider.GetUtcNow();
+            await objectStorage.PutAsync(
+                new ObjectStoragePutRequest(objectKey, content, contentLength, normalizedContentType),
+                cancellationToken);
         }
+
+        ApplyImageMetadata(page, normalizedSlot, objectKey, normalizedContentType, timeProvider.GetUtcNow());
 
         await db.SaveChangesAsync(cancellationToken);
         return ToDto(page);
@@ -108,9 +130,13 @@ public sealed class InstitutionalPageService(
             .FirstOrDefaultAsync(item => item.Slug == PageSlug, cancellationToken)
             ?? throw new NotFoundException("Imagem institucional não encontrada.");
 
-        var objectKey = normalizedSlot == "hero"
-            ? page.HeroImageObjectKey
-            : page.HighlightImageObjectKey;
+        var objectKey = normalizedSlot switch
+        {
+            "hero" => page.HeroImageObjectKey,
+            "highlight" => page.HighlightImageObjectKey,
+            SeoSlot => page.SeoImageObjectKey,
+            _ => null
+        };
 
         if (string.IsNullOrWhiteSpace(objectKey))
         {
@@ -129,9 +155,13 @@ public sealed class InstitutionalPageService(
         var page = await FindPageAsync(asTracking: true, cancellationToken)
             ?? throw new NotFoundException("Imagem institucional não encontrada.");
 
-        var objectKey = normalizedSlot == "hero"
-            ? page.HeroImageObjectKey
-            : page.HighlightImageObjectKey;
+        var objectKey = normalizedSlot switch
+        {
+            "hero" => page.HeroImageObjectKey,
+            "highlight" => page.HighlightImageObjectKey,
+            SeoSlot => page.SeoImageObjectKey,
+            _ => null
+        };
 
         if (string.IsNullOrWhiteSpace(objectKey))
         {
@@ -140,18 +170,7 @@ public sealed class InstitutionalPageService(
 
         await objectStorage.DeleteAsync(objectKey, cancellationToken);
 
-        if (normalizedSlot == "hero")
-        {
-            page.HeroImageObjectKey = null;
-            page.HeroImageContentType = null;
-            page.HeroImageUpdatedAt = null;
-        }
-        else
-        {
-            page.HighlightImageObjectKey = null;
-            page.HighlightImageContentType = null;
-            page.HighlightImageUpdatedAt = null;
-        }
+        ClearImageMetadata(page, normalizedSlot);
 
         await db.SaveChangesAsync(cancellationToken);
         return ToDto(page);
@@ -223,6 +242,8 @@ public sealed class InstitutionalPageService(
             page.HighlightImageAlt,
             !string.IsNullOrWhiteSpace(page.HighlightImageObjectKey),
             page.HighlightImageUpdatedAt,
+            !string.IsNullOrWhiteSpace(page.SeoImageObjectKey),
+            page.SeoImageUpdatedAt,
             page.UpdatedAt);
     }
 
@@ -484,10 +505,22 @@ public sealed class InstitutionalPageService(
         return uri.ToString();
     }
 
-    private static string NormalizeImageContentType(string? contentType)
+    private static string NormalizeImageContentType(string slot, string? contentType)
     {
         var normalized = string.IsNullOrWhiteSpace(contentType) ? null : contentType.Trim();
-        if (normalized is null || !AllowedImageContentTypes.Contains(normalized))
+        if (normalized is null)
+        {
+            throw new ValidationException(slot == SeoSlot
+                ? "A imagem de SEO deve estar em WEBP."
+                : "A imagem institucional deve estar em JPG, PNG ou WEBP.");
+        }
+
+        if (slot == SeoSlot && !AllowedSeoImageContentTypes.Contains(normalized))
+        {
+            throw new ValidationException("A imagem de SEO deve estar em WEBP.");
+        }
+
+        if (slot != SeoSlot && !AllowedImageContentTypes.Contains(normalized))
         {
             throw new ValidationException("A imagem institucional deve estar em JPG, PNG ou WEBP.");
         }
@@ -501,8 +534,145 @@ public sealed class InstitutionalPageService(
         {
             "hero" => "hero",
             "highlight" => "highlight",
-            _ => throw new ValidationException("Use o slot de imagem 'hero' ou 'highlight'.")
+            SeoSlot => SeoSlot,
+            _ => throw new ValidationException("Use o slot de imagem 'hero', 'highlight' ou 'seo'.")
         };
+    }
+
+    private static async Task<byte[]> ReadSeoImageBufferAsync(Stream content, CancellationToken cancellationToken)
+    {
+        await using var buffer = new MemoryStream();
+        await content.CopyToAsync(buffer, cancellationToken);
+        return buffer.ToArray();
+    }
+
+    private static void EnsureSeoImageDimensions(byte[] buffer)
+    {
+        var size = TryReadWebpDimensions(buffer);
+        if (size is null || size.Value.Width != SeoImageWidth || size.Value.Height != SeoImageHeight)
+        {
+            throw new ValidationException("A imagem de SEO deve estar em WEBP com resolução exata de 1200 x 630 px.");
+        }
+    }
+
+    private static (int Width, int Height)? TryReadWebpDimensions(ReadOnlySpan<byte> buffer)
+    {
+        if (buffer.Length < 30 ||
+            !buffer[..4].SequenceEqual(RiffHeader) ||
+            !buffer.Slice(8, 4).SequenceEqual(WebpHeader))
+        {
+            return null;
+        }
+
+        var chunkType = buffer.Slice(12, 4);
+        if (chunkType.SequenceEqual(Vp8XHeader))
+        {
+            return ReadVp8XDimensions(buffer);
+        }
+
+        if (chunkType.SequenceEqual(Vp8LHeader))
+        {
+            return ReadVp8LDimensions(buffer);
+        }
+
+        if (chunkType.SequenceEqual(Vp8Header))
+        {
+            return ReadVp8Dimensions(buffer);
+        }
+
+        return null;
+    }
+
+    private static (int Width, int Height)? ReadVp8XDimensions(ReadOnlySpan<byte> buffer)
+    {
+        if (buffer.Length < 30)
+        {
+            return null;
+        }
+
+        var width = 1 + buffer[24] + (buffer[25] << 8) + (buffer[26] << 16);
+        var height = 1 + buffer[27] + (buffer[28] << 8) + (buffer[29] << 16);
+        return (width, height);
+    }
+
+    private static (int Width, int Height)? ReadVp8LDimensions(ReadOnlySpan<byte> buffer)
+    {
+        if (buffer.Length < 25 || buffer[20] != 0x2F)
+        {
+            return null;
+        }
+
+        var b1 = buffer[21];
+        var b2 = buffer[22];
+        var b3 = buffer[23];
+        var b4 = buffer[24];
+        var width = 1 + b1 + ((b2 & 0x3F) << 8);
+        var height = 1 + ((b2 >> 6) | (b3 << 2) | ((b4 & 0x0F) << 10));
+        return (width, height);
+    }
+
+    private static (int Width, int Height)? ReadVp8Dimensions(ReadOnlySpan<byte> buffer)
+    {
+        if (buffer.Length < 30 ||
+            buffer[23] != 0x9D ||
+            buffer[24] != 0x01 ||
+            buffer[25] != 0x2A)
+        {
+            return null;
+        }
+
+        var width = BinaryPrimitives.ReadUInt16LittleEndian(buffer.Slice(26, 2)) & 0x3FFF;
+        var height = BinaryPrimitives.ReadUInt16LittleEndian(buffer.Slice(28, 2)) & 0x3FFF;
+        return (width, height);
+    }
+
+    private static void ApplyImageMetadata(
+        InstitutionalPage page,
+        string slot,
+        string objectKey,
+        string contentType,
+        DateTimeOffset updatedAt)
+    {
+        switch (slot)
+        {
+            case "hero":
+                page.HeroImageObjectKey = objectKey;
+                page.HeroImageContentType = contentType;
+                page.HeroImageUpdatedAt = updatedAt;
+                break;
+            case "highlight":
+                page.HighlightImageObjectKey = objectKey;
+                page.HighlightImageContentType = contentType;
+                page.HighlightImageUpdatedAt = updatedAt;
+                break;
+            case SeoSlot:
+                page.SeoImageObjectKey = objectKey;
+                page.SeoImageContentType = contentType;
+                page.SeoImageUpdatedAt = updatedAt;
+                break;
+        }
+    }
+
+    private static void ClearImageMetadata(InstitutionalPage page, string slot)
+    {
+        switch (slot)
+        {
+            case "hero":
+                page.HeroImageObjectKey = null;
+                page.HeroImageContentType = null;
+                page.HeroImageUpdatedAt = null;
+                break;
+            case "highlight":
+                page.HighlightImageObjectKey = null;
+                page.HighlightImageContentType = null;
+                page.HighlightImageUpdatedAt = null;
+                break;
+            case SeoSlot:
+                page.SeoImageObjectKey = null;
+                page.SeoImageContentType = null;
+                page.SeoImageUpdatedAt = null;
+                break;
+        }
     }
 
     private void EnsureSuperAdmin()

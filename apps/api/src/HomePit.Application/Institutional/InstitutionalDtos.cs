@@ -34,6 +34,8 @@ public sealed record InstitutionalPageDto(
     string HighlightImageAlt,
     bool HasHighlightImage,
     DateTimeOffset? HighlightImageUpdatedAt,
+    bool HasSeoImage,
+    DateTimeOffset? SeoImageUpdatedAt,
     DateTimeOffset? UpdatedAt);
 
 public sealed record InstitutionalContentItemRequest(

@@ -51,6 +51,8 @@ function buildPage(): InstitutionalPageContent {
     highlightImageAlt: "Imagem de destaque acessível",
     hasHighlightImage: true,
     highlightImageUpdatedAt: "2026-06-15T12:00:00Z",
+    hasSeoImage: false,
+    seoImageUpdatedAt: null,
     updatedAt: "2026-06-15T12:00:00Z",
   };
 }
