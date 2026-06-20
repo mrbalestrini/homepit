@@ -26,6 +26,9 @@
 - Frontend centraliza tipos, fetch, refresh e eventos de sessao em `src/lib/api.ts`.
 - A selecao da casa ativa usa helper compartilhado em `src/lib/household-selection.ts`
   para persistencia segura, validacao contra a sessao e limpeza de valores obsoletos.
+- O dashboard de projetos persiste a ordenacao dos filtros em `localStorage` via
+  `uiStorageKeys.projectActivitySort`, restaurando o valor salvo ao reiniciar o
+  controller.
 - Casas na sessao agora incluem `CreatedAt`, permitindo fallback por recencia quando a
   selecao salva nao existe mais.
 - Hooks de feature funcionam como controladores de estado e mutacao.

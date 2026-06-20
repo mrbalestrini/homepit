@@ -24,7 +24,14 @@ import {
   storeActiveHouseholdId,
 } from "@/lib/household-selection";
 import { activityColumns, defaultActivityFilters, defaultAppTheme, uiStorageKeys } from "./project-dashboard.constants";
-import type { ActiveModal, ActivityFilterState, ActivityFormInput, AppTheme, ProjectViewMode } from "./project-dashboard.types";
+import type {
+  ActiveModal,
+  ActivityFilterState,
+  ActivityFormInput,
+  ActivitySortState,
+  AppTheme,
+  ProjectViewMode,
+} from "./project-dashboard.types";
 import { getErrorMessage, sortActivities } from "./project-dashboard.utils";
 
 function isAppTheme(value: string | null): value is AppTheme {
@@ -33,6 +40,48 @@ function isAppTheme(value: string | null): value is AppTheme {
 
 function applyDocumentTheme(theme: AppTheme) {
   document.documentElement.dataset.theme = theme;
+}
+
+function isActivitySortState(value: string | null): value is ActivitySortState {
+  return (
+    value === "priority" ||
+    value === "size" ||
+    value === "project" ||
+    value === "responsible" ||
+    value === "title"
+  );
+}
+
+function readStoredActivitySort() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const value = window.localStorage.getItem(uiStorageKeys.projectActivitySort);
+    return isActivitySortState(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeActivitySort(sort: ActivitySortState) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(uiStorageKeys.projectActivitySort, sort);
+  } catch {
+    // Ignore storage failures so a restricted browser does not block the UI.
+  }
+}
+
+function buildDefaultActivityFilters(): ActivityFilterState {
+  return {
+    ...defaultActivityFilters,
+    sort: readStoredActivitySort() ?? defaultActivityFilters.sort,
+  };
 }
 
 function isOpenActivity(status: Activity["status"]) {
@@ -107,7 +156,7 @@ export function useProjectDashboard() {
     setCommentsLoading(false);
     setLoading(false);
     setError(null);
-    setFilters(defaultActivityFilters);
+    setFilters(buildDefaultActivityFilters());
   }, []);
 
   const syncSession = useCallback(
@@ -293,10 +342,15 @@ export function useProjectDashboard() {
 
   const updateFilter = useCallback(<T extends keyof ActivityFilterState>(key: T, value: ActivityFilterState[T]) => {
     setFilters((current) => ({ ...current, [key]: value }));
+
+    if (key === "sort") {
+      storeActivitySort(value as ActivitySortState);
+    }
   }, []);
 
   const resetFilters = useCallback(() => {
     setFilters(defaultActivityFilters);
+    storeActivitySort(defaultActivityFilters.sort);
   }, []);
 
   const reportError = useCallback((exception: unknown, fallback: string) => {

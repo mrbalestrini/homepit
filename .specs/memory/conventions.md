@@ -19,6 +19,12 @@
 - Estado e mutacoes das telas ficam em hooks como `useProjectDashboard` e `usePromptBank`.
 - Persistencia local compartilhada fica em helpers de `src/lib`, como a selecao da casa
   ativa por usuario em `household-selection.ts`.
+- A versao oficial deve ser igual em todos os `package.json`; so altere a versao quando o
+  usuario disser `Suba a versao` ou quando o dia atual for diferente da data da ultima
+  versao publicada no `CHANGELOG.md`. Se o dia for o mesmo, mantenha a mesma versao e
+  registre as mudancas no bloco existente.
+- Mudancas relevantes devem ser registradas no `CHANGELOG.md` mesmo quando a versao nao
+  mudar.
 - Testes frontend `*.test.ts(x)` ficam junto ao codigo; backend separa unidade e integracao.
 - Commits seguem Conventional Commits em portugues, minusculas e sem acentuacao.
 

@@ -38,11 +38,14 @@ explicita.
 ## Versao e changelog
 
 - A versao oficial deve ser igual em todos os `package.json`.
-- So altere a versao quando o usuario disser `Suba a versao`, salvo correcao de inconsistencia.
+- So altere a versao quando o usuario disser `Suba a versao` ou quando o dia atual for
+  diferente da data da ultima versao publicada no `CHANGELOG.md`.
+- Se o dia atual for o mesmo da ultima versao publicada, mantenha a mesma versao e
+  registre as mudancas no bloco existente.
 - Use Semantic Versioning: `patch` para correcoes compativeis, `minor` para funcionalidades
   compativeis e `major` para quebras.
 - Registre no `CHANGELOG.md` mudancas relevantes de comportamento, contrato, integracao,
-  operacao ou entrega, preservando as secoes anteriores.
+  operacao ou entrega, preservando as secoes anteriores, mesmo quando a versao nao mudar.
 - Mantenha `package-lock.json` alinhado quando a versao mudar.
 
 ## Referencias

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity, AuthResponse, Project } from "@/lib/api";
 import * as api from "@/lib/api";
 import { readStoredActiveHouseholdId, storeActiveHouseholdId } from "@/lib/household-selection";
+import { uiStorageKeys } from "./project-dashboard.constants";
 import { useProjectDashboard } from "./use-project-dashboard";
 
 vi.mock("@/lib/api", async () => {
@@ -345,5 +346,49 @@ describe("useProjectDashboard household selection persistence", () => {
 
     await waitFor(() => expect(result.current.activeHouseholdId).toBe("household-2"));
     await waitFor(() => expect(readStoredActiveHouseholdId(session.user.id)).toBe("household-2"));
+  });
+});
+
+describe("useProjectDashboard sort persistence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("restores the stored sort and keeps the localStorage value in sync with changes", async () => {
+    const session = buildSession();
+
+    window.localStorage.setItem(uiStorageKeys.projectActivitySort, "size");
+    mockedReadSession.mockReturnValue(session);
+    mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
+    mockedApiFetch.mockImplementation(async (path: string) => {
+      if (
+        path === "/api/universes" ||
+        path === "/api/projects" ||
+        path === "/api/activities" ||
+        path === "/api/households/members"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const { result } = renderHook(() => useProjectDashboard());
+
+    await waitFor(() => expect(result.current.filters.sort).toBe("size"));
+
+    act(() => {
+      result.current.updateFilter("sort", "title");
+    });
+
+    await waitFor(() => expect(window.localStorage.getItem(uiStorageKeys.projectActivitySort)).toBe("title"));
+
+    act(() => {
+      result.current.resetFilters();
+    });
+
+    await waitFor(() => expect(result.current.filters.sort).toBe("priority"));
+    await waitFor(() => expect(window.localStorage.getItem(uiStorageKeys.projectActivitySort)).toBe("priority"));
   });
 });

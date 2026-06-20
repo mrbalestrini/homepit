@@ -595,7 +595,7 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative w-full md:w-1/2 md:max-w-[28rem] md:flex-none">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -607,9 +607,9 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
               />
             </div>
 
-            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2 md:min-w-[46rem] md:flex-1">
               <Select
-                className="min-w-[10rem] xl:w-[10rem] text-[12px] leading-none xl:text-[13px]"
+                className="min-w-[10rem] flex-1 text-[12px] leading-none xl:text-[13px]"
                 value={dashboard.filters.status}
                 onChange={(event) => dashboard.updateFilter("status", event.target.value as ActivityStatus | "all")}
               >
@@ -622,7 +622,7 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
               </Select>
 
               <Select
-                className="min-w-[10rem] xl:w-[10rem] text-[12px] leading-none xl:text-[13px]"
+                className="min-w-[10rem] flex-1 text-[12px] leading-none xl:text-[13px]"
                 value={dashboard.filters.priority}
                 onChange={(event) => dashboard.updateFilter("priority", event.target.value as Priority | "all")}
               >
@@ -635,7 +635,7 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
               </Select>
 
               <Select
-                className="min-w-[10.5rem] xl:w-[10.5rem] text-[12px] leading-none xl:text-[13px]"
+                className="min-w-[10.5rem] flex-1 text-[12px] leading-none xl:text-[13px]"
                 value={dashboard.filters.responsibleMemberId}
                 onChange={(event) => dashboard.updateFilter("responsibleMemberId", event.target.value)}
               >
@@ -649,7 +649,7 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
               </Select>
 
               <Select
-                className="min-w-[10rem] xl:w-[10rem] text-[12px] leading-none xl:text-[13px]"
+                className="min-w-[10rem] flex-1 text-[12px] leading-none xl:text-[13px]"
                 value={dashboard.filters.sort}
                 onChange={(event) => dashboard.updateFilter("sort", event.target.value as typeof dashboard.filters.sort)}
               >
