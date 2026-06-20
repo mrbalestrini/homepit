@@ -102,8 +102,8 @@ public sealed class PromptEndpointsTests
         var categories = await categoriesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PromptCategoryResponse>>(JsonSerializerOptions.Web);
 
         Assert.NotNull(categories);
-        var listedCategoryA = Assert.Single(categories.Where(category => category.Id == categoryA.Id));
-        var listedCategoryB = Assert.Single(categories.Where(category => category.Id == categoryB.Id));
+        var listedCategoryA = Assert.Single(categories, category => category.Id == categoryA.Id);
+        var listedCategoryB = Assert.Single(categories, category => category.Id == categoryB.Id);
         Assert.Equal(2, listedCategoryA.UsageCount);
         Assert.Equal(1, listedCategoryA.ReplacementRequiredCount);
         Assert.Equal(2, listedCategoryB.UsageCount);
@@ -288,6 +288,7 @@ public sealed class PromptEndpointsTests
                 projectId = project.Id,
                 title = "Atividade concluída na criação",
                 description = "Criada já finalizada",
+                dueDate = new DateOnly(2026, 6, 30),
                 status = "Concluido",
                 priority = "Alta",
                 size = 2
@@ -299,6 +300,34 @@ public sealed class PromptEndpointsTests
         Assert.NotNull(activity);
         Assert.Equal(project.Id, activity.ProjectId);
         Assert.Equal("Concluido", activity.Status);
+        Assert.Equal(new DateOnly(2026, 6, 30), activity.DueDate);
+        Assert.NotEqual(default, activity.CreatedAt);
+
+        var updateResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Put,
+            $"/api/activities/{activity.Id}",
+            JsonContent.Create(new
+            {
+                projectId = project.Id,
+                title = "Atividade atualizada",
+                description = "Agora com outro prazo",
+                dueDate = new DateOnly(2026, 7, 5),
+                status = "EmAndamento",
+                priority = "Urgente",
+                size = 3,
+                responsibleMemberId = (Guid?)null
+            }));
+
+        updateResponse.EnsureSuccessStatusCode();
+        var updatedActivity = await updateResponse.Content.ReadFromJsonAsync<ActivityResponse>(JsonSerializerOptions.Web);
+
+        Assert.NotNull(updatedActivity);
+        Assert.Equal(activity.CreatedAt, updatedActivity.CreatedAt);
+        Assert.Equal(new DateOnly(2026, 7, 5), updatedActivity.DueDate);
+        Assert.Equal("EmAndamento", updatedActivity.Status);
     }
 
     private static async Task<SeedResult> SeedHouseholdAsync(HomePitApiFactory factory)
@@ -419,7 +448,7 @@ public sealed class PromptEndpointsTests
 
     private sealed record CategoryResponse(Guid Id, string Name);
 
-    private sealed record ActivityResponse(Guid Id, Guid ProjectId, string Title, string Status);
+    private sealed record ActivityResponse(Guid Id, Guid ProjectId, string Title, string Status, DateTimeOffset CreatedAt, DateOnly? DueDate);
 
     private sealed record PromptCategoryResponse(Guid Id, string Name, int UsageCount, int ReplacementRequiredCount);
 

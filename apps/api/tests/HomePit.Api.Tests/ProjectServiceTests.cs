@@ -84,14 +84,14 @@ public sealed class ProjectServiceTests
         };
         var project = new Project
         {
-            Household = household,
+            HouseholdId = household.Id,
             Universe = universe,
             CreatedByMember = ownerMember,
             Name = "Projeto"
         };
         var openActivity = new Activity
         {
-            Household = household,
+            HouseholdId = household.Id,
             Project = project,
             CreatedByMember = ownerMember,
             Title = "Atividade aberta",
@@ -99,7 +99,7 @@ public sealed class ProjectServiceTests
         };
         var secondOpenActivity = new Activity
         {
-            Household = household,
+            HouseholdId = household.Id,
             Project = project,
             CreatedByMember = ownerMember,
             Title = "Outra aberta",
@@ -107,7 +107,7 @@ public sealed class ProjectServiceTests
         };
         var closedActivity = new Activity
         {
-            Household = household,
+            HouseholdId = household.Id,
             Project = project,
             CreatedByMember = ownerMember,
             Title = "Atividade concluída",

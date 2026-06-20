@@ -64,6 +64,8 @@ public sealed class SuperAdminEndpointsTests
         activitiesResponse.EnsureSuccessStatusCode();
         var activities = await activitiesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<ActivityResponse>>(JsonSerializerOptions.Web);
         var activity = Assert.Single(activities!);
+        Assert.NotEqual(default, activity.CreatedAt);
+        Assert.Null(activity.DueDate);
         Assert.False(activity.CanEdit);
         Assert.False(activity.CanDelete);
 
@@ -174,14 +176,14 @@ public sealed class SuperAdminEndpointsTests
         };
         var project = new Project
         {
-            Household = primaryHousehold,
+            HouseholdId = primaryHousehold.Id,
             Universe = universe,
             CreatedByMember = ownerMember,
             Name = "Projeto"
         };
         var activity = new Activity
         {
-            Household = primaryHousehold,
+            HouseholdId = primaryHousehold.Id,
             Project = project,
             CreatedByMember = ownerMember,
             Title = "Atividade",
@@ -260,7 +262,15 @@ public sealed class SuperAdminEndpointsTests
 
     private sealed record ProjectResponse(Guid Id, Guid UniverseId, string Name, bool CanEdit, bool CanDelete);
 
-    private sealed record ActivityResponse(Guid Id, Guid ProjectId, string Title, string Status, bool CanEdit, bool CanDelete);
+    private sealed record ActivityResponse(
+        Guid Id,
+        Guid ProjectId,
+        string Title,
+        string Status,
+        DateTimeOffset CreatedAt,
+        DateOnly? DueDate,
+        bool CanEdit,
+        bool CanDelete);
 
     private sealed record PromptCategoryResponse(Guid Id, string Name, bool CanEdit, bool CanDelete);
 

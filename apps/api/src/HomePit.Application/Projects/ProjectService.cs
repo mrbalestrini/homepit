@@ -352,6 +352,7 @@ public sealed class ProjectService(
             CreatedByMemberId = currentMember.Id,
             Title = RequiredText(request.Title, "Informe o nome da atividade."),
             Description = NormalizeOptional(request.Description),
+            DueDate = request.DueDate,
             Status = request.Status,
             Priority = request.Priority,
             Size = request.Size
@@ -389,6 +390,7 @@ public sealed class ProjectService(
         activity.ResponsibleMemberId = request.ResponsibleMemberId;
         activity.Title = RequiredText(request.Title, "Informe o nome da atividade.");
         activity.Description = NormalizeOptional(request.Description);
+        activity.DueDate = request.DueDate;
         activity.Status = request.Status;
         activity.Priority = request.Priority;
         activity.Size = request.Size;
@@ -790,8 +792,10 @@ public sealed class ProjectService(
             !string.IsNullOrWhiteSpace(activity.Project.Universe.ImageObjectKey),
             activity.Project.Universe.ImageUpdatedAt,
             activity.CreatedByMemberId,
+            activity.CreatedAt,
             activity.Title,
             activity.Description,
+            activity.DueDate,
             activity.Status,
             activity.Priority,
             activity.Size,

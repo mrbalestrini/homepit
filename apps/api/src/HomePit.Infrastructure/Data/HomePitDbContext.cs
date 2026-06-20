@@ -209,6 +209,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.ToTable("activities");
             builder.Property(activity => activity.Title).HasMaxLength(240).IsRequired();
             builder.Property(activity => activity.Description).HasMaxLength(4000);
+            builder.Property(activity => activity.DueDate).HasColumnType("date");
             builder.Property(activity => activity.Status).HasConversion<string>().HasMaxLength(40).IsRequired();
             builder.Property(activity => activity.Priority).HasConversion<string>().HasMaxLength(40).IsRequired();
             builder.Property(activity => activity.Size).HasPrecision(8, 2);

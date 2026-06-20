@@ -1,7 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Activity } from "@/lib/api";
-import { ActivityCard, ActivityDragPreview, KanbanColumnFrame } from "./project-dashboard-workspace";
+import {
+  ActivityCard,
+  ActivityDetailsSheet,
+  ActivityDragPreview,
+  ActivityListView,
+  KanbanColumnFrame,
+} from "./project-dashboard-workspace";
 
 vi.mock("@/features/workspace/protected-universe-avatar", () => ({
   ProtectedUniverseAvatar: ({ name, className }: { name: string; className?: string }) => (
@@ -23,8 +29,10 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
     universeHasImage: false,
     universeImageUpdatedAt: null,
     createdByMemberId: null,
+    createdAt: "2026-06-20T12:00:00.000Z",
     title: overrides.title,
     description: "Descrição de apoio para o card de teste.",
+    dueDate: "2026-06-30",
     status: "NaoIniciada",
     priority: "Media",
     size: 3,
@@ -51,6 +59,7 @@ describe("project dashboard kanban drag states", () => {
     expect(screen.getByText("Comprar tinta")).toBeInTheDocument();
     expect(screen.getByText("Universo Alfa / Projeto Alfa")).toBeInTheDocument();
     expect(screen.getByText("Média")).toBeInTheDocument();
+    expect(screen.queryByText("Prazo 30/06/2026")).not.toBeInTheDocument();
   });
 
   it("ghosts the dragged source card and highlights the drop target card", () => {
@@ -85,6 +94,56 @@ describe("project dashboard kanban drag states", () => {
     expect(targetRoot).toHaveAttribute("data-drop-target", "true");
     expect(targetRoot).toHaveClass("ring-1");
     expect(targetRoot).toHaveClass("bg-highlight");
+    expect(screen.getAllByText("Prazo 30/06/2026").length).toBeGreaterThan(0);
+  });
+
+  it("renders the due date in the list and the creation timestamp in the details sheet", () => {
+    const activity = buildActivity({ id: "activity-1", title: "Montar prateleira" });
+
+    render(
+      <ActivityListView
+        dashboard={
+          {
+            groupedActivities: [
+              {
+                status: "NaoIniciada",
+                label: "Nao iniciadas",
+                hint: "Aguardando acao",
+                items: [activity],
+              },
+            ],
+            session: { accessToken: "token" },
+            activeHouseholdId: "household-1",
+            openActivity: () => undefined,
+            openEditActivity: () => undefined,
+            deleteActivity: async () => undefined,
+          } as never
+        }
+      />,
+    );
+
+    expect(screen.getByText("30/06/2026")).toBeInTheDocument();
+
+    render(
+      <ActivityDetailsSheet
+        activity={activity}
+        token="token"
+        householdId="household-1"
+        comments={[]}
+        commentsLoading={false}
+        onClose={() => undefined}
+        onCreateComment={async () => undefined}
+        onUpdateComment={async () => undefined}
+        onDeleteComment={async () => undefined}
+        onMove={async () => undefined}
+        onEditActivity={() => undefined}
+        onDeleteActivity={async () => undefined}
+      />,
+    );
+
+    expect(screen.getByText("Prazo esperado")).toBeInTheDocument();
+    expect(screen.getByText("Criada em")).toBeInTheDocument();
+    expect(screen.getAllByText("30/06/2026").length).toBeGreaterThan(0);
   });
 
   it("highlights the column frame when it is the active drop zone", () => {

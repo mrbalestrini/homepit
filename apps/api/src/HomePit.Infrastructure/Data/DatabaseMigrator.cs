@@ -12,6 +12,13 @@ public static class DatabaseMigrator
         var db = scope.ServiceProvider.GetRequiredService<HomePitDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
             .CreateLogger("HomePit.Infrastructure.Migrations");
+
+        if (!db.Database.IsRelational())
+        {
+            logger.LogInformation("Skipping HomePit migration application because the provider is not relational.");
+            return;
+        }
+
         var pendingMigrations = await db.Database.GetPendingMigrationsAsync(cancellationToken);
         var pending = pendingMigrations.ToArray();
 
@@ -37,6 +44,13 @@ public static class DatabaseMigrator
         var db = scope.ServiceProvider.GetRequiredService<HomePitDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
             .CreateLogger("HomePit.Infrastructure.Migrations");
+
+        if (!db.Database.IsRelational())
+        {
+            logger.LogInformation("Skipping HomePit pending migration check because the provider is not relational.");
+            return;
+        }
+
         var pendingMigrations = await db.Database.GetPendingMigrationsAsync(cancellationToken);
         var pending = pendingMigrations.ToArray();
 

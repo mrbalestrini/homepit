@@ -4,6 +4,15 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.3.0] - 2026-06-20
+
+### Added
+- Atividades agora expõem `CreatedAt` e aceitam `DueDate` opcional no contrato, com persistência em banco, OpenAPI e dashboard.
+- O formulário, os cards, a lista e o painel de detalhes de atividade passaram a mostrar o prazo esperado e a data de criação.
+
+### Changed
+- A formatação de datas sem horário no frontend passou a usar UTC para evitar deslocamento de fuso.
+
 ## [1.2.1] - 2026-06-15
 
 ### Added

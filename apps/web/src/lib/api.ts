@@ -72,8 +72,10 @@ export type Activity = {
   universeHasImage: boolean;
   universeImageUpdatedAt?: string | null;
   createdByMemberId?: string | null;
+  createdAt: string;
   title: string;
   description?: string | null;
+  dueDate?: string | null;
   status: ActivityStatus;
   priority: Priority;
   size?: number | null;

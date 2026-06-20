@@ -81,7 +81,7 @@ import {
 } from "./project-dashboard.constants";
 import type { ActivityFormInput, ProjectViewMode } from "./project-dashboard.types";
 import type { ProjectDashboardController } from "./use-project-dashboard";
-import { formatDateTime, getInitials, getPriorityVariant } from "./project-dashboard.utils";
+import { formatDateOnly, formatDateTime, getInitials, getPriorityVariant } from "./project-dashboard.utils";
 
 const statusSectionStyles: Record<Activity["status"], { card: string; header: string; dropzone: string }> = {
   NaoIniciada: {
@@ -734,7 +734,7 @@ function ViewModeToggle({
   );
 }
 
-function ActivityListView({ dashboard }: { dashboard: ProjectDashboardController }) {
+export function ActivityListView({ dashboard }: { dashboard: ProjectDashboardController }) {
   return (
     <div className="space-y-3">
       {dashboard.groupedActivities.map((group) => (
@@ -761,6 +761,7 @@ function ActivityListView({ dashboard }: { dashboard: ProjectDashboardController
                       <TableHead>Responsável</TableHead>
                       <TableHead>Prioridade</TableHead>
                       <TableHead>Tamanho</TableHead>
+                      <TableHead>Prazo</TableHead>
                       <TableHead>Volume</TableHead>
                       <TableHead className="w-[60px] text-right">Ações</TableHead>
                     </TableRow>
@@ -819,6 +820,9 @@ function ActivityListView({ dashboard }: { dashboard: ProjectDashboardController
                           <span className="text-[13px] text-foreground">
                             {activity.size != null ? `${activity.size} pts` : "Sem tamanho"}
                           </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-[13px] text-foreground">{formatDateOnly(activity.dueDate)}</span>
                         </TableCell>
                         <TableCell>
                           <div className="text-[13px] text-foreground">{activity.commentCount} comentários</div>
@@ -1158,6 +1162,7 @@ export function ActivityCard({
         <div className="flex flex-wrap gap-2">
           <Badge variant={getPriorityVariant(activity.priority)}>{priorityLabels[activity.priority]}</Badge>
           {activity.size != null ? <Badge variant="neutral">{activity.size} pts</Badge> : null}
+          <Badge variant="neutral">{activity.dueDate ? `Prazo ${formatDateOnly(activity.dueDate)}` : "Sem prazo"}</Badge>
           {activity.responsibleName ? <Badge variant="neutral">{activity.responsibleName}</Badge> : null}
         </div>
 
@@ -1550,6 +1555,7 @@ function ActivityDialog({
   const [projectId, setProjectId] = useState(activity?.projectId || defaultProjectId || projects[0]?.id || "");
   const [title, setTitle] = useState(activity?.title ?? "");
   const [description, setDescription] = useState(activity?.description ?? "");
+  const [dueDate, setDueDate] = useState(activity?.dueDate ?? "");
   const [status, setStatus] = useState<ActivityStatus>(activity?.status ?? "NaoIniciada");
   const [priority, setPriority] = useState<Priority>(activity?.priority ?? "Media");
   const [size, setSize] = useState(activity?.size != null ? String(activity.size) : "");
@@ -1568,6 +1574,7 @@ function ActivityDialog({
         projectId,
         title,
         description,
+        dueDate,
         status,
         priority,
         size: size ? Number(size) : undefined,
@@ -1586,7 +1593,7 @@ function ActivityDialog({
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar atividade" : "Nova atividade"}</DialogTitle>
-          <DialogDescription>Use um título direto e deixe descrição e tamanho para dar contexto operacional.</DialogDescription>
+          <DialogDescription>Use um título direto e deixe descrição, prazo e tamanho para dar contexto operacional.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
@@ -1605,6 +1612,9 @@ function ActivityDialog({
           </Field>
           <Field label="Descrição">
             <Textarea value={description} onChange={(event) => setDescription(event.target.value)} />
+          </Field>
+          <Field label="Prazo esperado">
+            <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Status">
@@ -1655,7 +1665,7 @@ function ActivityDialog({
   );
 }
 
-function ActivityDetailsSheet({
+export function ActivityDetailsSheet({
   activity,
   token,
   householdId,
@@ -1738,6 +1748,8 @@ function ActivityDetailsSheet({
             <DetailCard label="Prioridade" value={priorityLabels[activity.priority]} />
             <DetailCard label="Responsável" value={activity.responsibleName ?? "Sem responsável"} />
             <DetailCard label="Tamanho" value={activity.size != null ? `${activity.size} pts` : "Sem tamanho"} />
+            <DetailCard label="Prazo esperado" value={formatDateOnly(activity.dueDate)} />
+            <DetailCard label="Criada em" value={formatDateTime(activity.createdAt)} />
           </div>
 
           <Card className="border-border/60 bg-surface-elevated">

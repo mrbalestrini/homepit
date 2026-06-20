@@ -616,6 +616,12 @@ paths:
       responses:
         "200":
           description: Activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Activity"
     post:
       parameters:
         - $ref: "#/components/parameters/HouseholdHeader"
@@ -628,6 +634,10 @@ paths:
       responses:
         "201":
           description: Activity created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
   /api/activities/{id}:
     put:
       parameters:
@@ -642,6 +652,10 @@ paths:
       responses:
         "200":
           description: Activity updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
     delete:
       parameters:
         - $ref: "#/components/parameters/HouseholdHeader"
@@ -672,6 +686,10 @@ paths:
       responses:
         "200":
           description: Activity status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
   /api/activities/{id}/comments:
     get:
       parameters:
@@ -1471,6 +1489,86 @@ components:
     Priority:
       type: string
       enum: [Baixa, Media, Alta, Urgente]
+    Activity:
+      type: object
+      required:
+        [
+          id,
+          projectId,
+          projectName,
+          universeId,
+          universeName,
+          universeHasImage,
+          createdAt,
+          title,
+          status,
+          priority,
+          pendingCount,
+          commentCount,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        projectName:
+          type: string
+        universeId:
+          type: string
+          format: uuid
+        universeName:
+          type: string
+        universeImageUrl:
+          type: string
+          nullable: true
+        universeHasImage:
+          type: boolean
+        universeImageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ActivityStatus"
+        priority:
+          $ref: "#/components/schemas/Priority"
+        size:
+          type: number
+          nullable: true
+        responsibleMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        responsibleName:
+          type: string
+          nullable: true
+        pendingCount:
+          type: integer
+        commentCount:
+          type: integer
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
     CreateActivityRequest:
       type: object
       required: [projectId, title, status, priority]
@@ -1482,6 +1580,10 @@ components:
           type: string
         description:
           type: string
+          nullable: true
+        dueDate:
+          type: string
+          format: date
           nullable: true
         status:
           $ref: "#/components/schemas/ActivityStatus"
@@ -1505,6 +1607,10 @@ components:
           type: string
         description:
           type: string
+          nullable: true
+        dueDate:
+          type: string
+          format: date
           nullable: true
         status:
           $ref: "#/components/schemas/ActivityStatus"

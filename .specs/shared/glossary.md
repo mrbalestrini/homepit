@@ -9,7 +9,7 @@
 - `HouseholdRole`: papel `Owner`, `Admin` ou `Member` dentro da casa.
 - `Universe`: agrupamento superior de projetos e classificacao opcional de prompts.
 - `Project`: projeto pertencente a um universo.
-- `Activity`: trabalho pertencente a um projeto, com status, prioridade e responsavel.
+- `Activity`: trabalho pertencente a um projeto, com `CreatedAt` auditavel, prazo esperado opcional e responsavel.
 - `PendingItem`: pendencia/subtarefa de uma atividade.
 - `ActivityComment`: comentario de atividade com autoria preservada.
 - `Prompt`: entrada compartilhada do banco de prompts da casa.

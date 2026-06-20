@@ -13,6 +13,7 @@
 - Comentario so pode ser editado pelo autor; `Owner` e `Admin` podem excluir comentarios de
   outras pessoas.
 - Hierarquia de projetos: `Universe > Project > Activity > PendingItem`.
+- `Activity` expõe `CreatedAt` auditavel e pode ter `DueDate` opcional como prazo esperado.
 - Contagem de atividades do projeto considera apenas atividades nao concluidas.
 - Responsavel de atividade deve ser membro ativo da mesma casa.
 - Status: `NaoIniciada`, `EmAndamento`, `Concluido`.

@@ -960,6 +960,7 @@ export function useProjectDashboard() {
         body: JSON.stringify({
           ...input,
           description: input.description || null,
+          dueDate: input.dueDate || null,
           size: input.size ?? null,
           responsibleMemberId: input.responsibleMemberId || null,
         }),
@@ -988,6 +989,7 @@ export function useProjectDashboard() {
         body: JSON.stringify({
           ...input,
           description: input.description || null,
+          dueDate: input.dueDate || null,
           size: input.size ?? null,
           responsibleMemberId: input.responsibleMemberId || null,
         }),

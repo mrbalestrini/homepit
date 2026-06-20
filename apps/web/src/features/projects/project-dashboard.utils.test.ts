@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Activity } from "@/lib/api";
 import { activitySortOptions } from "./project-dashboard.constants";
-import { sortActivities } from "./project-dashboard.utils";
+import { formatDateOnly, sortActivities } from "./project-dashboard.utils";
 
 function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "title">): Activity {
   return {
@@ -14,8 +14,10 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
     universeHasImage: false,
     universeImageUpdatedAt: null,
     createdByMemberId: null,
+    createdAt: "2026-06-20T12:00:00.000Z",
     title: overrides.title,
     description: null,
+    dueDate: null,
     status: "NaoIniciada",
     priority: "Media",
     size: null,
@@ -51,5 +53,10 @@ describe("project dashboard activity sorting", () => {
       ["a", 8],
       ["b", null],
     ]);
+  });
+
+  it("formats date-only values in UTC without timezone drift", () => {
+    expect(formatDateOnly("2026-06-30")).toBe("30/06/2026");
+    expect(formatDateOnly(null)).toBe("Sem prazo");
   });
 });

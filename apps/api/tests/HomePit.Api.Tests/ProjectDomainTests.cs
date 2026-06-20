@@ -31,5 +31,6 @@ public sealed class ProjectDomainTests
 
         Assert.Equal(ActivityStatus.NaoIniciada, activity.Status);
         Assert.Equal(Priority.Media, activity.Priority);
+        Assert.Null(activity.DueDate);
     }
 }

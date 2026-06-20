@@ -7,7 +7,7 @@
 - `HouseholdMember`: user membership and role inside a household.
 - `Universe`: top-level grouping, matching the Notion `Universo`, with the creating household member recorded for permissions.
 - `Project`: belongs to a universe and records the creating household member.
-- `Activity`: belongs to a project, records the creating household member and carries status, priority, size and optional responsible member.
+- `Activity`: belongs to a project, records the creating household member, exposes audit `CreatedAt` and carries status, priority, size, optional `DueDate` and optional responsible member.
 - `ActivityComment`: activity discussion entry authored by the logged household member. Edited comments are flagged from audit timestamps.
 - `PendingItem`: subtarefa with optional due date, snooze days and completion timestamp.
 - `NotificationPreference`: digest settings per household member.

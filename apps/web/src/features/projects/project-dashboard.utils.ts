@@ -20,6 +20,24 @@ export function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+export function formatDateOnly(value: string | null | undefined, fallback = "Sem prazo") {
+  if (!value) {
+    return fallback;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
 export function getPriorityVariant(priority: Priority) {
   if (priority === "Urgente" || priority === "Alta") {
     return "danger" as const;

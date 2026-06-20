@@ -12,6 +12,8 @@
 - `appsettings.json` habilita `Database:ApplyMigrationsOnStartup`; em
   `appsettings.Development.json` essa automacao fica desativada e a API exige banco sem
   migrations pendentes.
+- O `DatabaseMigrator` ignora providers nao relacionais, o que permite testes com
+  InMemory sem acionar APIs de migracao que dependem de banco relacional.
 - Migrations escritas ou ajustadas manualmente precisam manter os metadados que o EF Core
   usa para descobri-las no assembly, incluindo `[DbContext(typeof(HomePitDbContext))]` e
   `[Migration("yyyyMMddHHmmss_NomeDaMigration")]`.

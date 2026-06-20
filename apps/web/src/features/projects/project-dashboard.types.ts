@@ -24,6 +24,7 @@ export type ActivityFormInput = {
   projectId: string;
   title: string;
   description?: string;
+  dueDate: string;
   status: ActivityStatus;
   priority: Priority;
   size?: number;
