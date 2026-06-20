@@ -13,6 +13,9 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 ### Changed
 - A formatação de datas sem horário no frontend passou a usar UTC para evitar deslocamento de fuso.
 
+### Fixed
+- A imagem protegida de prompts passou a enviar `X-Household-Id` no card e no detalhe, evitando `400` em contas com mais de uma casa.
+
 ## [1.2.1] - 2026-06-15
 
 ### Added

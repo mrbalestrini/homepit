@@ -28,6 +28,8 @@
 - Frontend centraliza tipos, fetch, refresh e eventos de sessao em `src/lib/api.ts`.
 - A selecao da casa ativa usa helper compartilhado em `src/lib/household-selection.ts`
   para persistencia segura, validacao contra a sessao e limpeza de valores obsoletos.
+- O banco de prompts envia `householdId` ao buscar imagens protegidas de prompt no card e
+  no detalhe, seguindo a mesma regra de tenancy das demais rotas protegidas.
 - O dashboard de projetos persiste a ordenacao dos filtros em `localStorage` via
   `uiStorageKeys.projectActivitySort`, restaurando o valor salvo ao reiniciar o
   controller.

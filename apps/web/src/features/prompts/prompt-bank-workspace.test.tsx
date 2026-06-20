@@ -1,7 +1,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
+import { ApiError, apiFetchBlob } from "@/lib/api";
 import { CategoryDeleteDialog, PromptCard, PromptDetailDialog, buildPromptMasonryLayout } from "./prompt-bank-workspace";
+
+vi.mock("@/lib/api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  return {
+    ...actual,
+    apiFetchBlob: vi.fn(),
+  };
+});
 
 vi.mock("sonner", () => ({
   toast: {
@@ -9,6 +18,10 @@ vi.mock("sonner", () => ({
     error: vi.fn(),
   },
 }));
+
+beforeEach(() => {
+  vi.mocked(apiFetchBlob).mockReset();
+});
 
 describe("PromptCard", () => {
   it("renders a compact card when the prompt has no image and truncates noisy text", () => {
@@ -83,6 +96,47 @@ describe("PromptCard", () => {
     );
 
     expect(container.querySelector('[class*="aspect-[4/5]"]')).not.toBeNull();
+  });
+
+  it("loads the prompt image with the active household", async () => {
+    vi.mocked(apiFetchBlob).mockRejectedValueOnce(new ApiError("Arquivo não encontrado.", 404));
+
+    render(
+      <PromptCard
+        prompt={{
+          id: "prompt-1",
+          universeId: null,
+          universeName: null,
+          universeImageUrl: null,
+          universeHasImage: false,
+          universeImageUpdatedAt: null,
+          title: "Prompt visual",
+          description: null,
+          promptText: "Texto do prompt.",
+          categories: [{ id: "cat-1", name: "Categoria" }],
+          linkUrl: null,
+          linkTitle: null,
+          createdByMemberId: null,
+          hasImage: true,
+          imageUpdatedAt: "2026-06-03T12:00:00Z",
+          updatedAt: "2026-06-03T12:00:00Z",
+          canEdit: true,
+          canDelete: true,
+        }}
+        token="token-1"
+        householdId="household-1"
+        onOpen={() => undefined}
+        onEdit={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(apiFetchBlob).toHaveBeenCalledWith("/api/prompts/prompt-1/image", {
+        token: "token-1",
+        householdId: "household-1",
+      });
+    });
   });
 
   it("renders the universe chip with avatar when the universe has an image", () => {
@@ -230,6 +284,50 @@ describe("PromptDetailDialog", () => {
       expect(writeText).toHaveBeenCalledWith("Texto integral do prompt sem truncamento.");
     });
     expect(toast.success).toHaveBeenCalledWith("Prompt copiado.");
+  });
+
+  it("loads the detail image with the active household", async () => {
+    vi.mocked(apiFetchBlob).mockRejectedValueOnce(new ApiError("Arquivo não encontrado.", 404));
+
+    render(
+      <PromptDetailDialog
+        open
+        prompt={{
+          id: "prompt-1",
+          universeId: "uni-1",
+          universeName: "Universo",
+          universeImageUrl: null,
+          universeHasImage: false,
+          universeImageUpdatedAt: null,
+          title: "Prompt detalhado",
+          description: "Descrição completa",
+          promptText: "Texto integral do prompt sem truncamento.",
+          categories: [{ id: "cat-1", name: "Categoria" }],
+          linkUrl: null,
+          linkTitle: null,
+          createdByMemberId: null,
+          hasImage: true,
+          imageUpdatedAt: "2026-06-03T12:00:00Z",
+          createdAt: "2026-06-03T12:00:00Z",
+          updatedAt: "2026-06-03T12:00:00Z",
+          canEdit: true,
+          canDelete: true,
+        }}
+        loading={false}
+        token="token-1"
+        householdId="household-1"
+        onOpenChange={() => undefined}
+        onEdit={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(apiFetchBlob).toHaveBeenCalledWith("/api/prompts/prompt-1/image", {
+        token: "token-1",
+        householdId: "household-1",
+      });
+    });
   });
 });
 

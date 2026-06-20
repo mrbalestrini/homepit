@@ -754,6 +754,7 @@ export function PromptCard({
             hasImage={prompt.hasImage}
             imageUpdatedAt={prompt.imageUpdatedAt}
             token={token}
+            householdId={householdId}
             className="rounded-t-[24px]"
           />
           <div className="absolute right-3 top-3">{actionsMenu}</div>
@@ -1325,6 +1326,7 @@ export function PromptDetailDialog({
                   hasImage={prompt.hasImage}
                   imageUpdatedAt={prompt.imageUpdatedAt}
                   token={token}
+                  householdId={householdId}
                   className="rounded-[24px]"
                 />
               ) : null}
@@ -1439,6 +1441,7 @@ function PromptImageFrame({
   hasImage,
   imageUpdatedAt,
   token,
+  householdId,
   className,
   previewUrl,
 }: {
@@ -1447,10 +1450,11 @@ function PromptImageFrame({
   hasImage: boolean;
   imageUpdatedAt?: string | null;
   token: string;
+  householdId?: string;
   className?: string;
   previewUrl?: string | null;
 }) {
-  const protectedImageUrl = useProtectedPromptImage(promptId, hasImage, imageUpdatedAt, token);
+  const protectedImageUrl = useProtectedPromptImage(promptId, hasImage, imageUpdatedAt, token, householdId);
   const imageUrl = previewUrl ?? protectedImageUrl;
 
   return (
@@ -1478,19 +1482,25 @@ function PromptImageFrame({
   );
 }
 
-function useProtectedPromptImage(promptId: string, hasImage: boolean, imageUpdatedAt: string | null | undefined, token: string) {
+function useProtectedPromptImage(
+  promptId: string,
+  hasImage: boolean,
+  imageUpdatedAt: string | null | undefined,
+  token: string,
+  householdId?: string,
+) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!hasImage || !token) {
+    if (!hasImage || !token || !householdId) {
       return () => {
         cancelled = true;
       };
     }
 
-    void apiFetchBlob(`/api/prompts/${promptId}/image`, { token })
+    void apiFetchBlob(`/api/prompts/${promptId}/image`, { token, householdId })
       .then((blob) => {
         if (cancelled) {
           return;
@@ -1512,7 +1522,7 @@ function useProtectedPromptImage(promptId: string, hasImage: boolean, imageUpdat
     return () => {
       cancelled = true;
     };
-  }, [hasImage, imageUpdatedAt, promptId, token]);
+  }, [hasImage, householdId, imageUpdatedAt, promptId, token]);
 
   useEffect(() => {
     return () => {
