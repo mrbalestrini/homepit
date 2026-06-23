@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using HomePit.Application.Common;
 using HomePit.Application.Storage;
+using HomePit.Domain.Gsm;
 using HomePit.Domain.Households;
 using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
@@ -84,6 +85,13 @@ public sealed class SuperAdminEndpointsTests
         Assert.False(category.CanEdit);
         Assert.False(category.CanDelete);
 
+        var gsmResponse = await SendAuthorizedAsync(client, auth.AccessToken, seed.PrimaryHouseholdId, HttpMethod.Get, "/api/gsm-numbers");
+        gsmResponse.EnsureSuccessStatusCode();
+        var gsmNumbers = await gsmResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<GsmNumberResponse>>(JsonSerializerOptions.Web);
+        var gsmNumber = Assert.Single(gsmNumbers!);
+        Assert.False(gsmNumber.CanEdit);
+        Assert.False(gsmNumber.CanDelete);
+
         Assert.Equal(HttpStatusCode.Forbidden, (await SendAuthorizedAsync(
             client,
             auth.AccessToken,
@@ -140,6 +148,22 @@ public sealed class SuperAdminEndpointsTests
                 categoryIds = new[] { seed.CategoryId },
                 linkUrl = (string?)null,
                 linkTitle = (string?)null
+            }))).StatusCode);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAuthorizedAsync(
+            client,
+            auth.AccessToken,
+            seed.PrimaryHouseholdId,
+            HttpMethod.Post,
+            "/api/gsm-numbers",
+            JsonContent.Create(new
+            {
+                title = "Nova linha",
+                number = "11912345678",
+                description = (string?)null,
+                acquiredOn = new DateOnly(2026, 1, 10),
+                lastRechargeOn = (DateOnly?)null,
+                status = "Ativo"
             }))).StatusCode);
     }
 
@@ -204,6 +228,15 @@ public sealed class SuperAdminEndpointsTests
             Title = "Prompt",
             PromptText = "Conteúdo"
         };
+        var gsmNumber = new GsmNumber
+        {
+            Household = primaryHousehold,
+            CreatedByMember = ownerMember,
+            Title = "Linha casa",
+            NormalizedNumber = "5511912345678",
+            AcquiredOn = new DateOnly(2026, 1, 10),
+            Status = GsmNumberStatus.Ativo
+        };
         prompt.CategoryAssignments.Add(new PromptCategoryAssignment
         {
             Prompt = prompt,
@@ -218,6 +251,7 @@ public sealed class SuperAdminEndpointsTests
         db.Activities.Add(activity);
         db.PromptCategories.Add(category);
         db.Prompts.Add(prompt);
+        db.GsmNumbers.Add(gsmNumber);
         await db.SaveChangesAsync();
 
         return new SeedResult(primaryHousehold.Id, universe.Id, project.Id, category.Id.ToString());
@@ -273,6 +307,8 @@ public sealed class SuperAdminEndpointsTests
         bool CanDelete);
 
     private sealed record PromptCategoryResponse(Guid Id, string Name, bool CanEdit, bool CanDelete);
+
+    private sealed record GsmNumberResponse(Guid Id, bool CanEdit, bool CanDelete);
 
     private sealed record PromptListResponse(IReadOnlyCollection<PromptListItemResponse> Items, int Page, int PageSize, int TotalCount);
 

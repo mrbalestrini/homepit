@@ -166,6 +166,23 @@ export type PromptDetail = {
   canDelete: boolean;
 };
 
+export type GsmNumberStatus = "Ativo" | "Inativo" | "Abandonado";
+
+export type GsmNumber = {
+  id: string;
+  title: string;
+  number: string;
+  description?: string | null;
+  acquiredOn: string;
+  lastRechargeOn?: string | null;
+  status: GsmNumberStatus;
+  createdByMemberId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
 export type InstitutionalContentItem = {
   position: number;
   title: string;

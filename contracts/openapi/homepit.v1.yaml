@@ -297,6 +297,60 @@ paths:
                 format: binary
         "404":
           description: Profile photo not found
+  /api/gsm-numbers:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      responses:
+        "200":
+          description: GSM numbers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GsmNumber"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGsmNumberRequest"
+      responses:
+        "201":
+          description: GSM number created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GsmNumber"
+  /api/gsm-numbers/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGsmNumberRequest"
+      responses:
+        "200":
+          description: GSM number updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GsmNumber"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: GSM number deleted
   /api/universes:
     get:
       parameters:
@@ -1242,6 +1296,101 @@ components:
       properties:
         role:
           enum: [Admin, Member]
+    GsmNumberStatus:
+      type: string
+      enum: [Ativo, Inativo, Abandonado]
+    CreateGsmNumberRequest:
+      type: object
+      required: [title, number, acquiredOn, status]
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        number:
+          type: string
+        description:
+          type: string
+          maxLength: 4000
+          nullable: true
+        acquiredOn:
+          type: string
+          format: date
+        lastRechargeOn:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: "#/components/schemas/GsmNumberStatus"
+    UpdateGsmNumberRequest:
+      type: object
+      required: [title, number, acquiredOn, status]
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        number:
+          type: string
+        description:
+          type: string
+          maxLength: 4000
+          nullable: true
+        acquiredOn:
+          type: string
+          format: date
+        lastRechargeOn:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: "#/components/schemas/GsmNumberStatus"
+    GsmNumber:
+      type: object
+      required:
+        [
+          id,
+          title,
+          number,
+          acquiredOn,
+          status,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        number:
+          type: string
+        description:
+          type: string
+          nullable: true
+        acquiredOn:
+          type: string
+          format: date
+        lastRechargeOn:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: "#/components/schemas/GsmNumberStatus"
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
     CreateUniverseRequest:
       type: object
       required: [name]

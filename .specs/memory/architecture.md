@@ -11,10 +11,12 @@
   `infra/setup/homepit-local.ps1`.
 - `Program.cs` registra DI, JWT, CORS, middleware de erros, migrations, storage e Minimal APIs.
 - A regra de negocio fica principalmente em `AuthService`, `HouseholdService`,
-  `ProjectService`, `PromptService` e `DailyDigestService`.
+  `ProjectService`, `PromptService`, `GsmNumberService` e `DailyDigestService`.
 - PostgreSQL e acessado por EF Core/Npgsql; o schema padrao e `homepit`.
 - O frontend usa App Router, paginas finas, hooks-controladores por feature e cliente HTTP
   centralizado em `src/lib/api.ts`.
+- O workspace interno agora possui um modulo dedicado `/gsm`, com hook-controlador proprio
+  e navegacao lateral compartilhada com os demais modulos da casa.
 - A rota `/` renderiza uma pagina institucional publica a partir da API, enquanto
   `/admin/institutional` oferece um CMS separado para SuperAdmin.
 - O conteudo institucional e global, usa o slug unico `home`, listas filhas ordenadas e

@@ -4,6 +4,17 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.5.0] - 2026-06-23
+
+### Added
+- Novo módulo interno `/gsm` para gestão compartilhada de números GSM por household, com cadastro completo de título, número, descrição, aquisição, última recarga e status.
+- API protegida em `/api/gsm-numbers`, com CRUD completo, tenancy por `X-Household-Id` e regras de autoria alinhadas aos demais módulos da casa.
+- Máscara e normalização de números com DDI opcional, além do contador textual de tempo desde a última recarga na interface.
+
+### Changed
+- A navegação lateral do workspace agora expõe o módulo `GSM` como recurso ativo da operação da casa.
+- O contrato OpenAPI e a suíte de testes backend passaram a cobrir o novo recurso de números GSM e o enum de status correspondente.
+
 ## [1.4.0] - 2026-06-22
 
 ### Added

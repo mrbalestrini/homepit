@@ -64,6 +64,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmation-dialog";
+import { ActivityImageViewerDialog } from "./activity-image-viewer";
 import {
   EmptyState,
   Field,
@@ -165,6 +166,7 @@ function getDragTarget(over: DragOverEvent["over"] | DragEndEvent["over"]): Acti
 }
 
 export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDashboardController }) {
+  const [selectedActivityImage, setSelectedActivityImage] = useState<{ title: string; imageUrl: string } | null>(null);
   const openActivities = dashboard.activities.filter((activity) => activity.status !== "Concluido").length;
   const urgentActivities = dashboard.activities.filter((activity) => activity.priority === "Urgente").length;
   const headerStats = [
@@ -174,6 +176,10 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
     { label: "Urgentes", value: urgentActivities },
     { label: "Pessoas", value: dashboard.members.length },
   ];
+
+  function openActivityImage(title: string, imageUrl: string) {
+    setSelectedActivityImage({ title, imageUrl });
+  }
 
   return (
     <>
@@ -216,9 +222,20 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
       >
         <div className="grid gap-3 xl:grid-cols-[316px_minmax(0,1fr)]">
           <ProjectExplorer dashboard={dashboard} />
-          <WorkspaceBoard dashboard={dashboard} />
+          <WorkspaceBoard dashboard={dashboard} onOpenImage={openActivityImage} />
         </div>
       </HomePitWorkspaceShell>
+
+      <ActivityImageViewerDialog
+        open={Boolean(selectedActivityImage)}
+        title={selectedActivityImage?.title ?? ""}
+        imageUrl={selectedActivityImage?.imageUrl ?? null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedActivityImage(null);
+          }
+        }}
+      />
 
       <UniverseDialog
         key={`universe-${dashboard.editingUniverse?.id ?? "new"}-${dashboard.activeModal === "universe" ? "open" : "closed"}`}
@@ -257,6 +274,7 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
         defaultProjectId={dashboard.activityDraftProjectId || dashboard.selectedProjectId}
         token={dashboard.session?.accessToken}
         householdId={dashboard.activeHouseholdId}
+        onOpenImage={openActivityImage}
         onOpenChange={(open) => !open && dashboard.closeModal()}
         onSave={(input) =>
           dashboard.editingActivity
@@ -268,14 +286,15 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
       {dashboard.selectedActivity ? (
         <ActivityDetailsSheet
           activity={dashboard.selectedActivity}
-          token={dashboard.session?.accessToken}
-          householdId={dashboard.activeHouseholdId}
-          comments={dashboard.activityComments}
-          commentsLoading={dashboard.commentsLoading}
-          onClose={dashboard.closeActivity}
-          onCreateComment={dashboard.createComment}
-          onUpdateComment={dashboard.updateComment}
-          onDeleteComment={dashboard.deleteComment}
+        token={dashboard.session?.accessToken}
+        householdId={dashboard.activeHouseholdId}
+        comments={dashboard.activityComments}
+        commentsLoading={dashboard.commentsLoading}
+        onOpenImage={openActivityImage}
+        onClose={dashboard.closeActivity}
+        onCreateComment={dashboard.createComment}
+        onUpdateComment={dashboard.updateComment}
+        onDeleteComment={dashboard.deleteComment}
           onMove={dashboard.moveActivity}
           onEditActivity={dashboard.openEditActivity}
           onDeleteActivity={dashboard.deleteActivity}
@@ -571,7 +590,13 @@ function ExplorerCreateMenu({ dashboard }: { dashboard: ProjectDashboardControll
   );
 }
 
-function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }) {
+function WorkspaceBoard({
+  dashboard,
+  onOpenImage,
+}: {
+  dashboard: ProjectDashboardController;
+  onOpenImage: (title: string, imageUrl: string) => void;
+}) {
   const hasActiveFilters =
     dashboard.filters.search.trim() !== defaultActivityFilters.search ||
     dashboard.filters.status !== defaultActivityFilters.status ||
@@ -701,7 +726,7 @@ function WorkspaceBoard({ dashboard }: { dashboard: ProjectDashboardController }
         ) : dashboard.viewMode === "list" ? (
           <ActivityListView dashboard={dashboard} />
         ) : (
-          <ActivityKanbanView dashboard={dashboard} />
+          <ActivityKanbanView dashboard={dashboard} onOpenImage={onOpenImage} />
         )}
       </CardContent>
     </Card>
@@ -861,7 +886,13 @@ export function ActivityListView({ dashboard }: { dashboard: ProjectDashboardCon
   );
 }
 
-function ActivityKanbanView({ dashboard }: { dashboard: ProjectDashboardController }) {
+function ActivityKanbanView({
+  dashboard,
+  onOpenImage,
+}: {
+  dashboard: ProjectDashboardController;
+  onOpenImage: (title: string, imageUrl: string) => void;
+}) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -931,6 +962,7 @@ function ActivityKanbanView({ dashboard }: { dashboard: ProjectDashboardControll
             dashboard={dashboard}
             activeActivityId={activeActivity?.id ?? null}
             dragTarget={dragTarget}
+            onOpenImage={onOpenImage}
           />
         ))}
       </div>
@@ -952,11 +984,13 @@ function KanbanColumn({
   dashboard,
   activeActivityId,
   dragTarget,
+  onOpenImage,
 }: {
   group: { status: Activity["status"]; label: string; hint: string; items: Activity[] };
   dashboard: ProjectDashboardController;
   activeActivityId: string | null;
   dragTarget: ActivityDragTarget;
+  onOpenImage: (title: string, imageUrl: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column:${group.status}`,
@@ -985,6 +1019,7 @@ function KanbanColumn({
                 activity={activity}
                 token={dashboard.session?.accessToken}
                 householdId={dashboard.activeHouseholdId}
+                onOpenImage={onOpenImage}
                 onOpen={() => dashboard.openActivity(activity)}
                 onEdit={activity.canEdit ? () => dashboard.openEditActivity(activity) : undefined}
                 onDelete={
@@ -1054,6 +1089,7 @@ function SortableActivityCard({
   activity,
   token,
   householdId,
+  onOpenImage,
   onOpen,
   onEdit,
   onDelete,
@@ -1062,6 +1098,7 @@ function SortableActivityCard({
   activity: Activity;
   token?: string;
   householdId?: string;
+  onOpenImage: (title: string, imageUrl: string) => void;
   onOpen: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -1083,6 +1120,7 @@ function SortableActivityCard({
         activity={activity}
         token={token}
         householdId={householdId}
+        onOpenImage={onOpenImage}
         onOpen={onOpen}
         onEdit={onEdit}
         onDelete={onDelete}
@@ -1098,6 +1136,7 @@ export function ActivityCard({
   activity,
   token,
   householdId,
+  onOpenImage,
   onOpen,
   onEdit,
   onDelete,
@@ -1108,6 +1147,7 @@ export function ActivityCard({
   activity: Activity;
   token?: string;
   householdId?: string;
+  onOpenImage?: (title: string, imageUrl: string) => void;
   onOpen: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -1126,19 +1166,21 @@ export function ActivityCard({
       data-dragging={dragging ? "true" : "false"}
     >
       <CardContent className="space-y-3 p-3">
+        {activity.hasImage ? (
+          <ProtectedActivityImageFrame
+            activityId={activity.id}
+            title={activity.title}
+            hasImage={activity.hasImage}
+            imageUpdatedAt={activity.imageUpdatedAt}
+            token={token}
+            householdId={householdId}
+            onOpenImage={(imageUrl) => onOpenImage?.(activity.title, imageUrl)}
+            className="rounded-[18px]"
+          />
+        ) : null}
+
         <div className="flex items-start gap-2">
           <button className="min-w-0 flex-1 text-left" type="button" onClick={onOpen}>
-            {activity.hasImage ? (
-              <ProtectedActivityImageFrame
-                activityId={activity.id}
-                title={activity.title}
-                hasImage={activity.hasImage}
-                imageUpdatedAt={activity.imageUpdatedAt}
-                token={token}
-                householdId={householdId}
-                className="mb-3 rounded-[18px]"
-              />
-            ) : null}
             <h4 className="truncate text-sm font-semibold text-foreground">{activity.title}</h4>
             <div className="mt-1 flex min-w-0 items-center gap-2">
               <UniverseAvatar
@@ -1565,16 +1607,18 @@ export function ActivityDialog({
   householdId,
   open,
   onOpenChange,
+  onOpenImage,
   onSave,
 }: {
   activity: Activity | null;
-  projects: Project[];	
+  projects: Project[];
   members: HouseholdMember[];
   defaultProjectId: string;
   token?: string;
   householdId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenImage?: (title: string, imageUrl: string) => void;
   onSave: (input: ActivityFormInput) => Promise<void>;
 }) {
   const [projectId, setProjectId] = useState(activity?.projectId || defaultProjectId || projects[0]?.id || "");
@@ -1591,8 +1635,11 @@ export function ActivityDialog({
   const previewUrl = useObjectUrl(imageFile);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showImageUpload, setShowImageUpload] = useState(!activity?.hasImage);
   const isEditing = Boolean(activity);
-  const hasCurrentImage = Boolean(activity?.hasImage) && !removeImage && !imageFile;
+  const hasCurrentImage = Boolean(activity?.hasImage) && !imageFile;
+  const hasImagePreview = Boolean(previewUrl || hasCurrentImage);
+  const shouldShowUploadField = !activity?.hasImage || showImageUpload || Boolean(imageFile);
   const activityImageLabel = title || "Atividade";
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
@@ -1616,12 +1663,14 @@ export function ActivityDialog({
     setError(null);
     setImageFile(file);
     setRemoveImage(false);
+    setShowImageUpload(true);
   }
 
   function discardSelectedImage() {
     setImageFile(null);
     setFileInputKey((current) => current + 1);
     setError(null);
+    setShowImageUpload(!activity?.hasImage);
   }
 
   function removeCurrentImage() {
@@ -1629,10 +1678,18 @@ export function ActivityDialog({
     setRemoveImage(true);
     setFileInputKey((current) => current + 1);
     setError(null);
+    setShowImageUpload(false);
   }
 
   function restoreCurrentImage() {
     setRemoveImage(false);
+    setError(null);
+    setShowImageUpload(false);
+  }
+
+  function beginImageReplacement() {
+    setRemoveImage(false);
+    setShowImageUpload(true);
     setError(null);
   }
 
@@ -1689,40 +1746,64 @@ export function ActivityDialog({
           </Field>
           <Field label="Imagem da atividade">
             <div className="space-y-3">
-              <ProtectedActivityImageFrame
-                activityId={activity?.id ?? "preview"}
-                title={activityImageLabel}
-                hasImage={hasCurrentImage}
-                imageUpdatedAt={activity?.imageUpdatedAt}
-                token={token}
-                householdId={householdId}
-                previewUrl={previewUrl}
-                className="rounded-[20px]"
-              />
-              <Input
-                key={fileInputKey}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleImageChange}
-              />
-              <p className="text-xs text-muted-foreground">JPG, PNG ou WEBP, com até 5 MB.</p>
-              <div className="flex flex-wrap gap-2">
-                {imageFile ? (
-                  <Button variant="ghost" type="button" onClick={discardSelectedImage}>
-                    Descartar nova imagem
-                  </Button>
-                ) : null}
-                {!imageFile && activity && !removeImage && (activity.hasImage || activity.imageUpdatedAt) ? (
-                  <Button variant="ghost" type="button" onClick={removeCurrentImage}>
-                    Remover imagem atual
-                  </Button>
-                ) : null}
-                {!imageFile && activity && removeImage ? (
-                  <Button variant="ghost" type="button" onClick={restoreCurrentImage}>
-                    Manter imagem atual
-                  </Button>
-                ) : null}
-              </div>
+              {hasImagePreview ? (
+                <div className="space-y-3">
+                  <ProtectedActivityImageFrame
+                    activityId={activity?.id ?? "preview"}
+                    title={activityImageLabel}
+                    hasImage={hasCurrentImage}
+                    imageUpdatedAt={activity?.imageUpdatedAt}
+                    token={token}
+                    householdId={householdId}
+                    previewUrl={previewUrl}
+                    onOpenImage={onOpenImage && activity?.hasImage && !imageFile ? (imageUrl) => onOpenImage(activityImageLabel, imageUrl) : undefined}
+                    className="rounded-[20px]"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {imageFile ? (
+                      <Button variant="ghost" type="button" onClick={discardSelectedImage}>
+                        Descartar nova imagem
+                      </Button>
+                    ) : null}
+                    {!imageFile && activity?.hasImage && !removeImage ? (
+                      <>
+                        <Button variant="ghost" type="button" onClick={removeCurrentImage}>
+                          Remover imagem atual
+                        </Button>
+                        <Button variant="secondary" type="button" onClick={beginImageReplacement}>
+                          Trocar imagem
+                        </Button>
+                      </>
+                    ) : null}
+                    {!imageFile && activity?.hasImage && removeImage ? (
+                      <>
+                        <Button variant="ghost" type="button" onClick={restoreCurrentImage}>
+                          Manter imagem atual
+                        </Button>
+                        <Button variant="secondary" type="button" onClick={beginImageReplacement}>
+                          Adicionar nova imagem
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {shouldShowUploadField ? (
+                <>
+                  <Input
+                    key={fileInputKey}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleImageChange}
+                  />
+                  <p className="text-xs text-muted-foreground">JPG, PNG ou WEBP, com até 5 MB.</p>
+                </>
+              ) : null}
+
+              {!shouldShowUploadField && activity?.hasImage && removeImage ? (
+                <p className="text-xs text-muted-foreground">Imagem marcada para remoção.</p>
+              ) : null}
             </div>
           </Field>
           <Field label="Prazo esperado">
@@ -1790,6 +1871,7 @@ export function ActivityDetailsSheet({
   onMove,
   onEditActivity,
   onDeleteActivity,
+  onOpenImage,
 }: {
   activity: Activity;
   token?: string;
@@ -1803,6 +1885,7 @@ export function ActivityDetailsSheet({
   onMove: (activity: Activity, direction: -1 | 1) => Promise<void>;
   onEditActivity: (activity: Activity) => void;
   onDeleteActivity: (activity: Activity) => Promise<void>;
+  onOpenImage?: (title: string, imageUrl: string) => void;
 }) {
   const columnIndex = activityColumns.findIndex((column) => column.status === activity.status);
 
@@ -1859,6 +1942,7 @@ export function ActivityDetailsSheet({
                 imageUpdatedAt={activity.imageUpdatedAt}
                 token={token}
                 householdId={householdId}
+                onOpenImage={onOpenImage ? (imageUrl) => onOpenImage(activity.title, imageUrl) : undefined}
                 className="rounded-[24px]"
               />
             ) : null}

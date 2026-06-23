@@ -6,13 +6,16 @@
   automacoes domesticas e prompts da familia.
 - A interface se apresenta como operacao compartilhada de uma casa.
 - Modulos implementados: autenticacao/perfil, casas e membros, projetos, banco de prompts,
-  pagina institucional com CMS, armazenamento e notificacoes por WhatsApp.
+  gestao de numeros GSM, pagina institucional com CMS, armazenamento e notificacoes por
+  WhatsApp.
 - Projetos seguem `Universo > Projeto > Atividade > Pendencia`, com comentarios em atividades.
 - O frontend possui landing publica em `/`, CMS em `/admin/institutional` e paginas internas
-  para `/projects`, `/prompts` e `/household`.
+  para `/projects`, `/prompts`, `/household` e `/gsm`.
 - Financeiro e supermercado existem apenas como documentacao de modulos planejados.
 - A versao em `apps/web/package.json`, `apps/web/package-lock.json` e `CHANGELOG.md` e
-  `1.4.0`.
+  `1.5.0`.
+- Numeros GSM agora pertencem a uma casa, guardam titulo, numero normalizado com DDI,
+  descricao opcional, datas de aquisicao/ultima recarga e status compartilhado.
 - Atividades expõem `CreatedAt` auditavel e aceitam `DueDate` opcional na API e no
   dashboard.
 - Atividades agora aceitam uma imagem unica privada, com upload, leitura e exclusao

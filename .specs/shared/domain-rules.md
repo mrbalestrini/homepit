@@ -26,6 +26,14 @@
 - Universo do prompt e opcional; excluir universo limpa o vinculo sem excluir o prompt.
 - Categoria e unica por nome dentro da casa.
 - Excluir categoria exige substituta quando algum prompt ficaria sem categoria.
+- Numero GSM pertence a uma casa, exige titulo, numero valido com 11 ou 13 digitos e data
+  de aquisicao.
+- Numero GSM com 11 digitos recebe DDI `55` por padrao; com 13 digitos preserva o DDI
+  explicito informado.
+- O mesmo numero GSM normalizado nao pode se repetir na mesma casa.
+- `LastRechargeOn` de numero GSM e opcional, nao pode ficar no futuro e nao pode ser
+  anterior a `AcquiredOn`.
+- Status de numero GSM: `Ativo`, `Inativo`, `Abandonado`.
 - Imagens privadas pertencem ao usuario, universo ou prompt correspondente.
 - SuperAdmin lista casas e conteudo globalmente, mas operacoes de escrita nos modulos das
   casas sao proibidas.

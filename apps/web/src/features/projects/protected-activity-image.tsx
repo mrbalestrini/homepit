@@ -17,6 +17,7 @@ export function ProtectedActivityImageFrame({
   householdId,
   className,
   previewUrl,
+  onOpenImage,
 }: {
   activityId: string;
   title: string;
@@ -26,6 +27,7 @@ export function ProtectedActivityImageFrame({
   householdId?: string;
   className?: string;
   previewUrl?: string | null;
+  onOpenImage?: (imageUrl: string) => void;
 }) {
   const protectedImageUrl = useProtectedActivityImage({
     activityId,
@@ -36,7 +38,7 @@ export function ProtectedActivityImageFrame({
   });
   const imageUrl = previewUrl ?? protectedImageUrl;
 
-  return (
+  const frame = (
     <div
       className={cn(
         "aspect-[4/3] overflow-hidden border border-border/60 bg-[radial-gradient(circle_at_top_left,rgba(138,106,84,0.16),transparent_52%),linear-gradient(180deg,rgba(255,255,255,0.6),rgba(237,227,213,0.78))]",
@@ -61,6 +63,21 @@ export function ProtectedActivityImageFrame({
       )}
     </div>
   );
+
+  if (imageUrl && onOpenImage) {
+    return (
+      <button
+        className="block h-full w-full text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/70"
+        type="button"
+        aria-label={`Abrir imagem de ${title}`}
+        onClick={() => onOpenImage(imageUrl)}
+      >
+        {frame}
+      </button>
+    );
+  }
+
+  return frame;
 }
 
 export function useProtectedActivityImage({

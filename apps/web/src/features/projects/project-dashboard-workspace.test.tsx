@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity } from "@/lib/api";
 import * as api from "@/lib/api";
+import { ActivityImageViewerDialog, clampActivityImageZoom, stepActivityImageZoom } from "./activity-image-viewer";
 import {
   ActivityCard,
   ActivityDialog,
@@ -69,6 +70,14 @@ describe("project dashboard kanban drag states", () => {
         revokeObjectURL: vi.fn(),
       }),
     );
+    Object.defineProperty(HTMLElement.prototype, "setPointerCapture", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    Object.defineProperty(HTMLElement.prototype, "releasePointerCapture", {
+      configurable: true,
+      value: vi.fn(),
+    });
   });
 
   afterEach(() => {
@@ -166,6 +175,7 @@ describe("project dashboard kanban drag states", () => {
         onMove={async () => undefined}
         onEditActivity={() => undefined}
         onDeleteActivity={async () => undefined}
+        onOpenImage={() => undefined}
       />,
     );
 
@@ -188,16 +198,17 @@ describe("project dashboard kanban drag states", () => {
       <ActivityCard
         activity={activity}
         onOpen={() => undefined}
+        onOpenImage={() => undefined}
         token="token"
         householdId="household-1"
       />,
     );
 
-    await waitFor(() => expect(screen.getByAltText("Card com imagem")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Abrir imagem de Card com imagem" })).toBeInTheDocument());
     expect(screen.getByText("Imagem")).toBeInTheDocument();
   });
 
-  it("renders the activity image preview and removal controls in the editor", async () => {
+  it("renders the compact image controls in the editor when an attachment exists", async () => {
     const mockedApiFetchBlob = vi.mocked(api.apiFetchBlob);
     mockedApiFetchBlob.mockResolvedValue(new Blob([1, 2, 3, 4], { type: "image/png" }));
     const activity = buildActivity({
@@ -245,9 +256,128 @@ describe("project dashboard kanban drag states", () => {
       />,
     );
 
-    await waitFor(() => expect(screen.getByAltText("Montar prateleira")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Abrir imagem de Montar prateleira" })).toBeInTheDocument());
     expect(screen.getByText("Remover imagem atual")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Trocar imagem" })).toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+  });
+
+  it("renders only the file input when the editor has no image", () => {
+    render(
+      <ActivityDialog
+        open
+        activity={null}
+        projects={[
+          {
+            id: "project-1",
+            universeId: "universe-1",
+            universeName: "Universo Alfa",
+            universeImageUrl: null,
+            universeHasImage: false,
+            universeImageUpdatedAt: null,
+            name: "Projeto Alfa",
+            createdByMemberId: null,
+            activityCount: 1,
+            canEdit: true,
+            canDelete: true,
+          },
+        ]}
+        members={[]}
+        defaultProjectId="project-1"
+        token="token"
+        householdId="household-1"
+        onOpenImage={() => undefined}
+        onOpenChange={() => undefined}
+        onSave={async () => undefined}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /Abrir imagem de/ })).not.toBeInTheDocument();
     expect(document.querySelector('input[type="file"]')).not.toBeNull();
+  });
+
+  it("opens the image viewer from the card and the detail sheet", async () => {
+    const mockedApiFetchBlob = vi.mocked(api.apiFetchBlob);
+    mockedApiFetchBlob.mockResolvedValue(new Blob([1, 2, 3, 4], { type: "image/png" }));
+    const activity = buildActivity({
+      id: "activity-1",
+      title: "Card com imagem",
+      hasImage: true,
+      imageUpdatedAt: "2026-06-20T12:00:00.000Z",
+    });
+    const openImage = vi.fn();
+
+    render(
+      <ActivityCard
+        activity={activity}
+        onOpen={() => undefined}
+        onOpenImage={openImage}
+        token="token"
+        householdId="household-1"
+      />,
+    );
+
+    await waitFor(() => screen.getByRole("button", { name: "Abrir imagem de Card com imagem" }));
+    fireEvent.click(screen.getByRole("button", { name: "Abrir imagem de Card com imagem" }));
+    expect(openImage).toHaveBeenCalledWith("Card com imagem", expect.stringContaining("blob:activity-"));
+
+    const detailOpenImage = vi.fn();
+    render(
+      <ActivityDetailsSheet
+        activity={activity}
+        token="token"
+        householdId="household-1"
+        comments={[]}
+        commentsLoading={false}
+        onClose={() => undefined}
+        onCreateComment={async () => undefined}
+        onUpdateComment={async () => undefined}
+        onDeleteComment={async () => undefined}
+        onMove={async () => undefined}
+        onEditActivity={() => undefined}
+        onDeleteActivity={async () => undefined}
+        onOpenImage={detailOpenImage}
+      />,
+    );
+
+    await waitFor(() => screen.getByRole("button", { name: "Abrir imagem de Card com imagem" }));
+    fireEvent.click(screen.getByRole("button", { name: "Abrir imagem de Card com imagem" }));
+    expect(detailOpenImage).toHaveBeenCalledWith("Card com imagem", expect.stringContaining("blob:activity-"));
+  });
+
+  it("renders and manipulates the activity image viewer", async () => {
+    render(
+      <ActivityImageViewerDialog
+        open
+        title="Imagem da atividade"
+        imageUrl="blob:viewer-1"
+        onOpenChange={() => undefined}
+      />,
+    );
+
+    const stage = screen.getByLabelText("Área de visualização da imagem");
+    const image = screen.getByAltText("Imagem da atividade");
+
+    expect(image.style.transform).toBe("translate3d(0px, 0px, 0) scale(1)");
+
+    fireEvent.click(screen.getByRole("button", { name: "Aumentar zoom" }));
+    await waitFor(() => expect(image.style.transform).toContain("scale(1.2)"));
+
+    fireEvent.pointerDown(stage, { clientX: 20, clientY: 20, pointerId: 1 });
+    fireEvent.pointerMove(stage, { clientX: 40, clientY: 35, pointerId: 1 });
+    fireEvent.pointerUp(stage, { clientX: 40, clientY: 35, pointerId: 1 });
+
+    expect(image.style.transform).toContain("translate3d(20px, 15px, 0)");
+    expect(image.style.transform).toContain("scale(1.2)");
+    fireEvent.click(screen.getByRole("button", { name: "Redefinir" }));
+    expect(image.style.transform).toBe("translate3d(0px, 0px, 0) scale(1)");
+  });
+
+  it("clamps the viewer zoom helpers", () => {
+    expect(clampActivityImageZoom(0.5)).toBe(1);
+    expect(clampActivityImageZoom(7)).toBe(4);
+    expect(stepActivityImageZoom(1, -1)).toBe(1);
+    expect(stepActivityImageZoom(1, 1)).toBeCloseTo(1.2);
   });
 
   it("highlights the column frame when it is the active drop zone", () => {

@@ -20,6 +20,7 @@ import {
   Share2,
   ShieldCheck,
   ShoppingCart,
+  Smartphone,
   Sparkles,
   Trash2,
   UserPlus,
@@ -56,7 +57,7 @@ import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 import { AvatarCircle, ProtectedUserAvatar } from "./protected-user-avatar";
 
 type WorkspaceTheme = "cozy" | "earthy" | "dark";
-type ActiveModule = "projects" | "prompts" | "household";
+type ActiveModule = "projects" | "prompts" | "household" | "gsm";
 
 type ThemeOption = { value: WorkspaceTheme; label: string };
 
@@ -101,6 +102,7 @@ const moduleIcons = {
   projects: Layers,
   prompts: Sparkles,
   household: ShieldCheck,
+  gsm: Smartphone,
   market: ShoppingCart,
   finance: Wallet,
   routines: Repeat2,
@@ -111,6 +113,7 @@ const modules = [
   { key: "projects", label: "Projetos", href: "/projects", state: "active" as const, superAdminOnly: false },
   { key: "prompts", label: "Prompts", href: "/prompts", state: "active" as const, superAdminOnly: false },
   { key: "household", label: "Casa", href: "/household", state: "active" as const, superAdminOnly: false },
+  { key: "gsm", label: "GSM", href: "/gsm", state: "active" as const, superAdminOnly: false },
   { key: "institutional", label: "Site institucional", href: "/admin/institutional", state: "active" as const, superAdminOnly: true },
   { key: "market", label: "Mercado", href: "#", state: "roadmap" as const, superAdminOnly: false },
   { key: "finance", label: "Financeiro", href: "#", state: "roadmap" as const, superAdminOnly: false },

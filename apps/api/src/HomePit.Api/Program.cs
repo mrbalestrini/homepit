@@ -4,6 +4,7 @@ using HomePit.Api.Security;
 using HomePit.Application;
 using HomePit.Application.Auth;
 using HomePit.Application.Common;
+using HomePit.Application.Gsm;
 using HomePit.Application.Households;
 using HomePit.Application.Institutional;
 using HomePit.Application.Prompts;
@@ -221,6 +222,27 @@ api.MapGet("/users/me/profile-photo", async (
     var photo = await service.GetProfilePhotoAsync(cancellationToken);
     context.Response.Headers.CacheControl = "no-store";
     return Results.File(photo.Content, photo.ContentType);
+});
+api.MapGet("/gsm-numbers", async (GsmNumberService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListAsync(cancellationToken)));
+api.MapPost("/gsm-numbers", async (
+    CreateGsmNumberRequest request,
+    GsmNumberService service,
+    CancellationToken cancellationToken) =>
+        Results.Created("/api/gsm-numbers", await service.CreateAsync(request, cancellationToken)));
+api.MapPut("/gsm-numbers/{id:guid}", async (
+    Guid id,
+    UpdateGsmNumberRequest request,
+    GsmNumberService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateAsync(id, request, cancellationToken)));
+api.MapDelete("/gsm-numbers/{id:guid}", async (
+    Guid id,
+    GsmNumberService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteAsync(id, cancellationToken);
+    return Results.NoContent();
 });
 
 api.MapGet("/universes", async (ProjectService service, CancellationToken cancellationToken) =>

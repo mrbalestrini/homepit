@@ -152,6 +152,7 @@ describe("HomePitWorkspaceShell header", () => {
     expect(header).toHaveTextContent("3 universos");
     expect(within(header).getByText("7 visíveis")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Casa" }).some((link) => link.getAttribute("href") === "/household")).toBe(true);
+    expect(screen.getByRole("link", { name: "GSM" })).toHaveAttribute("href", "/gsm");
     expect(header.textContent).toContain("•");
     expect(header.innerHTML).not.toContain("rounded-[22px]");
   });

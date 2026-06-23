@@ -1,5 +1,6 @@
 using HomePit.Application.Common;
 using HomePit.Domain.Common;
+using HomePit.Domain.Gsm;
 using HomePit.Domain.Households;
 using HomePit.Domain.Institutional;
 using HomePit.Domain.Notifications;
@@ -19,6 +20,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<InstitutionalPage> InstitutionalPages => Set<InstitutionalPage>();
     public DbSet<InstitutionalBenefit> InstitutionalBenefits => Set<InstitutionalBenefit>();
     public DbSet<InstitutionalStep> InstitutionalSteps => Set<InstitutionalStep>();
+    public DbSet<GsmNumber> GsmNumbers => Set<GsmNumber>();
     public DbSet<Universe> Universes => Set<Universe>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Activity> Activities => Set<Activity>();
@@ -35,6 +37,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
         modelBuilder.HasDefaultSchema("homepit");
 
         ConfigureHouseholds(modelBuilder);
+        ConfigureGsm(modelBuilder);
         ConfigureInstitutional(modelBuilder);
         ConfigureProjects(modelBuilder);
         ConfigurePrompts(modelBuilder);
@@ -166,6 +169,29 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
                 .WithMany(user => user.RefreshTokens)
                 .HasForeignKey(token => token.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureGsm(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<GsmNumber>(builder =>
+        {
+            builder.ToTable("gsm_numbers");
+            builder.Property(item => item.Title).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.NormalizedNumber).HasMaxLength(13).IsRequired();
+            builder.Property(item => item.Description).HasMaxLength(4000);
+            builder.Property(item => item.AcquiredOn).HasColumnType("date");
+            builder.Property(item => item.LastRechargeOn).HasColumnType("date");
+            builder.Property(item => item.Status).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.HasIndex(item => new { item.HouseholdId, item.NormalizedNumber }).IsUnique();
+            builder.HasOne(item => item.Household)
+                .WithMany(household => household.GsmNumbers)
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.CreatedByMember)
+                .WithMany(member => member.CreatedGsmNumbers)
+                .HasForeignKey(item => item.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 

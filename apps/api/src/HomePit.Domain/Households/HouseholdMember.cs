@@ -1,4 +1,5 @@
 using HomePit.Domain.Common;
+using HomePit.Domain.Gsm;
 using HomePit.Domain.Notifications;
 using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
@@ -22,6 +23,7 @@ public sealed class HouseholdMember : AuditableEntity, IHouseholdScoped
     public ICollection<Activity> CreatedActivities { get; } = new List<Activity>();
     public ICollection<Prompt> CreatedPrompts { get; } = new List<Prompt>();
     public ICollection<PromptCategory> CreatedPromptCategories { get; } = new List<PromptCategory>();
+    public ICollection<GsmNumber> CreatedGsmNumbers { get; } = new List<GsmNumber>();
     public ICollection<ActivityComment> AuthoredActivityComments { get; } = new List<ActivityComment>();
     public NotificationPreference? NotificationPreference { get; set; }
 }
