@@ -325,6 +325,42 @@ api.MapPatch("/activities/{id:guid}/status", async (
     ProjectService service,
     CancellationToken cancellationToken) =>
         Results.Ok(await service.UpdateActivityStatusAsync(id, request, cancellationToken)));
+api.MapPost("/activities/{id:guid}/image", async (
+    Guid id,
+    HttpRequest request,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+{
+    if (!request.HasFormContentType)
+    {
+        throw new ValidationException("Envie a imagem da atividade em multipart/form-data.");
+    }
+
+    var form = await request.ReadFormAsync(cancellationToken);
+    var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+    if (file is null)
+    {
+        throw new ValidationException("Selecione uma imagem para a atividade.");
+    }
+
+    await using var stream = file.OpenReadStream();
+    return Results.Ok(await service.UploadActivityImageAsync(id, stream, file.Length, file.ContentType, cancellationToken));
+});
+api.MapGet("/activities/{id:guid}/image", async (
+    Guid id,
+    HttpContext context,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+{
+    var image = await service.GetActivityImageAsync(id, cancellationToken);
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.File(image.Content, image.ContentType);
+});
+api.MapDelete("/activities/{id:guid}/image", async (
+    Guid id,
+    ProjectService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.DeleteActivityImageAsync(id, cancellationToken)));
 api.MapGet("/activities/{id:guid}/comments", async (
     Guid id,
     ProjectService service,

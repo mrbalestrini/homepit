@@ -17,6 +17,8 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
     createdAt: "2026-06-20T12:00:00.000Z",
     title: overrides.title,
     description: null,
+    hasImage: false,
+    imageUpdatedAt: null,
     dueDate: null,
     status: "NaoIniciada",
     priority: "Media",

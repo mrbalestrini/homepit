@@ -4,6 +4,16 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.4.0] - 2026-06-22
+
+### Added
+- Atividades agora aceitam uma imagem unica, com upload protegido, leitura protegida e remocao pelo dashboard de projetos.
+- O card, a lista e o painel de detalhes de atividade passam a exibir a imagem quando ela existe.
+- A API e o contrato OpenAPI ganharam os endpoints de upload, leitura e exclusao de imagem por atividade.
+
+### Changed
+- A exclusao de atividade, projeto ou universo agora remove os binarios de imagem vinculados para evitar anexos orfaos.
+
 ## [1.3.0] - 2026-06-20
 
 ### Added

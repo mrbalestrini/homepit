@@ -22,6 +22,6 @@ public sealed class ApiContractSmokeTests
 
         Assert.Contains("/api/institutional-page:", contract);
         Assert.Contains("/api/admin/institutional-page:", contract);
-        Assert.Contains("enum: [hero, highlight]", contract);
+        Assert.Contains("enum: [hero, highlight, seo]", contract);
     }
 }

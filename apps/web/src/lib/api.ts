@@ -75,6 +75,8 @@ export type Activity = {
   createdAt: string;
   title: string;
   description?: string | null;
+  hasImage: boolean;
+  imageUpdatedAt?: string | null;
   dueDate?: string | null;
   status: ActivityStatus;
   priority: Priority;

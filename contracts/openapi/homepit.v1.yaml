@@ -690,6 +690,77 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Activity"
+  /api/activities/{id}/image:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Activity image updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Activity image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Activity image not found
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Activity image removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
   /api/activities/{id}/comments:
     get:
       parameters:
@@ -1503,6 +1574,7 @@ components:
           title,
           status,
           priority,
+          hasImage,
           pendingCount,
           commentCount,
           canEdit,
@@ -1542,6 +1614,12 @@ components:
           type: string
         description:
           type: string
+          nullable: true
+        hasImage:
+          type: boolean
+        imageUpdatedAt:
+          type: string
+          format: date-time
           nullable: true
         dueDate:
           type: string

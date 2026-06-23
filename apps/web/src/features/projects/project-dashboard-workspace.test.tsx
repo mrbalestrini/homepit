@@ -1,13 +1,24 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity } from "@/lib/api";
+import * as api from "@/lib/api";
 import {
   ActivityCard,
+  ActivityDialog,
   ActivityDetailsSheet,
   ActivityDragPreview,
   ActivityListView,
   KanbanColumnFrame,
 } from "./project-dashboard-workspace";
+
+vi.mock("@/lib/api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+
+  return {
+    ...actual,
+    apiFetchBlob: vi.fn(),
+  };
+});
 
 vi.mock("@/features/workspace/protected-universe-avatar", () => ({
   ProtectedUniverseAvatar: ({ name, className }: { name: string; className?: string }) => (
@@ -32,6 +43,8 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
     createdAt: "2026-06-20T12:00:00.000Z",
     title: overrides.title,
     description: "Descrição de apoio para o card de teste.",
+    hasImage: false,
+    imageUpdatedAt: null,
     dueDate: "2026-06-30",
     status: "NaoIniciada",
     priority: "Media",
@@ -47,6 +60,21 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
 }
 
 describe("project dashboard kanban drag states", () => {
+  beforeEach(() => {
+    let objectUrlCounter = 0;
+    vi.stubGlobal(
+      "URL",
+      Object.assign(URL, {
+        createObjectURL: vi.fn(() => `blob:activity-${++objectUrlCounter}`),
+        revokeObjectURL: vi.fn(),
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("renders a compact drag preview with universe avatar and minimal metadata", () => {
     const activity = buildActivity({ id: "activity-1", title: "Comprar tinta" });
 
@@ -144,6 +172,82 @@ describe("project dashboard kanban drag states", () => {
     expect(screen.getByText("Prazo esperado")).toBeInTheDocument();
     expect(screen.getByText("Criada em")).toBeInTheDocument();
     expect(screen.getAllByText("30/06/2026").length).toBeGreaterThan(0);
+  });
+
+  it("renders the activity image preview on the kanban card when an attachment exists", async () => {
+    const mockedApiFetchBlob = vi.mocked(api.apiFetchBlob);
+    mockedApiFetchBlob.mockResolvedValue(new Blob([1, 2, 3, 4], { type: "image/png" }));
+    const activity = buildActivity({
+      id: "activity-1",
+      title: "Card com imagem",
+      hasImage: true,
+      imageUpdatedAt: "2026-06-20T12:00:00.000Z",
+    });
+
+    render(
+      <ActivityCard
+        activity={activity}
+        onOpen={() => undefined}
+        token="token"
+        householdId="household-1"
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByAltText("Card com imagem")).toBeInTheDocument());
+    expect(screen.getByText("Imagem")).toBeInTheDocument();
+  });
+
+  it("renders the activity image preview and removal controls in the editor", async () => {
+    const mockedApiFetchBlob = vi.mocked(api.apiFetchBlob);
+    mockedApiFetchBlob.mockResolvedValue(new Blob([1, 2, 3, 4], { type: "image/png" }));
+    const activity = buildActivity({
+      id: "activity-1",
+      title: "Montar prateleira",
+      hasImage: true,
+      imageUpdatedAt: "2026-06-20T12:00:00.000Z",
+    });
+
+    render(
+      <ActivityDialog
+        open
+        activity={activity}
+        projects={[
+          {
+            id: "project-1",
+            universeId: "universe-1",
+            universeName: "Universo Alfa",
+            universeImageUrl: null,
+            universeHasImage: false,
+            universeImageUpdatedAt: null,
+            name: "Projeto Alfa",
+            createdByMemberId: null,
+            activityCount: 1,
+            canEdit: true,
+            canDelete: true,
+          },
+        ]}
+        members={[
+          {
+            id: "member-1",
+            userId: "user-1",
+            displayName: "Ana Teste",
+            email: "ana@example.com",
+            phoneNumber: null,
+            role: "Owner",
+            isCurrentUser: true,
+          },
+        ]}
+        defaultProjectId="project-1"
+        token="token"
+        householdId="household-1"
+        onOpenChange={() => undefined}
+        onSave={async () => undefined}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByAltText("Montar prateleira")).toBeInTheDocument());
+    expect(screen.getByText("Remover imagem atual")).toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).not.toBeNull();
   });
 
   it("highlights the column frame when it is the active drop zone", () => {
