@@ -5,12 +5,18 @@ Este arquivo e o ponto de entrada para trabalho assistido por IA no HomePit.
 ## Como iniciar
 
 1. Leia `.specs/README.md`.
-2. Consulte somente os arquivos relevantes em `.specs/memory/` e `.specs/shared/`.
-3. Verifique se existe uma mudanca ativa em `.specs/changes/`.
-4. Escolha em `.agents/skills/` somente a skill cujo gatilho corresponda a tarefa.
-5. Antes de editar, apresente um plano proporcional ao impacto.
+2. Leia `.specs/active-change.md` para saber se existe uma mudanca ativa explicita.
+3. Consulte somente os arquivos relevantes em `.specs/memory/` e `.specs/shared/`.
+4. Use `.specs/shared/sources-of-truth.md` quando houver divergencia entre memoria,
+   documentacao, scripts e codigo.
+5. Se `active-change.md` apontar uma mudanca ativa, leia a pasta indicada em
+   `.specs/changes/`; se nao houver mudanca ativa, crie uma nova pasta quando a tarefa
+   exigir registro duravel.
+6. Escolha em `.agents/skills/` somente a skill cujo gatilho corresponda a tarefa.
+7. Antes de editar, apresente um plano proporcional ao impacto.
 
 Nao assuma stack, comando, contrato ou regra marcada como `NÃO IDENTIFICADO`.
+Nao infira mudanca ativa apenas pela presenca de pastas em `.specs/changes/`.
 
 ## Skills
 
@@ -50,8 +56,11 @@ explicita.
 
 ## Referencias
 
+- Estado ativo: `.specs/active-change.md`
 - Memoria factual: `.specs/memory/`
 - Regras compartilhadas: `.specs/shared/`
+- Fontes de verdade: `.specs/shared/sources-of-truth.md`
 - Mudancas e decisoes: `.specs/changes/`
+- Mudancas encerradas: `.specs/archive/`
 - Templates: `.specs/templates/`
 - Skills sob demanda: `.agents/skills/`

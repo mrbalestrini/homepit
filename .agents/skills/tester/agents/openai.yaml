@@ -1,0 +1,4 @@
+interface:
+  display_name: "HomePit Tester"
+  short_description: "Planejar testes, criterios de aceite e casos limite"
+  default_prompt: "Use a skill tester para planejar validacoes, cobertura e criterios de aceite no HomePit."

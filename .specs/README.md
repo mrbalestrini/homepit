@@ -5,6 +5,7 @@ desenvolvimento assistido por IA.
 
 - `memory/`: estado observado do projeto.
 - `shared/`: vocabulario, regras de dominio e padroes tecnicos.
+- `active-change.md`: estado explicito da mudanca atualmente ativa.
 - `changes/`: descoberta, decisoes e tarefas por mudanca.
 - `templates/`: modelos minimos para novos registros.
 - `archive/`: mudancas encerradas que deixaram de ser ativas.
@@ -14,6 +15,7 @@ OpenAPI ou documentacao operacional por resumos nesta pasta.
 
 ## Fluxo recomendado
 
+- Antes de explorar `changes/`, consulte `active-change.md`.
 - Nova feature: crie `.specs/changes/AAAA-MM-DD-nome-da-feature/` e use
   `templates/feature.md` como `spec.md`.
 - Bug: crie uma pasta em `changes/` e use `templates/bugfix.md`.
@@ -22,7 +24,7 @@ OpenAPI ou documentacao operacional por resumos nesta pasta.
   execucao.
 - Revisao: use `templates/pr-review.md` com a skill `reviewer`.
 - Ao finalizar: atualize `decisions.md`, `tasks.md` e as validacoes; mova a mudanca para
-  `archive/` ou deixe ali um resumo que aponte para a memoria atual.
+  `archive/` e ajuste `active-change.md`, ou registre explicitamente porque ela continua ativa.
 
 ## Marcadores
 

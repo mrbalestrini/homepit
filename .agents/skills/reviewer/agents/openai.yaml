@@ -1,0 +1,4 @@
+interface:
+  display_name: "HomePit Reviewer"
+  short_description: "Revisar riscos, regressões e aderencia a spec"
+  default_prompt: "Use a skill reviewer para revisar implementacoes, riscos e aderencia a spec no HomePit."

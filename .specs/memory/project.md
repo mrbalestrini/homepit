@@ -17,6 +17,8 @@
   dashboard.
 - Atividades agora aceitam uma imagem unica privada, com upload, leitura e exclusao
   protegidos no dashboard de projetos.
+- O workflow local de IA usa `AGENTS.md`, `.specs/active-change.md` e
+  `.specs/shared/sources-of-truth.md` para roteamento e governanca documental.
 
 ## INFERÊNCIA
 

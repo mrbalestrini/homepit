@@ -17,6 +17,7 @@
 | `.\infra\setup\homepit-local.ps1 -Action start` | raiz | setup README/script | Preparar ambiente, construir API/web e subir cinco recursos. |
 | `.\infra\setup\homepit-local.ps1 -Action stop` | raiz | setup README/script | Parar containers preservando volumes. |
 | `.\infra\setup\homepit-local.ps1 -Action destroy` | raiz | setup README/script | Remover containers, volumes e a rede local. |
+| `.\scripts\validate-ai-workflow.ps1` | raiz | workflow IA local | Validar estrutura de `.specs/`, skills, versoes e consistencia documental minima. |
 | `docker network create homepit_net` | host de deploy | `docs/coolify.md` | Criar a rede externa de deploy. |
 
 - `start` aceita `-Engine docker|podman` e `-NoBuild`.
@@ -29,6 +30,7 @@
   removem bancos, Redis e objetos locais.
 - `start` cria arquivos `.env` quando ausentes, constroi imagens e pode baixar imagens.
 - A API pode aplicar migrations e criar/verificar bucket durante o startup.
+- `validate-ai-workflow.ps1` apenas le arquivos e falha cedo ao encontrar inconsistencias.
 
 ## INFERÊNCIA
 

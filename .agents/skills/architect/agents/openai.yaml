@@ -1,0 +1,4 @@
+interface:
+  display_name: "HomePit Architect"
+  short_description: "Planejar mudancas estruturais e impacto transversal"
+  default_prompt: "Use a skill architect para avaliar impacto arquitetural e governanca tecnica no HomePit."
