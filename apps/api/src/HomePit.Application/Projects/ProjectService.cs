@@ -13,9 +13,17 @@ public sealed class ProjectService(
     TimeProvider timeProvider)
 {
     private const long UniverseImageMaxBytes = 5 * 1024 * 1024;
+    private const long ActivityImageMaxBytes = 5 * 1024 * 1024;
     private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
     private static readonly HashSet<string> AllowedUniverseImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    };
+
+    private static readonly HashSet<string> AllowedActivityImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg",
         "image/png",
@@ -197,11 +205,20 @@ public sealed class ProjectService(
             .Where(prompt => prompt.HouseholdId == currentMember.HouseholdId && prompt.UniverseId == universe.Id)
             .ToArrayAsync(cancellationToken);
 
+        var activityImageKeys = await db.Projects
+            .AsNoTracking()
+            .Where(project => project.UniverseId == universe.Id)
+            .SelectMany(project => project.Activities)
+            .Where(activity => !string.IsNullOrWhiteSpace(activity.ImageObjectKey))
+            .Select(activity => activity.ImageObjectKey)
+            .ToArrayAsync(cancellationToken);
+
         foreach (var prompt in prompts)
         {
             prompt.UniverseId = null;
         }
 
+        await DeleteObjectKeysAsync(activityImageKeys, cancellationToken);
         if (!string.IsNullOrWhiteSpace(universe.ImageObjectKey))
         {
             await objectStorage.DeleteAsync(universe.ImageObjectKey, cancellationToken);
@@ -301,6 +318,13 @@ public sealed class ProjectService(
 
         EnsureCanManageEntity(currentMember, project.CreatedByMemberId, "Você não pode excluir um projeto criado por outra pessoa.");
 
+        var activityImageKeys = await db.Activities
+            .AsNoTracking()
+            .Where(activity => activity.ProjectId == project.Id && !string.IsNullOrWhiteSpace(activity.ImageObjectKey))
+            .Select(activity => activity.ImageObjectKey)
+            .ToArrayAsync(cancellationToken);
+
+        await DeleteObjectKeysAsync(activityImageKeys, cancellationToken);
         db.Projects.Remove(project);
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -435,8 +459,90 @@ public sealed class ProjectService(
 
         EnsureCanManageEntity(currentMember, activity.CreatedByMemberId, "Você não pode excluir uma atividade criada por outra pessoa.");
 
+        await DeleteObjectKeysAsync([activity.ImageObjectKey], cancellationToken);
         db.Activities.Remove(activity);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<ActivityDto> UploadActivityImageAsync(
+        Guid activityId,
+        Stream content,
+        long contentLength,
+        string? contentType,
+        CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        if (contentLength <= 0)
+        {
+            throw new ValidationException("Envie uma imagem com conteúdo para a atividade.");
+        }
+
+        if (contentLength > ActivityImageMaxBytes)
+        {
+            throw new ValidationException($"A imagem da atividade deve ter no máximo {FormatMegabytes(ActivityImageMaxBytes)} MB.");
+        }
+
+        var normalizedContentType = NormalizeActivityImageContentType(contentType);
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var activity = await db.Activities
+            .FirstOrDefaultAsync(item => item.Id == activityId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Atividade não encontrada.");
+
+        EnsureCanManageEntity(currentMember, activity.CreatedByMemberId, "Você não pode editar uma atividade criada por outra pessoa.");
+
+        var objectKey = ObjectStorageKeys.ActivityImage(activity.Id);
+        await objectStorage.PutAsync(
+            new ObjectStoragePutRequest(objectKey, content, contentLength, normalizedContentType),
+            cancellationToken);
+
+        activity.ImageObjectKey = objectKey;
+        activity.ImageContentType = normalizedContentType;
+        activity.ImageUpdatedAt = timeProvider.GetUtcNow();
+        await db.SaveChangesAsync(cancellationToken);
+
+        var updated = await FindActivityForOutputAsync(currentMember.HouseholdId, activity.Id, cancellationToken);
+        return ToActivityDto(updated, currentMember);
+    }
+
+    public async Task<StoredObject> GetActivityImageAsync(Guid activityId, CancellationToken cancellationToken)
+    {
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var activity = await db.Activities
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == activityId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Atividade não encontrada.");
+
+        if (string.IsNullOrWhiteSpace(activity.ImageObjectKey))
+        {
+            throw new NotFoundException("Imagem da atividade não encontrada.");
+        }
+
+        return await objectStorage.GetAsync(activity.ImageObjectKey, cancellationToken);
+    }
+
+    public async Task<ActivityDto> DeleteActivityImageAsync(Guid activityId, CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var activity = await db.Activities
+            .FirstOrDefaultAsync(item => item.Id == activityId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Atividade não encontrada.");
+
+        EnsureCanManageEntity(currentMember, activity.CreatedByMemberId, "Você não pode editar uma atividade criada por outra pessoa.");
+
+        if (string.IsNullOrWhiteSpace(activity.ImageObjectKey))
+        {
+            throw new NotFoundException("Imagem da atividade não encontrada.");
+        }
+
+        await DeleteObjectKeysAsync([activity.ImageObjectKey], cancellationToken);
+        activity.ImageObjectKey = null;
+        activity.ImageContentType = null;
+        activity.ImageUpdatedAt = null;
+        await db.SaveChangesAsync(cancellationToken);
+
+        var updated = await FindActivityForOutputAsync(currentMember.HouseholdId, activity.Id, cancellationToken);
+        return ToActivityDto(updated, currentMember);
     }
 
     public async Task<IReadOnlyCollection<ActivityCommentDto>> ListActivityCommentsAsync(
@@ -747,6 +853,17 @@ public sealed class ProjectService(
         return normalized;
     }
 
+    private static string NormalizeActivityImageContentType(string? contentType)
+    {
+        var normalized = NormalizeOptional(contentType);
+        if (normalized is null || !AllowedActivityImageContentTypes.Contains(normalized))
+        {
+            throw new ValidationException("A imagem da atividade deve estar em JPG, PNG ou WEBP.");
+        }
+
+        return normalized;
+    }
+
     private static UniverseDto ToUniverseDto(Universe universe, int projectCount, HouseholdMember currentMember)
     {
         var canManage = CanManageEntity(currentMember, universe.CreatedByMemberId);
@@ -795,6 +912,8 @@ public sealed class ProjectService(
             activity.CreatedAt,
             activity.Title,
             activity.Description,
+            !string.IsNullOrWhiteSpace(activity.ImageObjectKey),
+            activity.ImageUpdatedAt,
             activity.DueDate,
             activity.Status,
             activity.Priority,
@@ -810,6 +929,16 @@ public sealed class ProjectService(
     private static long FormatMegabytes(long bytes)
     {
         return bytes / (1024 * 1024);
+    }
+
+    private async Task DeleteObjectKeysAsync(IEnumerable<string?> objectKeys, CancellationToken cancellationToken)
+    {
+        foreach (var objectKey in objectKeys
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.Ordinal))
+        {
+            await objectStorage.DeleteAsync(objectKey!, cancellationToken);
+        }
     }
 
     private static ActivityCommentDto ToCommentDto(ActivityComment comment, HouseholdMember currentMember)

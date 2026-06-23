@@ -72,6 +72,7 @@ import {
   Notice,
 } from "@/features/workspace/homepit-workspace-shell";
 import { ProtectedUniverseAvatar, useProtectedUniverseImage } from "@/features/workspace/protected-universe-avatar";
+import { ProtectedActivityImageFrame } from "./protected-activity-image";
 import {
   activityColumns,
   activitySortOptions,
@@ -254,6 +255,8 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
         projects={dashboard.activityDialogProjects}
         members={dashboard.members}
         defaultProjectId={dashboard.activityDraftProjectId || dashboard.selectedProjectId}
+        token={dashboard.session?.accessToken}
+        householdId={dashboard.activeHouseholdId}
         onOpenChange={(open) => !open && dashboard.closeModal()}
         onSave={(input) =>
           dashboard.editingActivity
@@ -781,6 +784,11 @@ export function ActivityListView({ dashboard }: { dashboard: ProjectDashboardCon
                                 {activity.description}
                               </div>
                             ) : null}
+                            {activity.hasImage ? (
+                              <Badge variant="neutral" className="mt-2">
+                                Imagem
+                              </Badge>
+                            ) : null}
                           </button>
                         </TableCell>
                         <TableCell className="min-w-[160px]">
@@ -1120,6 +1128,17 @@ export function ActivityCard({
       <CardContent className="space-y-3 p-3">
         <div className="flex items-start gap-2">
           <button className="min-w-0 flex-1 text-left" type="button" onClick={onOpen}>
+            {activity.hasImage ? (
+              <ProtectedActivityImageFrame
+                activityId={activity.id}
+                title={activity.title}
+                hasImage={activity.hasImage}
+                imageUpdatedAt={activity.imageUpdatedAt}
+                token={token}
+                householdId={householdId}
+                className="mb-3 rounded-[18px]"
+              />
+            ) : null}
             <h4 className="truncate text-sm font-semibold text-foreground">{activity.title}</h4>
             <div className="mt-1 flex min-w-0 items-center gap-2">
               <UniverseAvatar
@@ -1162,6 +1181,7 @@ export function ActivityCard({
         <div className="flex flex-wrap gap-2">
           <Badge variant={getPriorityVariant(activity.priority)}>{priorityLabels[activity.priority]}</Badge>
           {activity.size != null ? <Badge variant="neutral">{activity.size} pts</Badge> : null}
+          {activity.hasImage ? <Badge variant="neutral">Imagem</Badge> : null}
           <Badge variant="neutral">{activity.dueDate ? `Prazo ${formatDateOnly(activity.dueDate)}` : "Sem prazo"}</Badge>
           {activity.responsibleName ? <Badge variant="neutral">{activity.responsibleName}</Badge> : null}
         </div>
@@ -1211,6 +1231,7 @@ export function ActivityDragPreview({
         <div className="flex shrink-0 items-center gap-1">
           <Badge variant={getPriorityVariant(activity.priority)}>{priorityLabels[activity.priority]}</Badge>
           {activity.size != null ? <Badge variant="neutral">{activity.size} pts</Badge> : null}
+          {activity.hasImage ? <Badge variant="neutral">Imagem</Badge> : null}
         </div>
       </CardContent>
     </Card>
@@ -1535,19 +1556,23 @@ function ProjectDialog({
   );
 }
 
-function ActivityDialog({
+export function ActivityDialog({
   activity,
   projects,
   members,
   defaultProjectId,
+  token,
+  householdId,
   open,
   onOpenChange,
   onSave,
 }: {
   activity: Activity | null;
-  projects: Project[];
+  projects: Project[];	
   members: HouseholdMember[];
   defaultProjectId: string;
+  token?: string;
+  householdId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (input: ActivityFormInput) => Promise<void>;
@@ -1560,9 +1585,56 @@ function ActivityDialog({
   const [priority, setPriority] = useState<Priority>(activity?.priority ?? "Media");
   const [size, setSize] = useState(activity?.size != null ? String(activity.size) : "");
   const [responsibleMemberId, setResponsibleMemberId] = useState(activity?.responsibleMemberId ?? "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
+  const previewUrl = useObjectUrl(imageFile);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const isEditing = Boolean(activity);
+  const hasCurrentImage = Boolean(activity?.hasImage) && !removeImage && !imageFile;
+  const activityImageLabel = title || "Atividade";
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Envie uma imagem JPG, PNG ou WEBP.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("A imagem da atividade deve ter no máximo 5 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    setError(null);
+    setImageFile(file);
+    setRemoveImage(false);
+  }
+
+  function discardSelectedImage() {
+    setImageFile(null);
+    setFileInputKey((current) => current + 1);
+    setError(null);
+  }
+
+  function removeCurrentImage() {
+    setImageFile(null);
+    setRemoveImage(true);
+    setFileInputKey((current) => current + 1);
+    setError(null);
+  }
+
+  function restoreCurrentImage() {
+    setRemoveImage(false);
+    setError(null);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1579,6 +1651,8 @@ function ActivityDialog({
         priority,
         size: size ? Number(size) : undefined,
         responsibleMemberId,
+        imageFile,
+        removeImage,
       });
       onOpenChange(false);
     } catch (exception) {
@@ -1612,6 +1686,44 @@ function ActivityDialog({
           </Field>
           <Field label="Descrição">
             <Textarea value={description} onChange={(event) => setDescription(event.target.value)} />
+          </Field>
+          <Field label="Imagem da atividade">
+            <div className="space-y-3">
+              <ProtectedActivityImageFrame
+                activityId={activity?.id ?? "preview"}
+                title={activityImageLabel}
+                hasImage={hasCurrentImage}
+                imageUpdatedAt={activity?.imageUpdatedAt}
+                token={token}
+                householdId={householdId}
+                previewUrl={previewUrl}
+                className="rounded-[20px]"
+              />
+              <Input
+                key={fileInputKey}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleImageChange}
+              />
+              <p className="text-xs text-muted-foreground">JPG, PNG ou WEBP, com até 5 MB.</p>
+              <div className="flex flex-wrap gap-2">
+                {imageFile ? (
+                  <Button variant="ghost" type="button" onClick={discardSelectedImage}>
+                    Descartar nova imagem
+                  </Button>
+                ) : null}
+                {!imageFile && activity && !removeImage && (activity.hasImage || activity.imageUpdatedAt) ? (
+                  <Button variant="ghost" type="button" onClick={removeCurrentImage}>
+                    Remover imagem atual
+                  </Button>
+                ) : null}
+                {!imageFile && activity && removeImage ? (
+                  <Button variant="ghost" type="button" onClick={restoreCurrentImage}>
+                    Manter imagem atual
+                  </Button>
+                ) : null}
+              </div>
+            </div>
           </Field>
           <Field label="Prazo esperado">
             <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
@@ -1739,6 +1851,17 @@ export function ActivityDetailsSheet({
                 Excluir
               </Button>
             </div>
+            {activity.hasImage ? (
+              <ProtectedActivityImageFrame
+                activityId={activity.id}
+                title={activity.title}
+                hasImage={activity.hasImage}
+                imageUpdatedAt={activity.imageUpdatedAt}
+                token={token}
+                householdId={householdId}
+                className="rounded-[24px]"
+              />
+            ) : null}
           </div>
         </SheetHeader>
 

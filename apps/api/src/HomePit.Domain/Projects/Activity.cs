@@ -18,6 +18,9 @@ public sealed class Activity : AuditableEntity, IHouseholdScoped
 
     public required string Title { get; set; }
     public string? Description { get; set; }
+    public string? ImageObjectKey { get; set; }
+    public string? ImageContentType { get; set; }
+    public DateTimeOffset? ImageUpdatedAt { get; set; }
     public DateOnly? DueDate { get; set; }
     public ActivityStatus Status { get; set; } = ActivityStatus.NaoIniciada;
     public Priority Priority { get; set; } = Priority.Media;

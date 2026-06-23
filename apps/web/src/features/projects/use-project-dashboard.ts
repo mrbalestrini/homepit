@@ -953,12 +953,13 @@ export function useProjectDashboard() {
     }
 
     try {
+      const { imageFile, removeImage, ...payload } = input;
       const created = await apiFetch<Activity>("/api/activities", {
         method: "POST",
         token: session.accessToken,
         householdId: activeHouseholdId,
         body: JSON.stringify({
-          ...input,
+          ...payload,
           description: input.description || null,
           dueDate: input.dueDate || null,
           size: input.size ?? null,
@@ -969,6 +970,14 @@ export function useProjectDashboard() {
       setProjects((current) => updateProjectActivityCounts(current, null, created));
       setSelectedUniverseId(created.universeId);
       setSelectedProjectId(created.projectId);
+
+      if (imageFile) {
+        const uploaded = await uploadActivityImage(created.id, imageFile);
+        replaceActivityInState(uploaded);
+      } else if (removeImage) {
+        replaceActivityInState(created);
+      }
+
       toast.success("Atividade criada.");
     } catch (exception) {
       reportError(exception, "Não foi possível criar a atividade.");
@@ -982,12 +991,13 @@ export function useProjectDashboard() {
 
     try {
       const previousActivity = activities.find((activity) => activity.id === activityId) ?? null;
+      const { imageFile, removeImage, ...payload } = input;
       const updated = await apiFetch<Activity>(`/api/activities/${activityId}`, {
         method: "PUT",
         token: session.accessToken,
         householdId: activeHouseholdId,
         body: JSON.stringify({
-          ...input,
+          ...payload,
           description: input.description || null,
           dueDate: input.dueDate || null,
           size: input.size ?? null,
@@ -1000,6 +1010,13 @@ export function useProjectDashboard() {
       setSelectedUniverseId(updated.universeId);
       setSelectedProjectId(updated.projectId);
       setSelectedActivity((current) => (current?.id === updated.id ? updated : current));
+
+      if (imageFile) {
+        await uploadActivityImage(updated.id, imageFile);
+      } else if (removeImage && updated.hasImage) {
+        await deleteActivityImage(updated.id);
+      }
+
       toast.success("Atividade atualizada.");
     } catch (exception) {
       reportError(exception, "Não foi possível salvar a atividade.");
@@ -1032,6 +1049,40 @@ export function useProjectDashboard() {
     } catch (exception) {
       reportError(exception, "Não foi possível excluir a atividade.");
     }
+  }
+
+  async function uploadActivityImage(activityId: string, imageFile: File) {
+    if (!session || !activeHouseholdId) {
+      throw new Error("Sessão inválida para upload da imagem da atividade.");
+    }
+
+    const formData = new FormData();
+    formData.append("file", imageFile);
+
+    const updated = await apiFetch<Activity>(`/api/activities/${activityId}/image`, {
+      method: "POST",
+      token: session.accessToken,
+      householdId: activeHouseholdId,
+      body: formData,
+    });
+
+    replaceActivityInState(updated);
+    return updated;
+  }
+
+  async function deleteActivityImage(activityId: string) {
+    if (!session || !activeHouseholdId) {
+      throw new Error("Sessão inválida para remoção da imagem da atividade.");
+    }
+
+    const updated = await apiFetch<Activity>(`/api/activities/${activityId}/image`, {
+      method: "DELETE",
+      token: session.accessToken,
+      householdId: activeHouseholdId,
+    });
+
+    replaceActivityInState(updated);
+    return updated;
   }
 
   async function shareHousehold(input: { email: string; role: "Admin" | "Member" }) {

@@ -21,6 +21,8 @@
 - Exclusoes usam combinacao de cascata, `SetNull`, `Restrict` e inativacao conforme o vinculo.
 - Erros de aplicacao viram Problem Details; erros inesperados nao retornam detalhe interno.
 - Arquivos privados sao lidos por endpoints autenticados com `Cache-Control: no-store`.
+- Imagens privadas de atividades seguem o mesmo padrao de upload multipart, leitura
+  autenticada e remocao protegida, usando `Cache-Control: no-store` na leitura.
 - Imagens institucionais sao a excecao publica do object storage e usam
   `Cache-Control: public, max-age=31536000, immutable` com timestamp na URL.
 - O CMS institucional e global, nao usa `X-Household-Id` e valida `SystemRole.SuperAdmin`

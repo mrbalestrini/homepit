@@ -39,6 +39,114 @@ public sealed class ProjectServiceTests
         Assert.Equal(2, updated.ActivityCount);
     }
 
+    [Fact]
+    public async Task Uploading_activity_image_sets_metadata_and_storage_key()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var storage = new InMemoryObjectStorage();
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId, storage);
+
+        var activity = new Activity
+        {
+            HouseholdId = fixture.HouseholdId,
+            ProjectId = fixture.ProjectId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Title = "Atividade com imagem"
+        };
+        context.Activities.Add(activity);
+        await context.SaveChangesAsync();
+
+        await using var stream = new MemoryStream([1, 2, 3, 4]);
+        var result = await service.UploadActivityImageAsync(activity.Id, stream, stream.Length, "image/png", CancellationToken.None);
+
+        Assert.True(result.HasImage);
+        Assert.NotNull(result.ImageUpdatedAt);
+        Assert.Equal(ObjectStorageKeys.ActivityImage(activity.Id), activity.ImageObjectKey);
+        Assert.Single(storage.Objects);
+        Assert.Equal([1, 2, 3, 4], storage.Objects.Single().Value.Content);
+    }
+
+    [Fact]
+    public async Task Deleting_activity_image_clears_storage_and_metadata()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var storage = new InMemoryObjectStorage();
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId, storage);
+
+        var activity = new Activity
+        {
+            HouseholdId = fixture.HouseholdId,
+            ProjectId = fixture.ProjectId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Title = "Atividade com imagem"
+        };
+        context.Activities.Add(activity);
+        await context.SaveChangesAsync();
+
+        await using var stream = new MemoryStream([1, 2, 3, 4]);
+        await service.UploadActivityImageAsync(activity.Id, stream, stream.Length, "image/png", CancellationToken.None);
+
+        var deleted = await service.DeleteActivityImageAsync(activity.Id, CancellationToken.None);
+
+        Assert.False(deleted.HasImage);
+        Assert.Null(deleted.ImageUpdatedAt);
+        Assert.Empty(storage.Objects);
+    }
+
+    [Fact]
+    public async Task Deleting_project_removes_activity_images_from_storage()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var storage = new InMemoryObjectStorage();
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId, storage);
+
+        var activity = new Activity
+        {
+            HouseholdId = fixture.HouseholdId,
+            ProjectId = fixture.ProjectId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Title = "Atividade do projeto"
+        };
+        context.Activities.Add(activity);
+        await context.SaveChangesAsync();
+
+        await using var stream = new MemoryStream([1, 2, 3, 4]);
+        await service.UploadActivityImageAsync(activity.Id, stream, stream.Length, "image/png", CancellationToken.None);
+
+        await service.DeleteProjectAsync(fixture.ProjectId, CancellationToken.None);
+
+        Assert.Empty(storage.Objects);
+    }
+
+    [Fact]
+    public async Task Deleting_universe_removes_activity_images_from_storage()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var storage = new InMemoryObjectStorage();
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId, storage);
+
+        var activity = new Activity
+        {
+            HouseholdId = fixture.HouseholdId,
+            ProjectId = fixture.ProjectId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Title = "Atividade do universo"
+        };
+        context.Activities.Add(activity);
+        await context.SaveChangesAsync();
+
+        await using var stream = new MemoryStream([1, 2, 3, 4]);
+        await service.UploadActivityImageAsync(activity.Id, stream, stream.Length, "image/png", CancellationToken.None);
+
+        await service.DeleteUniverseAsync(fixture.UniverseId, CancellationToken.None);
+
+        Assert.Empty(storage.Objects);
+    }
+
     private static HomePitDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<HomePitDbContext>()
@@ -48,12 +156,16 @@ public sealed class ProjectServiceTests
         return new HomePitDbContext(options);
     }
 
-    private static ProjectService CreateService(HomePitDbContext context, Guid userId, Guid householdId)
+    private static ProjectService CreateService(
+        HomePitDbContext context,
+        Guid userId,
+        Guid householdId,
+        InMemoryObjectStorage? storage = null)
     {
         return new ProjectService(
             context,
             new TestUserContext(userId, householdId),
-            new InMemoryObjectStorage(),
+            storage ?? new InMemoryObjectStorage(),
             TimeProvider.System);
     }
 
@@ -125,6 +237,7 @@ public sealed class ProjectServiceTests
         return new ProjectFixture(
             household.Id,
             ownerUser.Id,
+            ownerMember.Id,
             universe.Id,
             project.Id);
     }
@@ -132,6 +245,7 @@ public sealed class ProjectServiceTests
     private sealed record ProjectFixture(
         Guid HouseholdId,
         Guid OwnerUserId,
+        Guid OwnerMemberId,
         Guid UniverseId,
         Guid ProjectId);
 
@@ -144,13 +258,26 @@ public sealed class ProjectServiceTests
 
     private sealed class InMemoryObjectStorage : IObjectStorage
     {
+        public Dictionary<string, StoredObject> Objects { get; } = [];
+
         public Task EnsureBucketExistsAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task PutAsync(ObjectStoragePutRequest request, CancellationToken cancellationToken) => Task.CompletedTask;
+        public async Task PutAsync(ObjectStoragePutRequest request, CancellationToken cancellationToken)
+        {
+            using var buffer = new MemoryStream();
+            await request.Content.CopyToAsync(buffer, cancellationToken);
+            Objects[request.ObjectKey] = new StoredObject(request.ObjectKey, buffer.ToArray(), request.ContentType);
+        }
 
         public Task<StoredObject> GetAsync(string objectKey, CancellationToken cancellationToken) =>
-            Task.FromResult(new StoredObject(objectKey, Array.Empty<byte>(), "application/octet-stream"));
+            Task.FromResult(Objects.TryGetValue(objectKey, out var objectValue)
+                ? objectValue
+                : throw new NotFoundException("Arquivo não encontrado."));
 
-        public Task DeleteAsync(string objectKey, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task DeleteAsync(string objectKey, CancellationToken cancellationToken)
+        {
+            Objects.Remove(objectKey);
+            return Task.CompletedTask;
+        }
     }
 }

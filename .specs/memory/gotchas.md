@@ -23,6 +23,8 @@
 - Membro removido fica inativo para preservar autoria e historico.
 - Excluir universo remove seus projetos, mas desvincula prompts antes da exclusao.
 - Excluir casa apaga comentarios explicitamente antes da cascata da casa.
+- Excluir atividade, projeto ou universo precisa remover tambem as imagens privadas de
+  atividades no object storage para evitar arquivos orphanados.
 - Pendencias possuem somente listagem e criacao nas rotas observadas.
 - Casa, universo e projeto usam dialogs de exclusao; atividade, membro, comentario e prompt
   ainda usam `window.confirm`.

@@ -12,9 +12,11 @@
   para `/projects`, `/prompts` e `/household`.
 - Financeiro e supermercado existem apenas como documentacao de modulos planejados.
 - A versao em `apps/web/package.json`, `apps/web/package-lock.json` e `CHANGELOG.md` e
-  `1.3.0`.
+  `1.4.0`.
 - Atividades expõem `CreatedAt` auditavel e aceitam `DueDate` opcional na API e no
   dashboard.
+- Atividades agora aceitam uma imagem unica privada, com upload, leitura e exclusao
+  protegidos no dashboard de projetos.
 
 ## INFERÊNCIA
 

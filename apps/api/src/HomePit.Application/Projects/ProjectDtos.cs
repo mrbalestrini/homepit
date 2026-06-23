@@ -69,6 +69,8 @@ public sealed record ActivityDto(
     DateTimeOffset CreatedAt,
     string Title,
     string? Description,
+    bool HasImage,
+    DateTimeOffset? ImageUpdatedAt,
     DateOnly? DueDate,
     ActivityStatus Status,
     Priority Priority,

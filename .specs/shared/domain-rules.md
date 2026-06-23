@@ -14,6 +14,8 @@
   outras pessoas.
 - Hierarquia de projetos: `Universe > Project > Activity > PendingItem`.
 - `Activity` expõe `CreatedAt` auditavel e pode ter `DueDate` opcional como prazo esperado.
+- `Activity` pode ter no maximo uma imagem privada; o upload substitui o anexo anterior e
+  a exclusao de atividade, projeto ou universo deve limpar o binario correspondente.
 - Contagem de atividades do projeto considera apenas atividades nao concluidas.
 - Responsavel de atividade deve ser membro ativo da mesma casa.
 - Status: `NaoIniciada`, `EmAndamento`, `Concluido`.

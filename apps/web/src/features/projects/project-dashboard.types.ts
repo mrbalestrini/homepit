@@ -29,4 +29,6 @@ export type ActivityFormInput = {
   priority: Priority;
   size?: number;
   responsibleMemberId?: string;
+  imageFile?: File | null;
+  removeImage?: boolean;
 };
