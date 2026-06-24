@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { GsmNumber } from "@/lib/api";
 import {
   formatGsmNumber,
+  formatGsmMonthlyCost,
+  formatGsmPlanLabel,
   formatRechargeElapsed,
   maskGsmNumberInput,
   normalizeGsmNumber,
+  parseGsmMonthlyCostInput,
   sortGsmNumbersByUrgency,
 } from "./gsm-dashboard.utils";
 
@@ -18,6 +21,19 @@ describe("gsm dashboard utils", () => {
     expect(maskGsmNumberInput("5511912345678")).toBe("+55 (11) 91234-5678");
     expect(normalizeGsmNumber("(11) 91234-5678")).toBe("5511912345678");
     expect(normalizeGsmNumber("+44 (11) 91234-5678")).toBe("4411912345678");
+  });
+
+  it("formats plan labels and monthly costs", () => {
+    expect(formatGsmPlanLabel("PrePago")).toBe("Pré-pago");
+    expect(formatGsmPlanLabel("PosPago")).toBe("Pós-pago");
+    expect(formatGsmMonthlyCost(59.9)).toBe("R$ 59,90");
+    expect(formatGsmMonthlyCost(null)).toBe("Não informado");
+  });
+
+  it("parses monthly cost input", () => {
+    expect(parseGsmMonthlyCostInput("")).toBeNull();
+    expect(parseGsmMonthlyCostInput("R$ 59,90")).toBe(59.9);
+    expect(parseGsmMonthlyCostInput("1.234,56")).toBe(1234.56);
   });
 
   it("formats elapsed time since recharge", () => {

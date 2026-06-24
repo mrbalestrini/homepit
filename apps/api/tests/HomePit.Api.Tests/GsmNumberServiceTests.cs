@@ -22,6 +22,8 @@ public sealed class GsmNumberServiceTests
                 "Chip principal",
                 "(11) 91234-5678",
                 "Recarga mensal",
+                GsmNumberPlan.PrePago,
+                59.9m,
                 new DateOnly(2026, 1, 10),
                 new DateOnly(2026, 6, 20),
                 GsmNumberStatus.Ativo),
@@ -29,6 +31,8 @@ public sealed class GsmNumberServiceTests
 
         Assert.Equal("5511912345678", created.Number);
         Assert.Equal(GsmNumberStatus.Ativo, created.Status);
+        Assert.Equal(GsmNumberPlan.PrePago, created.Plan);
+        Assert.Equal(59.9m, created.MonthlyCost);
     }
 
     [Fact]
@@ -43,6 +47,8 @@ public sealed class GsmNumberServiceTests
                 "Linha externa",
                 "+44 (11) 91234-5678",
                 null,
+                GsmNumberPlan.PosPago,
+                null,
                 new DateOnly(2026, 2, 1),
                 null,
                 GsmNumberStatus.Inativo),
@@ -50,6 +56,8 @@ public sealed class GsmNumberServiceTests
 
         Assert.Equal("4411912345678", created.Number);
         Assert.Equal(GsmNumberStatus.Inativo, created.Status);
+        Assert.Equal(GsmNumberPlan.PosPago, created.Plan);
+        Assert.Null(created.MonthlyCost);
     }
 
     [Fact]
@@ -63,6 +71,8 @@ public sealed class GsmNumberServiceTests
             new CreateGsmNumberRequest(
                 "Inválido",
                 "1234567890",
+                null,
+                GsmNumberPlan.PrePago,
                 null,
                 new DateOnly(2026, 2, 1),
                 null,
@@ -84,6 +94,8 @@ public sealed class GsmNumberServiceTests
                 "Linha com datas inválidas",
                 "11912345678",
                 null,
+                GsmNumberPlan.PrePago,
+                null,
                 new DateOnly(2026, 6, 10),
                 new DateOnly(2026, 6, 1),
                 GsmNumberStatus.Ativo),
@@ -104,6 +116,8 @@ public sealed class GsmNumberServiceTests
                 "Linha 1",
                 "11912345678",
                 null,
+                GsmNumberPlan.PrePago,
+                null,
                 new DateOnly(2026, 1, 10),
                 null,
                 GsmNumberStatus.Ativo),
@@ -113,6 +127,8 @@ public sealed class GsmNumberServiceTests
             new CreateGsmNumberRequest(
                 "Linha 2",
                 "+55 (11) 91234-5678",
+                null,
+                GsmNumberPlan.PrePago,
                 null,
                 new DateOnly(2026, 1, 11),
                 null,
@@ -135,6 +151,7 @@ public sealed class GsmNumberServiceTests
             Title = "Linha da casa",
             NormalizedNumber = "5511912345678",
             AcquiredOn = new DateOnly(2026, 1, 1),
+            Plan = GsmNumberPlan.PrePago,
             Status = GsmNumberStatus.Ativo
         };
         context.GsmNumbers.Add(number);
@@ -148,6 +165,8 @@ public sealed class GsmNumberServiceTests
                 "Linha atualizada",
                 "11999998888",
                 null,
+                GsmNumberPlan.PosPago,
+                42.5m,
                 new DateOnly(2026, 1, 1),
                 null,
                 GsmNumberStatus.Inativo),
@@ -166,12 +185,36 @@ public sealed class GsmNumberServiceTests
                 "Linha SA",
                 "11912345678",
                 null,
+                GsmNumberPlan.PrePago,
+                null,
                 new DateOnly(2026, 1, 1),
                 null,
                 GsmNumberStatus.Ativo),
             CancellationToken.None));
 
         Assert.Equal("O superadmin possui acesso somente leitura nesta etapa.", exception.Message);
+    }
+
+    [Fact]
+    public async Task Create_rejects_negative_monthly_cost()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(
+            new CreateGsmNumberRequest(
+                "Linha negativa",
+                "11912345678",
+                null,
+                GsmNumberPlan.PrePago,
+                -1m,
+                new DateOnly(2026, 1, 1),
+                null,
+                GsmNumberStatus.Ativo),
+            CancellationToken.None));
+
+        Assert.Equal("O custo mensal da linha não pode ser negativo.", exception.Message);
     }
 
     private static HomePitDbContext CreateDbContext()

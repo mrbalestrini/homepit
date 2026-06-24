@@ -4,6 +4,15 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.6.0] - 2026-06-24
+
+### Added
+- O módulo `/gsm` passou a registrar plano da linha e custo mensal opcional, com persistência na API e no banco.
+
+### Changed
+- A gestão GSM saiu do layout em cards e passou a usar tabela responsiva com título, número, plano, custo, datas e ações.
+- O texto principal da tela foi simplificado para focar no gerenciamento de números de telefone da casa.
+
 ## [1.5.0] - 2026-06-23
 
 ### Added

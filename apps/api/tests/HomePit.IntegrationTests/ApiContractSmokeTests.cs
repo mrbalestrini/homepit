@@ -33,5 +33,7 @@ public sealed class ApiContractSmokeTests
 
         Assert.Contains("/api/gsm-numbers:", contract);
         Assert.Contains("enum: [Ativo, Inativo, Abandonado]", contract);
+        Assert.Contains("enum: [PrePago, PosPago]", contract);
+        Assert.Contains("monthlyCost:", contract);
     }
 }

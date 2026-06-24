@@ -87,7 +87,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/system/info", () => Results.Ok(new
 {
     name = "HomePit API",
-    version = "0.1.0",
+    version = "0.1.1",
     timezone = "America/Sao_Paulo"
 }));
 

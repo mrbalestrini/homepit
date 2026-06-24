@@ -14,6 +14,8 @@ public sealed class GsmNumber : AuditableEntity, IHouseholdScoped
     public required string Title { get; set; }
     public required string NormalizedNumber { get; set; }
     public string? Description { get; set; }
+    public GsmNumberPlan Plan { get; set; } = GsmNumberPlan.PrePago;
+    public decimal? MonthlyCost { get; set; }
     public DateOnly AcquiredOn { get; set; }
     public DateOnly? LastRechargeOn { get; set; }
     public GsmNumberStatus Status { get; set; } = GsmNumberStatus.Ativo;

@@ -1,8 +1,8 @@
 "use client";
 
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { CalendarClock, Plus, Radio, Pencil, Trash2 } from "lucide-react";
-import type { GsmNumber, GsmNumberStatus } from "@/lib/api";
+import { CalendarClock, Pencil, Plus, Radio, Trash2 } from "lucide-react";
+import type { GsmNumber, GsmNumberPlan, GsmNumberStatus } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,21 +16,24 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmation-dialog";
 import {
   EmptyState,
   HomePitWorkspaceShell,
   LoadingState,
-  Notice,
 } from "@/features/workspace/homepit-workspace-shell";
 import type { GsmDashboardController, GsmFormInput } from "./use-gsm-dashboard";
 import {
   formatDateOnlyPtBr,
+  formatGsmMonthlyCost,
   formatGsmNumber,
+  formatGsmPlanLabel,
   formatRechargeElapsed,
   isValidGsmNumber,
   maskGsmNumberInput,
+  parseGsmMonthlyCostInput,
 } from "./gsm-dashboard.utils";
 
 function getStatusVariant(status: GsmNumberStatus) {
@@ -115,10 +118,9 @@ export function GsmDashboardWorkspace({ dashboard }: { dashboard: GsmDashboardCo
           <CardContent className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Gestão GSM</p>
-              <h1 className="mt-2 text-2xl font-semibold text-foreground">Centralize títulos, status e recargas das linhas da casa</h1>
+              <h1 className="mt-2 text-2xl font-semibold text-foreground">Gerenciamento de números de telefone</h1>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Cadastre chips e números compartilhados, acompanhe a última recarga e mantenha contexto rápido para
-                cada linha sem depender de memória.
+                Cadastre os números que são gerenciados pela casa para não se perder.
               </p>
             </div>
 
@@ -145,7 +147,7 @@ export function GsmDashboardWorkspace({ dashboard }: { dashboard: GsmDashboardCo
           <EmptyState
             icon={<Radio className="size-5" />}
             title="Nenhum número GSM cadastrado"
-            description="Cadastre a primeira linha da casa para começar a acompanhar aquisição, status e recargas."
+            description="Cadastre a primeira linha da casa para começar a acompanhar plano, custo, aquisição e recargas."
             action={
               <Button onClick={dashboard.openCreateGsmNumber}>
                 <Plus />
@@ -154,61 +156,94 @@ export function GsmDashboardWorkspace({ dashboard }: { dashboard: GsmDashboardCo
             }
           />
         ) : (
-          <div className="grid gap-3 xl:grid-cols-2">
-            {dashboard.gsmNumbers.map((gsmNumber) => (
-              <Card key={gsmNumber.id}>
-                <CardHeader className="border-b border-border/60 pb-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <CardTitle className="truncate text-lg">{gsmNumber.title}</CardTitle>
-                      <p className="mt-2 text-base font-medium text-foreground">{formatGsmNumber(gsmNumber.number)}</p>
-                    </div>
-
-                    <Badge variant={getStatusVariant(gsmNumber.status)}>{gsmNumber.status}</Badge>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-4 p-4">
-                  {summarizeDescription(gsmNumber.description) ? (
-                    <p className="text-sm leading-6 text-muted-foreground">{summarizeDescription(gsmNumber.description)}</p>
-                  ) : (
-                    <Notice tone="warning">Sem descrição registrada para esta linha.</Notice>
-                  )}
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <InfoBlock label="Aquisição" value={formatDateOnlyPtBr(gsmNumber.acquiredOn)} />
-                    <InfoBlock label="Última recarga" value={formatDateOnlyPtBr(gsmNumber.lastRechargeOn, "Sem recarga registrada")} />
-                  </div>
-
-                  <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Tempo desde a recarga</p>
-                    <p className="mt-2 text-lg font-semibold text-foreground">
-                      {formatRechargeElapsed(gsmNumber.lastRechargeOn)}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="secondary"
-                      onClick={() => dashboard.openEditGsmNumber(gsmNumber)}
-                      disabled={!gsmNumber.canEdit}
-                    >
-                      <Pencil />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setDeletingNumber(gsmNumber)}
-                      disabled={!gsmNumber.canDelete}
-                    >
-                      <Trash2 />
-                      Excluir
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card>
+            <CardHeader className="border-b border-border/60 pb-4">
+              <CardTitle className="text-lg">Números cadastrados</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
+                      <TableHead className="min-w-[220px]">Linha</TableHead>
+                      <TableHead className="min-w-[180px]">Número</TableHead>
+                      <TableHead>Plano</TableHead>
+                      <TableHead>Custo mensal</TableHead>
+                      <TableHead>Aquisição</TableHead>
+                      <TableHead>Última recarga</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="w-[160px] text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dashboard.gsmNumbers.map((gsmNumber) => (
+                      <TableRow key={gsmNumber.id}>
+                        <TableCell className="min-w-[220px]">
+                          <div className="space-y-1">
+                            <p className="font-semibold text-foreground">{gsmNumber.title}</p>
+                            {summarizeDescription(gsmNumber.description) ? (
+                              <p className="text-sm leading-6 text-muted-foreground">
+                                {summarizeDescription(gsmNumber.description)}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Sem descrição registrada.</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-[180px] font-medium text-foreground">
+                          {formatGsmNumber(gsmNumber.number)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{formatGsmPlanLabel(gsmNumber.plan)}</Badge>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm font-medium text-foreground">
+                          {formatGsmMonthlyCost(gsmNumber.monthlyCost)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm text-foreground">
+                          {formatDateOnlyPtBr(gsmNumber.acquiredOn)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <div className="space-y-1">
+                            <p className="text-sm text-foreground">
+                              {formatDateOnlyPtBr(gsmNumber.lastRechargeOn, "Sem recarga registrada")}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatRechargeElapsed(gsmNumber.lastRechargeOn)}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusVariant(gsmNumber.status)}>{gsmNumber.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => dashboard.openEditGsmNumber(gsmNumber)}
+                              disabled={!gsmNumber.canEdit}
+                            >
+                              <Pencil />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeletingNumber(gsmNumber)}
+                              disabled={!gsmNumber.canDelete}
+                            >
+                              <Trash2 />
+                              Excluir
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </HomePitWorkspaceShell>
 
@@ -248,18 +283,10 @@ export function GsmDashboardWorkspace({ dashboard }: { dashboard: GsmDashboardCo
           }
 
           await dashboard.deleteGsmNumber(deletingNumber);
+          setDeletingNumber(null);
         }}
       />
     </>
-  );
-}
-
-function InfoBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
-    </div>
   );
 }
 
@@ -277,6 +304,10 @@ export function GsmNumberDialog({
   const [title, setTitle] = useState(gsmNumber?.title ?? "");
   const [number, setNumber] = useState(gsmNumber ? formatGsmNumber(gsmNumber.number) : "");
   const [description, setDescription] = useState(gsmNumber?.description ?? "");
+  const [plan, setPlan] = useState<GsmNumberPlan>(gsmNumber?.plan ?? "PrePago");
+  const [monthlyCost, setMonthlyCost] = useState(
+    gsmNumber?.monthlyCost != null ? formatGsmMonthlyCost(gsmNumber.monthlyCost) : "",
+  );
   const [acquiredOn, setAcquiredOn] = useState(gsmNumber?.acquiredOn ?? "");
   const [lastRechargeOn, setLastRechargeOn] = useState(gsmNumber?.lastRechargeOn ?? "");
   const [status, setStatus] = useState<GsmNumberStatus>(gsmNumber?.status ?? "Ativo");
@@ -287,6 +318,8 @@ export function GsmNumberDialog({
     setTitle(gsmNumber?.title ?? "");
     setNumber(gsmNumber ? formatGsmNumber(gsmNumber.number) : "");
     setDescription(gsmNumber?.description ?? "");
+    setPlan(gsmNumber?.plan ?? "PrePago");
+    setMonthlyCost(gsmNumber?.monthlyCost != null ? formatGsmMonthlyCost(gsmNumber.monthlyCost) : "");
     setAcquiredOn(gsmNumber?.acquiredOn ?? "");
     setLastRechargeOn(gsmNumber?.lastRechargeOn ?? "");
     setStatus(gsmNumber?.status ?? "Ativo");
@@ -307,6 +340,12 @@ export function GsmNumberDialog({
       return;
     }
 
+    const parsedMonthlyCost = parseGsmMonthlyCostInput(monthlyCost);
+    if (monthlyCost.trim() && parsedMonthlyCost === null) {
+      setError("Informe um custo mensal válido ou deixe o campo em branco.");
+      return;
+    }
+
     if (!acquiredOn) {
       setError("Informe a data de aquisição.");
       return;
@@ -320,6 +359,8 @@ export function GsmNumberDialog({
         title: title.trim(),
         number,
         description: description.trim(),
+        plan,
+        monthlyCost: parsedMonthlyCost,
         acquiredOn,
         lastRechargeOn,
         status,
@@ -337,7 +378,7 @@ export function GsmNumberDialog({
         <DialogHeader>
           <DialogTitle>{gsmNumber ? "Editar número GSM" : "Cadastrar número GSM"}</DialogTitle>
           <DialogDescription>
-            Registre um título, o número com máscara, datas importantes e o status atual da linha.
+            Registre título, número, plano, custo mensal opcional, datas importantes e o status atual da linha.
           </DialogDescription>
         </DialogHeader>
 
@@ -362,15 +403,36 @@ export function GsmNumberDialog({
             </Field>
           </div>
 
-          <Field label="Número GSM">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Número GSM">
+              <Input
+                value={number}
+                onChange={(event) => setNumber(maskGsmNumberInput(event.target.value))}
+                placeholder="(11) 91234-5678 ou +55 (11) 91234-5678"
+                inputMode="numeric"
+              />
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Aceita DDD + número com 11 dígitos ou DDI + DDD + número com 13 dígitos.
+              </p>
+            </Field>
+
+            <Field label="Plano">
+              <Select value={plan} onChange={(event) => setPlan(event.target.value as GsmNumberPlan)}>
+                <option value="PrePago">Pré-pago</option>
+                <option value="PosPago">Pós-pago</option>
+              </Select>
+            </Field>
+          </div>
+
+          <Field label="Custo mensal">
             <Input
-              value={number}
-              onChange={(event) => setNumber(maskGsmNumberInput(event.target.value))}
-              placeholder="(11) 91234-5678 ou +55 (11) 91234-5678"
-              inputMode="numeric"
+              value={monthlyCost}
+              onChange={(event) => setMonthlyCost(event.target.value)}
+              placeholder="Ex.: R$ 59,90"
+              inputMode="decimal"
             />
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
-              Aceita DDD + número com 11 dígitos ou DDI + DDD + número com 13 dígitos.
+              Campo opcional. Use para linhas com mensalidade recorrente.
             </p>
           </Field>
 

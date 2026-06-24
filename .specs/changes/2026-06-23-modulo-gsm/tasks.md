@@ -5,5 +5,6 @@
 - [x] Expor os endpoints `/api/gsm-numbers` e atualizar o OpenAPI manual.
 - [x] Adicionar tipos, pagina `/gsm`, hook de feature e workspace do modulo.
 - [x] Implementar mascara, formatacao e contador textual de recarga no frontend.
+- [x] Atualizar a apresentação da gestão GSM com tabela responsiva, plano e custo mensal opcional.
 - [x] Cobrir o fluxo com testes backend e frontend.
 - [x] Atualizar memoria, changelog e versao ao concluir.

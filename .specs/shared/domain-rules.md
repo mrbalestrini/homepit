@@ -31,6 +31,8 @@
 - Numero GSM com 11 digitos recebe DDI `55` por padrao; com 13 digitos preserva o DDI
   explicito informado.
 - O mesmo numero GSM normalizado nao pode se repetir na mesma casa.
+- Numero GSM possui `Plan` com os valores `PrePago` e `PosPago`.
+- `MonthlyCost` e opcional e representa o custo mensal da linha quando aplicavel.
 - `LastRechargeOn` de numero GSM e opcional, nao pode ficar no futuro e nao pode ser
   anterior a `AcquiredOn`.
 - Status de numero GSM: `Ativo`, `Inativo`, `Abandonado`.

@@ -37,6 +37,8 @@ public sealed class GsmNumberEndpointsTests
                 title = "Linha principal",
                 number = "(11) 91234-5678",
                 description = "Uso diário",
+                plan = "PrePago",
+                monthlyCost = 59.9m,
                 acquiredOn = new DateOnly(2026, 1, 10),
                 lastRechargeOn = new DateOnly(2026, 6, 20),
                 status = "Ativo"
@@ -47,6 +49,8 @@ public sealed class GsmNumberEndpointsTests
         Assert.NotNull(created);
         Assert.Equal("5511912345678", created.Number);
         Assert.Equal("Ativo", created.Status);
+        Assert.Equal("PrePago", created.Plan);
+        Assert.Equal(59.9m, created.MonthlyCost);
 
         var listResponse = await SendAuthorizedAsync(
             client,
@@ -71,6 +75,8 @@ public sealed class GsmNumberEndpointsTests
                 title = "Linha reserva",
                 number = "+44 (11) 91234-5678",
                 description = "Uso eventual",
+                plan = "PosPago",
+                monthlyCost = 72.5m,
                 acquiredOn = new DateOnly(2026, 1, 10),
                 lastRechargeOn = new DateOnly(2026, 6, 22),
                 status = "Inativo"
@@ -81,6 +87,8 @@ public sealed class GsmNumberEndpointsTests
         Assert.NotNull(updated);
         Assert.Equal("4411912345678", updated.Number);
         Assert.Equal("Inativo", updated.Status);
+        Assert.Equal("PosPago", updated.Plan);
+        Assert.Equal(72.5m, updated.MonthlyCost);
 
         var deleteResponse = await SendAuthorizedAsync(
             client,
@@ -110,6 +118,8 @@ public sealed class GsmNumberEndpointsTests
                 title = "Linha inválida",
                 number = "1234567890",
                 description = (string?)null,
+                plan = "PrePago",
+                monthlyCost = (decimal?)null,
                 acquiredOn = new DateOnly(2026, 6, 20),
                 lastRechargeOn = new DateOnly(2026, 6, 10),
                 status = "Ativo"
@@ -180,7 +190,7 @@ public sealed class GsmNumberEndpointsTests
 
     private sealed record SeedResult(string AccessToken, Guid HouseholdId);
 
-    private sealed record GsmNumberResponse(Guid Id, string Number, string Status);
+    private sealed record GsmNumberResponse(Guid Id, string Number, string Status, string Plan, decimal? MonthlyCost);
 
     private sealed record ProblemDetailsResponse(string Detail);
 

@@ -16,6 +16,8 @@ status e acompanhamento do tempo desde a ultima recarga.
 - Expor CRUD completo em `/api/gsm-numbers`.
 - Validar e normalizar numeros com DDI opcional e DDD obrigatorio.
 - Adicionar a pagina interna `/gsm` ao workspace compartilhado.
+- Incluir plano da linha e custo mensal opcional nos cadastros GSM.
+- Exibir os numeros cadastrados em tabela responsiva no frontend.
 - Exibir contador textual desde a ultima recarga no frontend.
 - Cobrir o fluxo com testes backend e frontend.
 
@@ -53,6 +55,8 @@ status e acompanhamento do tempo desde a ultima recarga.
 - `LastRechargeOn` e opcional, nao pode ficar no futuro e nao pode ser anterior a
   `AcquiredOn`.
 - `Status` aceita `Ativo`, `Inativo` e `Abandonado`.
+- `Plan` aceita `PrePago` e `PosPago`.
+- `MonthlyCost` e opcional, deve ser armazenado com precisao monetaria.
 
 ## Riscos
 
@@ -81,7 +85,7 @@ status e acompanhamento do tempo desde a ultima recarga.
 
 - O usuario consegue cadastrar, editar, listar e excluir numeros GSM na household ativa.
 - O formulario impede formatos invalidos e normaliza o numero salvo.
-- A lista mostra status, datas e o contador desde a ultima recarga.
+- A lista mostra status, plano, custo mensal, datas e o contador desde a ultima recarga.
 - Permissoes, contrato e migration refletem o novo modulo.
 
 ## Decisao final

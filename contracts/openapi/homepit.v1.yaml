@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: HomePit API
-  version: 0.1.0
+  version: 0.1.1
 servers:
   - url: http://localhost:8080
 security:
@@ -1301,7 +1301,7 @@ components:
       enum: [Ativo, Inativo, Abandonado]
     CreateGsmNumberRequest:
       type: object
-      required: [title, number, acquiredOn, status]
+      required: [title, number, plan, acquiredOn, status]
       properties:
         title:
           type: string
@@ -1311,6 +1311,12 @@ components:
         description:
           type: string
           maxLength: 4000
+          nullable: true
+        plan:
+          $ref: "#/components/schemas/GsmNumberPlan"
+        monthlyCost:
+          type: number
+          format: decimal
           nullable: true
         acquiredOn:
           type: string
@@ -1323,7 +1329,7 @@ components:
           $ref: "#/components/schemas/GsmNumberStatus"
     UpdateGsmNumberRequest:
       type: object
-      required: [title, number, acquiredOn, status]
+      required: [title, number, plan, acquiredOn, status]
       properties:
         title:
           type: string
@@ -1333,6 +1339,12 @@ components:
         description:
           type: string
           maxLength: 4000
+          nullable: true
+        plan:
+          $ref: "#/components/schemas/GsmNumberPlan"
+        monthlyCost:
+          type: number
+          format: decimal
           nullable: true
         acquiredOn:
           type: string
@@ -1350,6 +1362,7 @@ components:
           id,
           title,
           number,
+          plan,
           acquiredOn,
           status,
           createdAt,
@@ -1367,6 +1380,12 @@ components:
           type: string
         description:
           type: string
+          nullable: true
+        plan:
+          $ref: "#/components/schemas/GsmNumberPlan"
+        monthlyCost:
+          type: number
+          format: decimal
           nullable: true
         acquiredOn:
           type: string
@@ -1409,6 +1428,9 @@ components:
         imageUrl:
           type: string
           nullable: true
+    GsmNumberPlan:
+      type: string
+      enum: [PrePago, PosPago]
     UpdateProfileRequest:
       type: object
       required: [displayName]

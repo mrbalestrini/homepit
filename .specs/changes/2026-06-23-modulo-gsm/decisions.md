@@ -11,3 +11,8 @@
    `SuperAdmin` permanece somente leitura.
 8. Migrations criadas ou ajustadas manualmente devem manter os metadados de descoberta do
    EF Core.
+9. Cada numero GSM tambem carrega `Plan` com os valores `PrePago` e `PosPago`.
+10. `MonthlyCost` e opcional, exibido e armazenado como valor monetario em BRL quando
+    informado.
+11. A listagem GSM no frontend deve priorizar uma tabela responsiva para concentrar
+    contexto, status, plano, custo e recargas em uma unica visao.

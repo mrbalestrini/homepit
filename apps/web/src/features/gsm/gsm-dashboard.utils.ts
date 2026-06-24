@@ -82,6 +82,58 @@ export function maskGsmNumberInput(value: string) {
   return formatGsmNumber(extractGsmDigits(value));
 }
 
+export function formatGsmPlanLabel(plan: GsmNumber["plan"]) {
+  return plan === "PrePago" ? "Pré-pago" : "Pós-pago";
+}
+
+export function formatGsmMonthlyCost(value: number | null | undefined) {
+  if (value == null) {
+    return "Não informado";
+  }
+
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
+
+export function parseGsmMonthlyCostInput(value: string) {
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const cleaned = normalized.replace(/^r\$\s*/i, "").replace(/\s+/g, "");
+  if (!cleaned) {
+    return null;
+  }
+
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+  const decimalSeparatorIndex = Math.max(lastComma, lastDot);
+  const hasDecimalSeparator = decimalSeparatorIndex > -1;
+
+  let digits = cleaned.replace(/[^0-9.,-]/g, "");
+  if (!digits) {
+    return null;
+  }
+
+  if (hasDecimalSeparator) {
+    const integerPart = digits.slice(0, decimalSeparatorIndex).replace(/[.,]/g, "");
+    const fractionPart = digits.slice(decimalSeparatorIndex + 1).replace(/[.,]/g, "");
+    digits = fractionPart ? `${integerPart}.${fractionPart}` : integerPart;
+  } else {
+    digits = digits.replace(/[.,]/g, "");
+  }
+
+  const parsed = Number(digits);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return Math.round(parsed * 100) / 100;
+}
+
 export function formatDateOnlyPtBr(value: string | null | undefined, fallback = "Sem data") {
   const date = parseDateOnly(value);
   if (!date) {

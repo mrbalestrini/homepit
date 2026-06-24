@@ -37,6 +37,7 @@ public sealed class GsmNumberService(
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var normalizedNumber = NormalizeNumber(request.Number);
         ValidateDates(request.AcquiredOn, request.LastRechargeOn);
+        ValidateMonthlyCost(request.MonthlyCost);
         await EnsureUniqueNumberAsync(currentMember.HouseholdId, normalizedNumber, null, cancellationToken);
 
         var gsmNumber = new GsmNumber
@@ -46,6 +47,8 @@ public sealed class GsmNumberService(
             Title = RequiredTitle(request.Title),
             NormalizedNumber = normalizedNumber,
             Description = NormalizeDescription(request.Description),
+            Plan = request.Plan,
+            MonthlyCost = request.MonthlyCost,
             AcquiredOn = request.AcquiredOn,
             LastRechargeOn = request.LastRechargeOn,
             Status = request.Status
@@ -69,11 +72,14 @@ public sealed class GsmNumberService(
 
         var normalizedNumber = NormalizeNumber(request.Number);
         ValidateDates(request.AcquiredOn, request.LastRechargeOn);
+        ValidateMonthlyCost(request.MonthlyCost);
         await EnsureUniqueNumberAsync(currentMember.HouseholdId, normalizedNumber, gsmNumber.Id, cancellationToken);
 
         gsmNumber.Title = RequiredTitle(request.Title);
         gsmNumber.NormalizedNumber = normalizedNumber;
         gsmNumber.Description = NormalizeDescription(request.Description);
+        gsmNumber.Plan = request.Plan;
+        gsmNumber.MonthlyCost = request.MonthlyCost;
         gsmNumber.AcquiredOn = request.AcquiredOn;
         gsmNumber.LastRechargeOn = request.LastRechargeOn;
         gsmNumber.Status = request.Status;
@@ -248,6 +254,19 @@ public sealed class GsmNumberService(
         }
     }
 
+    private static void ValidateMonthlyCost(decimal? monthlyCost)
+    {
+        if (monthlyCost is null)
+        {
+            return;
+        }
+
+        if (monthlyCost < 0)
+        {
+            throw new ValidationException("O custo mensal da linha não pode ser negativo.");
+        }
+    }
+
     private static GsmNumberDto ToDto(GsmNumber gsmNumber, HouseholdMember currentMember)
     {
         var canManage = CanManageEntity(currentMember, gsmNumber.CreatedByMemberId);
@@ -256,6 +275,8 @@ public sealed class GsmNumberService(
             gsmNumber.Title,
             gsmNumber.NormalizedNumber,
             gsmNumber.Description,
+            gsmNumber.Plan,
+            gsmNumber.MonthlyCost,
             gsmNumber.AcquiredOn,
             gsmNumber.LastRechargeOn,
             gsmNumber.Status,

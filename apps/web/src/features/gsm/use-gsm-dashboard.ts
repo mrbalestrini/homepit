@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   type AuthResponse,
   type GsmNumber,
+  type GsmNumberPlan,
   type GsmNumberStatus,
   type Household,
   type HouseholdMember,
@@ -32,6 +33,8 @@ export type GsmFormInput = {
   title: string;
   number: string;
   description?: string;
+  plan: GsmNumberPlan;
+  monthlyCost?: number | null;
   acquiredOn: string;
   lastRechargeOn?: string;
   status: GsmNumberStatus;
@@ -491,13 +494,15 @@ export function useGsmDashboard() {
         method: "POST",
         token: session.accessToken,
         householdId: activeHouseholdId,
-        body: JSON.stringify({
-          title: input.title,
-          number: input.number,
-          description: input.description || null,
-          acquiredOn: input.acquiredOn,
-          lastRechargeOn: input.lastRechargeOn || null,
-          status: input.status,
+          body: JSON.stringify({
+            title: input.title,
+            number: input.number,
+            description: input.description || null,
+            plan: input.plan,
+            monthlyCost: input.monthlyCost ?? null,
+            acquiredOn: input.acquiredOn,
+            lastRechargeOn: input.lastRechargeOn || null,
+            status: input.status,
         }),
       });
       await loadWorkspace();
@@ -518,13 +523,15 @@ export function useGsmDashboard() {
         method: "PUT",
         token: session.accessToken,
         householdId: activeHouseholdId,
-        body: JSON.stringify({
-          title: input.title,
-          number: input.number,
-          description: input.description || null,
-          acquiredOn: input.acquiredOn,
-          lastRechargeOn: input.lastRechargeOn || null,
-          status: input.status,
+          body: JSON.stringify({
+            title: input.title,
+            number: input.number,
+            description: input.description || null,
+            plan: input.plan,
+            monthlyCost: input.monthlyCost ?? null,
+            acquiredOn: input.acquiredOn,
+            lastRechargeOn: input.lastRechargeOn || null,
+            status: input.status,
         }),
       });
       await loadWorkspace();

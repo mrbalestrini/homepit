@@ -17,6 +17,8 @@ describe("GsmNumberDialog", () => {
 
     fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Chip do alarme" } });
     fireEvent.change(screen.getByLabelText("Número GSM"), { target: { value: "11912345678" } });
+    fireEvent.change(screen.getByLabelText("Plano"), { target: { value: "PosPago" } });
+    fireEvent.change(screen.getByLabelText("Custo mensal"), { target: { value: "R$ 59,90" } });
     fireEvent.change(screen.getByLabelText("Data de aquisição"), { target: { value: "2026-01-10" } });
     fireEvent.click(screen.getByRole("button", { name: "Cadastrar número" }));
 
@@ -25,6 +27,8 @@ describe("GsmNumberDialog", () => {
       title: "Chip do alarme",
       number: "(11) 91234-5678",
       description: "",
+      plan: "PosPago",
+      monthlyCost: 59.9,
       acquiredOn: "2026-01-10",
       lastRechargeOn: "",
       status: "Ativo",
@@ -106,6 +110,8 @@ describe("GsmDashboardWorkspace", () => {
           title: "Linha da portaria",
           number: "5511912345678",
           description: "Uso comum",
+          plan: "PrePago",
+          monthlyCost: 42.5,
           acquiredOn: "2026-01-10",
           lastRechargeOn: "2026-06-20",
           status: "Ativo",
@@ -129,5 +135,35 @@ describe("GsmDashboardWorkspace", () => {
 
     fireEvent.click(confirmButton);
     expect(dashboard.deleteGsmNumber).toHaveBeenCalled();
+  });
+
+  it("renders gsm numbers in a table", () => {
+    const dashboard = createDashboard({
+      gsmNumbers: [
+        {
+          id: "gsm-1",
+          title: "Linha da portaria",
+          number: "5511912345678",
+          description: "Uso comum",
+          plan: "PrePago",
+          monthlyCost: 42.5,
+          acquiredOn: "2026-01-10",
+          lastRechargeOn: "2026-06-20",
+          status: "Ativo",
+          createdByMemberId: "member-1",
+          createdAt: "2026-01-10T00:00:00Z",
+          updatedAt: "2026-06-20T00:00:00Z",
+          canEdit: true,
+          canDelete: true,
+        },
+      ],
+    });
+
+    render(<GsmDashboardWorkspace dashboard={dashboard as never} />);
+
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("Linha da portaria")).toBeInTheDocument();
+    expect(screen.getByText("Pré-pago")).toBeInTheDocument();
+    expect(screen.getByText("R$ 42,50")).toBeInTheDocument();
   });
 });

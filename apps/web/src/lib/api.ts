@@ -167,12 +167,15 @@ export type PromptDetail = {
 };
 
 export type GsmNumberStatus = "Ativo" | "Inativo" | "Abandonado";
+export type GsmNumberPlan = "PrePago" | "PosPago";
 
 export type GsmNumber = {
   id: string;
   title: string;
   number: string;
   description?: string | null;
+  plan: GsmNumberPlan;
+  monthlyCost?: number | null;
   acquiredOn: string;
   lastRechargeOn?: string | null;
   status: GsmNumberStatus;

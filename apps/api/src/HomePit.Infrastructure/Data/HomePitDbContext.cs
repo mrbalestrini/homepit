@@ -180,6 +180,8 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(item => item.Title).HasMaxLength(160).IsRequired();
             builder.Property(item => item.NormalizedNumber).HasMaxLength(13).IsRequired();
             builder.Property(item => item.Description).HasMaxLength(4000);
+            builder.Property(item => item.Plan).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.MonthlyCost).HasPrecision(10, 2);
             builder.Property(item => item.AcquiredOn).HasColumnType("date");
             builder.Property(item => item.LastRechargeOn).HasColumnType("date");
             builder.Property(item => item.Status).HasConversion<string>().HasMaxLength(40).IsRequired();

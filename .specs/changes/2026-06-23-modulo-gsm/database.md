@@ -13,6 +13,7 @@ household.
 
 - Criar a entidade persistida `GsmNumber`.
 - Adicionar enum de status persistido como texto.
+- Adicionar `Plan` como texto e `MonthlyCost` opcional com precisao monetaria.
 - Adicionar indice unico por household e numero normalizado.
 - Gerar migracao EF Core descobrivel.
 
@@ -37,8 +38,10 @@ Nao existe tabela ou entidade para numeros GSM.
 
 - Criar tabela `gsm_numbers` no schema `homepit`.
 - Colunas: `Id`, `CreatedAt`, `UpdatedAt`, `HouseholdId`, `CreatedByMemberId`,
-  `Title`, `NormalizedNumber`, `Description`, `AcquiredOn`, `LastRechargeOn`, `Status`.
+  `Title`, `NormalizedNumber`, `Description`, `Plan`, `MonthlyCost`, `AcquiredOn`,
+  `LastRechargeOn`, `Status`.
 - `AcquiredOn` e `LastRechargeOn` usam tipo `date`.
+- `Plan` usa conversao string e `MonthlyCost` usa precisao `10,2`.
 - `Status` usa conversao string.
 - Relacao com `Household` em cascata e com `HouseholdMember` em `SetNull`.
 
@@ -72,7 +75,7 @@ Nao existe tabela ou entidade para numeros GSM.
 
 - A tabela `gsm_numbers` existe com indice unico por household e numero.
 - O EF Core detecta a migration automaticamente.
-- O modulo persiste datas e status conforme o contrato.
+- O modulo persiste plano, custo mensal, datas e status conforme o contrato.
 
 ## Decisao final
 
