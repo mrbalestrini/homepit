@@ -92,6 +92,28 @@ public sealed class SuperAdminEndpointsTests
         Assert.False(gsmNumber.CanEdit);
         Assert.False(gsmNumber.CanDelete);
 
+        var rechargeListResponse = await SendAuthorizedAsync(
+            client,
+            auth.AccessToken,
+            seed.PrimaryHouseholdId,
+            HttpMethod.Get,
+            $"/api/gsm-numbers/{gsmNumber.Id}/recharges");
+
+        rechargeListResponse.EnsureSuccessStatusCode();
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAuthorizedAsync(
+            client,
+            auth.AccessToken,
+            seed.PrimaryHouseholdId,
+            HttpMethod.Post,
+            $"/api/gsm-numbers/{gsmNumber.Id}/recharges",
+            JsonContent.Create(new
+            {
+                rechargedOn = new DateOnly(2026, 6, 20),
+                amount = 50m,
+                note = "Recarga de teste"
+            }))).StatusCode);
+
         Assert.Equal(HttpStatusCode.Forbidden, (await SendAuthorizedAsync(
             client,
             auth.AccessToken,
@@ -161,8 +183,8 @@ public sealed class SuperAdminEndpointsTests
                 title = "Nova linha",
                 number = "11912345678",
                 description = (string?)null,
+                daysWithoutRecharge = (int?)null,
                 acquiredOn = new DateOnly(2026, 1, 10),
-                lastRechargeOn = (DateOnly?)null,
                 status = "Ativo"
             }))).StatusCode);
     }

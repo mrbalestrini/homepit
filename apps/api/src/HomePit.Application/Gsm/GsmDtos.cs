@@ -8,8 +8,8 @@ public sealed record CreateGsmNumberRequest(
     string? Description,
     GsmNumberPlan Plan,
     decimal? MonthlyCost,
+    int? DaysWithoutRecharge,
     DateOnly AcquiredOn,
-    DateOnly? LastRechargeOn,
     GsmNumberStatus Status);
 
 public sealed record UpdateGsmNumberRequest(
@@ -18,8 +18,8 @@ public sealed record UpdateGsmNumberRequest(
     string? Description,
     GsmNumberPlan Plan,
     decimal? MonthlyCost,
+    int? DaysWithoutRecharge,
     DateOnly AcquiredOn,
-    DateOnly? LastRechargeOn,
     GsmNumberStatus Status);
 
 public sealed record GsmNumberDto(
@@ -29,6 +29,7 @@ public sealed record GsmNumberDto(
     string? Description,
     GsmNumberPlan Plan,
     decimal? MonthlyCost,
+    int? DaysWithoutRecharge,
     DateOnly AcquiredOn,
     DateOnly? LastRechargeOn,
     GsmNumberStatus Status,

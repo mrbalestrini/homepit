@@ -176,9 +176,23 @@ export type GsmNumber = {
   description?: string | null;
   plan: GsmNumberPlan;
   monthlyCost?: number | null;
+  daysWithoutRecharge?: number | null;
   acquiredOn: string;
   lastRechargeOn?: string | null;
   status: GsmNumberStatus;
+  createdByMemberId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type GsmRecharge = {
+  id: string;
+  gsmNumberId: string;
+  rechargedOn: string;
+  amount?: number | null;
+  note?: string | null;
   createdByMemberId?: string | null;
   createdAt: string;
   updatedAt: string;

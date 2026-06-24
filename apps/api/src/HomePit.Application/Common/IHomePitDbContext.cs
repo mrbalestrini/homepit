@@ -18,6 +18,7 @@ public interface IHomePitDbContext
     DbSet<InstitutionalBenefit> InstitutionalBenefits { get; }
     DbSet<InstitutionalStep> InstitutionalSteps { get; }
     DbSet<GsmNumber> GsmNumbers { get; }
+    DbSet<GsmRecharge> GsmRecharges { get; }
     DbSet<Universe> Universes { get; }
     DbSet<Project> Projects { get; }
     DbSet<Activity> Activities { get; }

@@ -32,8 +32,11 @@ public sealed class ApiContractSmokeTests
         var contract = File.ReadAllText(contractPath);
 
         Assert.Contains("/api/gsm-numbers:", contract);
+        Assert.Contains("/api/gsm-numbers/{id}/recharges:", contract);
+        Assert.Contains("/api/gsm-numbers/{id}/recharges/{rechargeId}:", contract);
         Assert.Contains("enum: [Ativo, Inativo, Abandonado]", contract);
         Assert.Contains("enum: [PrePago, PosPago]", contract);
         Assert.Contains("monthlyCost:", contract);
+        Assert.Contains("daysWithoutRecharge:", contract);
     }
 }

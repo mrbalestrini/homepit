@@ -33,8 +33,13 @@
 - O mesmo numero GSM normalizado nao pode se repetir na mesma casa.
 - Numero GSM possui `Plan` com os valores `PrePago` e `PosPago`.
 - `MonthlyCost` e opcional e representa o custo mensal da linha quando aplicavel.
-- `LastRechargeOn` de numero GSM e opcional, nao pode ficar no futuro e nao pode ser
-  anterior a `AcquiredOn`.
+- `DaysWithoutRecharge` e opcional e deve ser um inteiro positivo quando informado.
+- `LastRechargeOn` de numero GSM e um resumo derivado do historico de recargas.
+- Lancamentos de recarga exigem data, valor positivo e observacao opcional; a data nao
+  pode ficar no futuro nem ser anterior a `AcquiredOn`.
+- Historico de recargas segue as mesmas regras de autoria da linha: `Owner` e `Admin`
+  podem gerenciar tudo, `Member` apenas o que criou, e `SuperAdmin` permanece somente
+  leitura.
 - Status de numero GSM: `Ativo`, `Inativo`, `Abandonado`.
 - Imagens privadas pertencem ao usuario, universo ou prompt correspondente.
 - SuperAdmin lista casas e conteudo globalmente, mas operacoes de escrita nos modulos das

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   type AuthResponse,
   type GsmNumber,
+  type GsmRecharge,
   type GsmNumberPlan,
   type GsmNumberStatus,
   type Household,
@@ -27,7 +28,7 @@ import type { AppTheme } from "@/features/projects/project-dashboard.types";
 import { getErrorMessage } from "@/features/projects/project-dashboard.utils";
 import { sortGsmNumbersByUrgency } from "./gsm-dashboard.utils";
 
-type GsmActiveModal = "household" | "share" | "gsm" | null;
+type GsmActiveModal = "household" | "share" | "gsm" | "recharge-history" | "recharge" | null;
 
 export type GsmFormInput = {
   title: string;
@@ -35,9 +36,15 @@ export type GsmFormInput = {
   description?: string;
   plan: GsmNumberPlan;
   monthlyCost?: number | null;
+  daysWithoutRecharge?: number | null;
   acquiredOn: string;
-  lastRechargeOn?: string;
   status: GsmNumberStatus;
+};
+
+export type GsmRechargeFormInput = {
+  rechargedOn: string;
+  amount: number;
+  note?: string;
 };
 
 function isAppTheme(value: string | null): value is AppTheme {
@@ -53,11 +60,16 @@ export function useGsmDashboard() {
   const [activeHouseholdId, setActiveHouseholdId] = useState("");
   const [members, setMembers] = useState<HouseholdMember[]>([]);
   const [gsmNumbers, setGsmNumbers] = useState<GsmNumber[]>([]);
+  const [gsmRecharges, setGsmRecharges] = useState<GsmRecharge[]>([]);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
   const [theme, setThemeState] = useState<AppTheme>(defaultAppTheme);
   const [activeModal, setActiveModal] = useState<GsmActiveModal>(null);
   const [editingHousehold, setEditingHousehold] = useState<Household | null>(null);
   const [editingGsmNumber, setEditingGsmNumber] = useState<GsmNumber | null>(null);
+  const [editingGsmRecharge, setEditingGsmRecharge] = useState<GsmRecharge | null>(null);
+  const [selectedRechargeGsmNumber, setSelectedRechargeGsmNumber] = useState<GsmNumber | null>(null);
+  const [gsmRechargesLoading, setGsmRechargesLoading] = useState(false);
+  const [gsmRechargesError, setGsmRechargesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sessionUserIdRef = useRef<string | null>(null);
@@ -66,9 +78,14 @@ export function useGsmDashboard() {
   const resetWorkspaceState = useCallback(() => {
     setMembers([]);
     setGsmNumbers([]);
+    setGsmRecharges([]);
     setEditingHousehold(null);
     setEditingGsmNumber(null);
+    setEditingGsmRecharge(null);
+    setSelectedRechargeGsmNumber(null);
     setActiveModal(null);
+    setGsmRechargesLoading(false);
+    setGsmRechargesError(null);
     setLoading(false);
     setError(null);
   }, []);
@@ -196,6 +213,13 @@ export function useGsmDashboard() {
 
         setMembers(nextMembers);
         setGsmNumbers(sortGsmNumbersByUrgency(nextNumbers));
+        setSelectedRechargeGsmNumber((current) => {
+          if (!current) {
+            return current;
+          }
+
+          return nextNumbers.find((item) => item.id === current.id) ?? current;
+        });
       } catch (exception) {
         setError(getErrorMessage(exception, "Falha ao carregar os números GSM."));
       } finally {
@@ -226,9 +250,15 @@ export function useGsmDashboard() {
     setLoading(true);
     setMembers([]);
     setGsmNumbers([]);
+    setGsmRecharges([]);
     setEditingGsmNumber(null);
+    setEditingGsmRecharge(null);
+    setSelectedRechargeGsmNumber(null);
+    setGsmRechargesError(null);
+    setGsmRechargesLoading(false);
     setActiveHouseholdId(householdId);
     setError(null);
+    setActiveModal(null);
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -372,7 +402,12 @@ export function useGsmDashboard() {
       const nextHouseholds = session.households.filter((item) => item.id !== household.id);
       setMembers([]);
       setGsmNumbers([]);
+      setGsmRecharges([]);
       setEditingGsmNumber(null);
+      setEditingGsmRecharge(null);
+      setSelectedRechargeGsmNumber(null);
+      setGsmRechargesError(null);
+      setGsmRechargesLoading(false);
       updateSessionHouseholds(nextHouseholds);
       toast.success("Casa excluída.");
     } catch (exception) {
@@ -484,6 +519,82 @@ export function useGsmDashboard() {
     setEditingGsmNumber(null);
   }
 
+  async function loadRechargeHistory(gsmNumberId: string) {
+    if (!session || !activeHouseholdId) {
+      return;
+    }
+
+    setGsmRechargesLoading(true);
+    setGsmRechargesError(null);
+    try {
+      const history = await apiFetch<GsmRecharge[]>(`/api/gsm-numbers/${gsmNumberId}/recharges`, {
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+      });
+      setGsmRecharges(history);
+    } catch (exception) {
+      const message = getErrorMessage(exception, "Falha ao carregar o histórico de recargas.");
+      setGsmRechargesError(message);
+      toast.error(message);
+    } finally {
+      setGsmRechargesLoading(false);
+    }
+  }
+
+  async function refreshRechargeHistory() {
+    if (!selectedRechargeGsmNumber) {
+      return;
+    }
+
+    await loadRechargeHistory(selectedRechargeGsmNumber.id);
+  }
+
+  function openRechargeHistory(gsmNumber: GsmNumber) {
+    setSelectedRechargeGsmNumber(gsmNumber);
+    setEditingGsmRecharge(null);
+    setGsmRecharges([]);
+    setGsmRechargesError(null);
+    setActiveModal("recharge-history");
+    void loadRechargeHistory(gsmNumber.id);
+  }
+
+  function closeRechargeHistory() {
+    setActiveModal(null);
+    setSelectedRechargeGsmNumber(null);
+    setEditingGsmRecharge(null);
+    setGsmRecharges([]);
+    setGsmRechargesError(null);
+    setGsmRechargesLoading(false);
+  }
+
+  function openCreateRecharge(gsmNumber: GsmNumber) {
+    if (!gsmNumber.canEdit) {
+      return;
+    }
+
+    setSelectedRechargeGsmNumber(gsmNumber);
+    setEditingGsmRecharge(null);
+    setActiveModal("recharge");
+    setGsmRechargesError(null);
+  }
+
+  function openEditRecharge(gsmNumber: GsmNumber, recharge: GsmRecharge) {
+    if (!gsmNumber.canEdit || !recharge.canEdit) {
+      return;
+    }
+
+    setSelectedRechargeGsmNumber(gsmNumber);
+    setEditingGsmRecharge(recharge);
+    setActiveModal("recharge");
+    setGsmRechargesError(null);
+  }
+
+  function closeRechargeModal() {
+    setActiveModal(null);
+    setEditingGsmRecharge(null);
+    setGsmRechargesError(null);
+  }
+
   async function createGsmNumber(input: GsmFormInput) {
     if (!session || !activeHouseholdId) {
       return;
@@ -494,15 +605,15 @@ export function useGsmDashboard() {
         method: "POST",
         token: session.accessToken,
         householdId: activeHouseholdId,
-          body: JSON.stringify({
-            title: input.title,
-            number: input.number,
-            description: input.description || null,
-            plan: input.plan,
-            monthlyCost: input.monthlyCost ?? null,
-            acquiredOn: input.acquiredOn,
-            lastRechargeOn: input.lastRechargeOn || null,
-            status: input.status,
+        body: JSON.stringify({
+          title: input.title,
+          number: input.number,
+          description: input.description || null,
+          plan: input.plan,
+          monthlyCost: input.monthlyCost ?? null,
+          daysWithoutRecharge: input.daysWithoutRecharge ?? null,
+          acquiredOn: input.acquiredOn,
+          status: input.status,
         }),
       });
       await loadWorkspace();
@@ -523,15 +634,15 @@ export function useGsmDashboard() {
         method: "PUT",
         token: session.accessToken,
         householdId: activeHouseholdId,
-          body: JSON.stringify({
-            title: input.title,
-            number: input.number,
-            description: input.description || null,
-            plan: input.plan,
-            monthlyCost: input.monthlyCost ?? null,
-            acquiredOn: input.acquiredOn,
-            lastRechargeOn: input.lastRechargeOn || null,
-            status: input.status,
+        body: JSON.stringify({
+          title: input.title,
+          number: input.number,
+          description: input.description || null,
+          plan: input.plan,
+          monthlyCost: input.monthlyCost ?? null,
+          daysWithoutRecharge: input.daysWithoutRecharge ?? null,
+          acquiredOn: input.acquiredOn,
+          status: input.status,
         }),
       });
       await loadWorkspace();
@@ -554,9 +665,81 @@ export function useGsmDashboard() {
         householdId: activeHouseholdId,
       });
       await loadWorkspace();
+      if (selectedRechargeGsmNumber?.id === gsmNumber.id) {
+        closeRechargeHistory();
+      }
       toast.success("Número GSM excluído.");
     } catch (exception) {
       reportError(exception, "Não foi possível excluir o número GSM.");
+    }
+  }
+
+  async function createRecharge(input: GsmRechargeFormInput) {
+    if (!session || !activeHouseholdId || !selectedRechargeGsmNumber) {
+      return;
+    }
+
+    try {
+      await apiFetch<GsmRecharge>(`/api/gsm-numbers/${selectedRechargeGsmNumber.id}/recharges`, {
+        method: "POST",
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+        body: JSON.stringify({
+          rechargedOn: input.rechargedOn,
+          amount: input.amount,
+          note: input.note?.trim() || null,
+        }),
+      });
+      await loadWorkspace();
+      await loadRechargeHistory(selectedRechargeGsmNumber.id);
+      closeRechargeModal();
+      toast.success("Recarga informada.");
+    } catch (exception) {
+      reportError(exception, "Não foi possível informar a recarga.");
+    }
+  }
+
+  async function updateRecharge(rechargeId: string, input: GsmRechargeFormInput) {
+    if (!session || !activeHouseholdId || !selectedRechargeGsmNumber) {
+      return;
+    }
+
+    try {
+      await apiFetch<GsmRecharge>(`/api/gsm-numbers/${selectedRechargeGsmNumber.id}/recharges/${rechargeId}`, {
+        method: "PUT",
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+        body: JSON.stringify({
+          rechargedOn: input.rechargedOn,
+          amount: input.amount,
+          note: input.note?.trim() || null,
+        }),
+      });
+      await loadWorkspace();
+      await loadRechargeHistory(selectedRechargeGsmNumber.id);
+      closeRechargeModal();
+      toast.success("Recarga atualizada.");
+    } catch (exception) {
+      reportError(exception, "Não foi possível salvar a recarga.");
+    }
+  }
+
+  async function deleteRecharge(recharge: GsmRecharge) {
+    if (!session || !activeHouseholdId || !selectedRechargeGsmNumber || !recharge.canDelete) {
+      return;
+    }
+
+    try {
+      await apiFetch<void>(`/api/gsm-numbers/${selectedRechargeGsmNumber.id}/recharges/${recharge.id}`, {
+        method: "DELETE",
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+      });
+      await loadWorkspace();
+      await loadRechargeHistory(selectedRechargeGsmNumber.id);
+      toast.success("Recarga excluída.");
+    } catch (exception) {
+      reportError(exception, "Não foi possível excluir a recarga.");
     }
   }
 
@@ -566,11 +749,16 @@ export function useGsmDashboard() {
     activeHousehold,
     members,
     gsmNumbers,
+    gsmRecharges,
     sidebarCollapsed,
     theme,
     activeModal,
     editingHousehold,
     editingGsmNumber,
+    editingGsmRecharge,
+    selectedRechargeGsmNumber,
+    gsmRechargesLoading,
+    gsmRechargesError,
     loading,
     error,
     subtitle: "Gestão compartilhada de linhas, chips e recargas da casa",
@@ -603,9 +791,18 @@ export function useGsmDashboard() {
     openCreateGsmNumber,
     openEditGsmNumber,
     closeModuleModal,
+    openRechargeHistory,
+    closeRechargeHistory,
+    openCreateRecharge,
+    openEditRecharge,
+    closeRechargeModal,
+    refreshRechargeHistory,
     createGsmNumber,
     updateGsmNumber,
     deleteGsmNumber,
+    createRecharge,
+    updateRecharge,
+    deleteRecharge,
   };
 }
 

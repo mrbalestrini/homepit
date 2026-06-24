@@ -3,7 +3,7 @@
 ## FATO OBSERVADO
 
 - A versao oficial do produto observada em `apps/web/package.json`, `package-lock.json` e
-  `CHANGELOG.md` e `1.4.0`, enquanto `/api/system/info` e OpenAPI informam `0.1.0` como
+  `CHANGELOG.md` e `1.6.0`, enquanto `/api/system/info` e OpenAPI informam `0.1.1` como
   versao atual do contrato/API.
 - O OpenAPI nao lista seis operacoes implementadas: system info, update/delete de casa e
   upload/get/delete de imagem de universo.

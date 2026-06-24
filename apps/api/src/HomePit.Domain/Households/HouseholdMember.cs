@@ -24,6 +24,7 @@ public sealed class HouseholdMember : AuditableEntity, IHouseholdScoped
     public ICollection<Prompt> CreatedPrompts { get; } = new List<Prompt>();
     public ICollection<PromptCategory> CreatedPromptCategories { get; } = new List<PromptCategory>();
     public ICollection<GsmNumber> CreatedGsmNumbers { get; } = new List<GsmNumber>();
+    public ICollection<GsmRecharge> CreatedGsmRecharges { get; } = new List<GsmRecharge>();
     public ICollection<ActivityComment> AuthoredActivityComments { get; } = new List<ActivityComment>();
     public NotificationPreference? NotificationPreference { get; set; }
 }

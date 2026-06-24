@@ -13,9 +13,10 @@
   para `/projects`, `/prompts`, `/household` e `/gsm`.
 - Financeiro e supermercado existem apenas como documentacao de modulos planejados.
 - A versao em `apps/web/package.json`, `apps/web/package-lock.json` e `CHANGELOG.md` e
-  `1.5.0`.
+  `1.6.0`.
 - Numeros GSM agora pertencem a uma casa, guardam titulo, numero normalizado com DDI,
-  descricao opcional, datas de aquisicao/ultima recarga e status compartilhado.
+  descricao opcional, prazo de recarga, historico de recargas, datas de aquisicao/ultima
+  recarga e status compartilhado.
 - Atividades expõem `CreatedAt` auditavel e aceitam `DueDate` opcional na API e no
   dashboard.
 - Atividades agora aceitam uma imagem unica privada, com upload, leitura e exclusao

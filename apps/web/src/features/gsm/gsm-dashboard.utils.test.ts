@@ -5,6 +5,7 @@ import {
   formatGsmMonthlyCost,
   formatGsmPlanLabel,
   formatRechargeElapsed,
+  getGsmRechargeProjection,
   maskGsmNumberInput,
   normalizeGsmNumber,
   parseGsmMonthlyCostInput,
@@ -26,7 +27,7 @@ describe("gsm dashboard utils", () => {
   it("formats plan labels and monthly costs", () => {
     expect(formatGsmPlanLabel("PrePago")).toBe("Pré-pago");
     expect(formatGsmPlanLabel("PosPago")).toBe("Pós-pago");
-    expect(formatGsmMonthlyCost(59.9)).toBe("R$ 59,90");
+    expect(formatGsmMonthlyCost(59.9)).toBe("R$\u00a059,90");
     expect(formatGsmMonthlyCost(null)).toBe("Não informado");
   });
 
@@ -45,6 +46,35 @@ describe("gsm dashboard utils", () => {
     expect(formatRechargeElapsed(null, referenceDate)).toBe("Sem recarga registrada");
   });
 
+  it("calculates the next recharge projection and overdue days", () => {
+    const projection = getGsmRechargeProjection(
+      {
+        id: "1",
+        title: "Linha A",
+        number: "5511888888888",
+        description: null,
+        plan: "PrePago",
+        monthlyCost: null,
+        daysWithoutRecharge: 30,
+        acquiredOn: "2026-01-01",
+        lastRechargeOn: "2026-06-10",
+        status: "Ativo",
+        createdByMemberId: null,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+        canEdit: true,
+        canDelete: true,
+      },
+      new Date("2026-07-20T12:00:00Z"),
+    );
+
+    expect(projection).toEqual({
+      nextRechargeOn: "2026-07-10",
+      isOverdue: true,
+      overdueDays: 10,
+    });
+  });
+
   it("sorts gsm numbers by recharge urgency", () => {
     const items: GsmNumber[] = [
       {
@@ -54,6 +84,7 @@ describe("gsm dashboard utils", () => {
         description: null,
         acquiredOn: "2026-01-01",
         lastRechargeOn: "2026-06-20",
+        daysWithoutRecharge: 30,
         status: "Ativo",
         createdByMemberId: null,
         createdAt: "2026-01-01T00:00:00Z",
@@ -68,6 +99,7 @@ describe("gsm dashboard utils", () => {
         description: null,
         acquiredOn: "2026-01-01",
         lastRechargeOn: null,
+        daysWithoutRecharge: 30,
         status: "Ativo",
         createdByMemberId: null,
         createdAt: "2026-01-01T00:00:00Z",
@@ -82,6 +114,7 @@ describe("gsm dashboard utils", () => {
         description: null,
         acquiredOn: "2026-01-01",
         lastRechargeOn: "2026-06-10",
+        daysWithoutRecharge: null,
         status: "Ativo",
         createdByMemberId: null,
         createdAt: "2026-01-01T00:00:00Z",
@@ -91,6 +124,6 @@ describe("gsm dashboard utils", () => {
       },
     ];
 
-    expect(sortGsmNumbersByUrgency(items).map((item) => item.id)).toEqual(["1", "2", "3"]);
+    expect(sortGsmNumbersByUrgency(items).map((item) => item.id)).toEqual(["1", "3", "2"]);
   });
 });

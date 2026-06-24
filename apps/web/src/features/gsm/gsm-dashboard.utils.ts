@@ -17,6 +17,24 @@ function formatUnit(value: number, singular: string, plural: string) {
   return value === 1 ? `${value} ${singular}` : `${value} ${plural}`;
 }
 
+function formatDateOnlyValue(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDaysToDateOnly(value: string, days: number) {
+  const date = parseDateOnly(value);
+  if (!date) {
+    return null;
+  }
+
+  const result = new Date(date);
+  result.setUTCDate(result.getUTCDate() + days);
+  return result;
+}
+
 export function extractGsmDigits(value: string) {
   return value.replace(/\D/g, "").slice(0, 13);
 }
@@ -148,6 +166,44 @@ export function formatDateOnlyPtBr(value: string | null | undefined, fallback = 
   }).format(date);
 }
 
+export function formatDateOnlyInputValue(value = new Date()) {
+  return formatDateOnlyValue(value);
+}
+
+export type GsmRechargeProjection = {
+  nextRechargeOn: string | null;
+  isOverdue: boolean;
+  overdueDays: number;
+};
+
+export function getGsmRechargeProjection(
+  item: Pick<GsmNumber, "acquiredOn" | "lastRechargeOn" | "daysWithoutRecharge">,
+  referenceDate = new Date(),
+): GsmRechargeProjection | null {
+  if (!item.daysWithoutRecharge || item.daysWithoutRecharge <= 0) {
+    return null;
+  }
+
+  const baseDate = item.lastRechargeOn ?? item.acquiredOn;
+  const nextRechargeDate = addDaysToDateOnly(baseDate, item.daysWithoutRecharge);
+  if (!nextRechargeDate) {
+    return null;
+  }
+
+  const today = new Date(Date.UTC(
+    referenceDate.getUTCFullYear(),
+    referenceDate.getUTCMonth(),
+    referenceDate.getUTCDate(),
+  ));
+  const deltaDays = Math.floor((today.getTime() - nextRechargeDate.getTime()) / (24 * 60 * 60 * 1000));
+
+  return {
+    nextRechargeOn: nextRechargeDate.toISOString().slice(0, 10),
+    isOverdue: deltaDays > 0,
+    overdueDays: Math.max(deltaDays, 0),
+  };
+}
+
 export function formatRechargeElapsed(value: string | null | undefined, referenceDate = new Date()) {
   const start = parseDateOnly(value);
   if (!start) {
@@ -197,20 +253,27 @@ export function formatRechargeElapsed(value: string | null | undefined, referenc
 
 export function sortGsmNumbersByUrgency(items: GsmNumber[]) {
   return [...items].sort((left, right) => {
-    if (!left.lastRechargeOn && !right.lastRechargeOn) {
+    const leftProjection = getGsmRechargeProjection(left);
+    const rightProjection = getGsmRechargeProjection(right);
+
+    if (!leftProjection && !rightProjection) {
       return left.title.localeCompare(right.title);
     }
 
-    if (!left.lastRechargeOn) {
-      return -1;
-    }
-
-    if (!right.lastRechargeOn) {
+    if (!leftProjection) {
       return 1;
     }
 
-    const leftTime = parseDateOnly(left.lastRechargeOn)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-    const rightTime = parseDateOnly(right.lastRechargeOn)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    if (!rightProjection) {
+      return -1;
+    }
+
+    if (leftProjection.isOverdue !== rightProjection.isOverdue) {
+      return leftProjection.isOverdue ? -1 : 1;
+    }
+
+    const leftTime = parseDateOnly(leftProjection.nextRechargeOn)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const rightTime = parseDateOnly(rightProjection.nextRechargeOn)?.getTime() ?? Number.MAX_SAFE_INTEGER;
 
     if (leftTime !== rightTime) {
       return leftTime - rightTime;

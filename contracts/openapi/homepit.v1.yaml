@@ -351,6 +351,64 @@ paths:
       responses:
         "204":
           description: GSM number deleted
+  /api/gsm-numbers/{id}/recharges:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: GSM recharge history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GsmRecharge"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGsmRechargeRequest"
+      responses:
+        "201":
+          description: GSM recharge recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GsmRecharge"
+  /api/gsm-numbers/{id}/recharges/{rechargeId}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/RechargeIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGsmRechargeRequest"
+      responses:
+        "200":
+          description: GSM recharge updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GsmRecharge"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/RechargeIdPath"
+      responses:
+        "204":
+          description: GSM recharge deleted
   /api/universes:
     get:
       parameters:
@@ -951,6 +1009,13 @@ components:
       schema:
         type: string
         format: uuid
+    RechargeIdPath:
+      name: rechargeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     InstitutionalImageSlot:
       name: slot
       in: path
@@ -1318,13 +1383,12 @@ components:
           type: number
           format: decimal
           nullable: true
+        daysWithoutRecharge:
+          type: integer
+          nullable: true
         acquiredOn:
           type: string
           format: date
-        lastRechargeOn:
-          type: string
-          format: date
-          nullable: true
         status:
           $ref: "#/components/schemas/GsmNumberStatus"
     UpdateGsmNumberRequest:
@@ -1346,13 +1410,12 @@ components:
           type: number
           format: decimal
           nullable: true
+        daysWithoutRecharge:
+          type: integer
+          nullable: true
         acquiredOn:
           type: string
           format: date
-        lastRechargeOn:
-          type: string
-          format: date
-          nullable: true
         status:
           $ref: "#/components/schemas/GsmNumberStatus"
     GsmNumber:
@@ -1387,6 +1450,9 @@ components:
           type: number
           format: decimal
           nullable: true
+        daysWithoutRecharge:
+          type: integer
+          nullable: true
         acquiredOn:
           type: string
           format: date
@@ -1396,6 +1462,78 @@ components:
           nullable: true
         status:
           $ref: "#/components/schemas/GsmNumberStatus"
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateGsmRechargeRequest:
+      type: object
+      required: [rechargedOn, amount]
+      properties:
+        rechargedOn:
+          type: string
+          format: date
+        amount:
+          type: number
+          format: decimal
+        note:
+          type: string
+          maxLength: 4000
+          nullable: true
+    UpdateGsmRechargeRequest:
+      type: object
+      required: [rechargedOn, amount]
+      properties:
+        rechargedOn:
+          type: string
+          format: date
+        amount:
+          type: number
+          format: decimal
+        note:
+          type: string
+          maxLength: 4000
+          nullable: true
+    GsmRecharge:
+      type: object
+      required:
+        [
+          id,
+          gsmNumberId,
+          rechargedOn,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        gsmNumberId:
+          type: string
+          format: uuid
+        rechargedOn:
+          type: string
+          format: date
+        amount:
+          type: number
+          format: decimal
+          nullable: true
+        note:
+          type: string
+          maxLength: 4000
+          nullable: true
         createdByMemberId:
           type: string
           format: uuid

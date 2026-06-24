@@ -16,3 +16,11 @@
     informado.
 11. A listagem GSM no frontend deve priorizar uma tabela responsiva para concentrar
     contexto, status, plano, custo e recargas em uma unica visao.
+12. `LastRechargeOn` deixa de ser editavel no formulario GSM e passa a ser um resumo
+    derivado do historico de `gsm_recharges`.
+13. `DaysWithoutRecharge` e opcional; quando preenchido, o frontend calcula a proxima
+    recarga a partir da ultima recarga registrada ou da data de aquisicao.
+14. Recargas possuem CRUD proprio com autoria e tenancy do modulo; `Owner` e `Admin`
+    podem gerenciar tudo e `Member` apenas os registros que criou.
+15. A listagem GSM passa a usar cards no mobile abaixo de `lg`, mantendo a tabela no
+    desktop.

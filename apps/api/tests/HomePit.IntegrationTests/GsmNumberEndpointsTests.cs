@@ -39,8 +39,8 @@ public sealed class GsmNumberEndpointsTests
                 description = "Uso diário",
                 plan = "PrePago",
                 monthlyCost = 59.9m,
+                daysWithoutRecharge = 30,
                 acquiredOn = new DateOnly(2026, 1, 10),
-                lastRechargeOn = new DateOnly(2026, 6, 20),
                 status = "Ativo"
             }));
 
@@ -51,6 +51,7 @@ public sealed class GsmNumberEndpointsTests
         Assert.Equal("Ativo", created.Status);
         Assert.Equal("PrePago", created.Plan);
         Assert.Equal(59.9m, created.MonthlyCost);
+        Assert.Equal(30, created.DaysWithoutRecharge);
 
         var listResponse = await SendAuthorizedAsync(
             client,
@@ -77,8 +78,8 @@ public sealed class GsmNumberEndpointsTests
                 description = "Uso eventual",
                 plan = "PosPago",
                 monthlyCost = 72.5m,
+                daysWithoutRecharge = 45,
                 acquiredOn = new DateOnly(2026, 1, 10),
-                lastRechargeOn = new DateOnly(2026, 6, 22),
                 status = "Inativo"
             }));
 
@@ -89,6 +90,7 @@ public sealed class GsmNumberEndpointsTests
         Assert.Equal("Inativo", updated.Status);
         Assert.Equal("PosPago", updated.Plan);
         Assert.Equal(72.5m, updated.MonthlyCost);
+        Assert.Equal(45, updated.DaysWithoutRecharge);
 
         var deleteResponse = await SendAuthorizedAsync(
             client,
@@ -120,8 +122,8 @@ public sealed class GsmNumberEndpointsTests
                 description = (string?)null,
                 plan = "PrePago",
                 monthlyCost = (decimal?)null,
+                daysWithoutRecharge = 0,
                 acquiredOn = new DateOnly(2026, 6, 20),
-                lastRechargeOn = new DateOnly(2026, 6, 10),
                 status = "Ativo"
             }));
 
@@ -129,6 +131,120 @@ public sealed class GsmNumberEndpointsTests
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>(JsonSerializerOptions.Web);
         Assert.NotNull(problem);
         Assert.Equal("Informe um número GSM válido com DDI opcional e DDD obrigatório.", problem.Detail);
+    }
+
+    [Fact]
+    public async Task Gsm_recharge_history_updates_the_last_recharge_summary()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+        var seed = await SeedAsync(factory);
+
+        var createResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Post,
+            "/api/gsm-numbers",
+            JsonContent.Create(new
+            {
+                title = "Linha principal",
+                number = "11912345678",
+                description = "Uso diário",
+                plan = "PrePago",
+                monthlyCost = 59.9m,
+                daysWithoutRecharge = 30,
+                acquiredOn = new DateOnly(2026, 1, 10),
+                status = "Ativo"
+            }));
+
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<GsmNumberResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(created);
+
+        var rechargeResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Post,
+            $"/api/gsm-numbers/{created!.Id}/recharges",
+            JsonContent.Create(new
+            {
+                rechargedOn = new DateOnly(2026, 6, 20),
+                amount = 50m,
+                note = "Primeira recarga"
+            }));
+
+        rechargeResponse.EnsureSuccessStatusCode();
+        var recharge = await rechargeResponse.Content.ReadFromJsonAsync<GsmRechargeResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(recharge);
+        Assert.Equal(new DateOnly(2026, 6, 20), recharge!.RechargedOn);
+        Assert.Equal(50m, recharge.Amount);
+        Assert.Equal("Primeira recarga", recharge.Note);
+
+        var listRechargeResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Get,
+            $"/api/gsm-numbers/{created.Id}/recharges");
+
+        listRechargeResponse.EnsureSuccessStatusCode();
+        var recharges = await listRechargeResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<GsmRechargeResponse>>(JsonSerializerOptions.Web);
+        Assert.Single(recharges!);
+
+        var updateRechargeResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Put,
+            $"/api/gsm-numbers/{created.Id}/recharges/{recharge.Id}",
+            JsonContent.Create(new
+            {
+                rechargedOn = new DateOnly(2026, 6, 22),
+                amount = 60m,
+                note = "Ajustada"
+            }));
+
+        updateRechargeResponse.EnsureSuccessStatusCode();
+        var updatedRecharge = await updateRechargeResponse.Content.ReadFromJsonAsync<GsmRechargeResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(updatedRecharge);
+        Assert.Equal(new DateOnly(2026, 6, 22), updatedRecharge!.RechargedOn);
+        Assert.Equal(60m, updatedRecharge.Amount);
+        Assert.Equal("Ajustada", updatedRecharge.Note);
+
+        var gsmListResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Get,
+            "/api/gsm-numbers");
+
+        gsmListResponse.EnsureSuccessStatusCode();
+        var listedNumbers = await gsmListResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<GsmNumberResponse>>(JsonSerializerOptions.Web);
+        var listedNumber = Assert.Single(listedNumbers!);
+        Assert.Equal(new DateOnly(2026, 6, 22), listedNumber.LastRechargeOn);
+
+        var deleteRechargeResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Delete,
+            $"/api/gsm-numbers/{created.Id}/recharges/{recharge.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteRechargeResponse.StatusCode);
+
+        var afterDeleteResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Get,
+            "/api/gsm-numbers");
+
+        afterDeleteResponse.EnsureSuccessStatusCode();
+        var afterDeleteNumbers = await afterDeleteResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<GsmNumberResponse>>(JsonSerializerOptions.Web);
+        var afterDeleteNumber = Assert.Single(afterDeleteNumbers!);
+        Assert.Null(afterDeleteNumber.LastRechargeOn);
     }
 
     private static async Task<SeedResult> SeedAsync(HomePitApiFactory factory)
@@ -190,7 +306,16 @@ public sealed class GsmNumberEndpointsTests
 
     private sealed record SeedResult(string AccessToken, Guid HouseholdId);
 
-    private sealed record GsmNumberResponse(Guid Id, string Number, string Status, string Plan, decimal? MonthlyCost);
+    private sealed record GsmNumberResponse(
+        Guid Id,
+        string Number,
+        string Status,
+        string Plan,
+        decimal? MonthlyCost,
+        int? DaysWithoutRecharge,
+        DateOnly? LastRechargeOn);
+
+    private sealed record GsmRechargeResponse(Guid Id, Guid GsmNumberId, DateOnly RechargedOn, decimal? Amount, string? Note);
 
     private sealed record ProblemDetailsResponse(string Detail);
 

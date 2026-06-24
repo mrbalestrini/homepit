@@ -21,6 +21,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<InstitutionalBenefit> InstitutionalBenefits => Set<InstitutionalBenefit>();
     public DbSet<InstitutionalStep> InstitutionalSteps => Set<InstitutionalStep>();
     public DbSet<GsmNumber> GsmNumbers => Set<GsmNumber>();
+    public DbSet<GsmRecharge> GsmRecharges => Set<GsmRecharge>();
     public DbSet<Universe> Universes => Set<Universe>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Activity> Activities => Set<Activity>();
@@ -182,6 +183,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(item => item.Description).HasMaxLength(4000);
             builder.Property(item => item.Plan).HasConversion<string>().HasMaxLength(40).IsRequired();
             builder.Property(item => item.MonthlyCost).HasPrecision(10, 2);
+            builder.Property(item => item.DaysWithoutRecharge);
             builder.Property(item => item.AcquiredOn).HasColumnType("date");
             builder.Property(item => item.LastRechargeOn).HasColumnType("date");
             builder.Property(item => item.Status).HasConversion<string>().HasMaxLength(40).IsRequired();
@@ -192,6 +194,27 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
                 .OnDelete(DeleteBehavior.Cascade);
             builder.HasOne(item => item.CreatedByMember)
                 .WithMany(member => member.CreatedGsmNumbers)
+                .HasForeignKey(item => item.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<GsmRecharge>(builder =>
+        {
+            builder.ToTable("gsm_recharges");
+            builder.Property(item => item.RechargedOn).HasColumnType("date");
+            builder.Property(item => item.Amount).HasPrecision(10, 2);
+            builder.Property(item => item.Note).HasMaxLength(4000);
+            builder.HasIndex(item => new { item.HouseholdId, item.GsmNumberId, item.RechargedOn });
+            builder.HasOne(item => item.Household)
+                .WithMany(household => household.GsmRecharges)
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.GsmNumber)
+                .WithMany(number => number.Recharges)
+                .HasForeignKey(item => item.GsmNumberId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.CreatedByMember)
+                .WithMany(member => member.CreatedGsmRecharges)
                 .HasForeignKey(item => item.CreatedByMemberId)
                 .OnDelete(DeleteBehavior.SetNull);
         });

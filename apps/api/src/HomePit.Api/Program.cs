@@ -236,6 +236,33 @@ api.MapPut("/gsm-numbers/{id:guid}", async (
     GsmNumberService service,
     CancellationToken cancellationToken) =>
         Results.Ok(await service.UpdateAsync(id, request, cancellationToken)));
+api.MapGet("/gsm-numbers/{id:guid}/recharges", async (
+    Guid id,
+    GsmNumberService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListRechargesAsync(id, cancellationToken)));
+api.MapPost("/gsm-numbers/{id:guid}/recharges", async (
+    Guid id,
+    CreateGsmRechargeRequest request,
+    GsmNumberService service,
+    CancellationToken cancellationToken) =>
+        Results.Created($"/api/gsm-numbers/{id}/recharges", await service.CreateRechargeAsync(id, request, cancellationToken)));
+api.MapPut("/gsm-numbers/{id:guid}/recharges/{rechargeId:guid}", async (
+    Guid id,
+    Guid rechargeId,
+    UpdateGsmRechargeRequest request,
+    GsmNumberService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateRechargeAsync(id, rechargeId, request, cancellationToken)));
+api.MapDelete("/gsm-numbers/{id:guid}/recharges/{rechargeId:guid}", async (
+    Guid id,
+    Guid rechargeId,
+    GsmNumberService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteRechargeAsync(id, rechargeId, cancellationToken);
+    return Results.NoContent();
+});
 api.MapDelete("/gsm-numbers/{id:guid}", async (
     Guid id,
     GsmNumberService service,

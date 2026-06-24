@@ -36,8 +36,9 @@ public sealed class GsmNumberService(
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var normalizedNumber = NormalizeNumber(request.Number);
-        ValidateDates(request.AcquiredOn, request.LastRechargeOn);
+        ValidateAcquiredOn(request.AcquiredOn);
         ValidateMonthlyCost(request.MonthlyCost);
+        ValidateDaysWithoutRecharge(request.DaysWithoutRecharge);
         await EnsureUniqueNumberAsync(currentMember.HouseholdId, normalizedNumber, null, cancellationToken);
 
         var gsmNumber = new GsmNumber
@@ -49,8 +50,8 @@ public sealed class GsmNumberService(
             Description = NormalizeDescription(request.Description),
             Plan = request.Plan,
             MonthlyCost = request.MonthlyCost,
+            DaysWithoutRecharge = request.DaysWithoutRecharge,
             AcquiredOn = request.AcquiredOn,
-            LastRechargeOn = request.LastRechargeOn,
             Status = request.Status
         };
 
@@ -68,11 +69,12 @@ public sealed class GsmNumberService(
             .FirstOrDefaultAsync(item => item.Id == gsmNumberId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Número GSM não encontrado.");
 
-        EnsureCanManageEntity(currentMember, gsmNumber.CreatedByMemberId, "Você não pode editar um número GSM criado por outra pessoa.");
+        EnsureCanManageEntity(currentMember, gsmNumber.CreatedByMemberId, "Você não pode adicionar recargas a um número GSM criado por outra pessoa.");
 
         var normalizedNumber = NormalizeNumber(request.Number);
-        ValidateDates(request.AcquiredOn, request.LastRechargeOn);
+        ValidateAcquiredOn(request.AcquiredOn);
         ValidateMonthlyCost(request.MonthlyCost);
+        ValidateDaysWithoutRecharge(request.DaysWithoutRecharge);
         await EnsureUniqueNumberAsync(currentMember.HouseholdId, normalizedNumber, gsmNumber.Id, cancellationToken);
 
         gsmNumber.Title = RequiredTitle(request.Title);
@@ -80,8 +82,8 @@ public sealed class GsmNumberService(
         gsmNumber.Description = NormalizeDescription(request.Description);
         gsmNumber.Plan = request.Plan;
         gsmNumber.MonthlyCost = request.MonthlyCost;
+        gsmNumber.DaysWithoutRecharge = request.DaysWithoutRecharge;
         gsmNumber.AcquiredOn = request.AcquiredOn;
-        gsmNumber.LastRechargeOn = request.LastRechargeOn;
         gsmNumber.Status = request.Status;
 
         await db.SaveChangesAsync(cancellationToken);
@@ -100,6 +102,114 @@ public sealed class GsmNumberService(
 
         db.GsmNumbers.Remove(gsmNumber);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<GsmRechargeDto>> ListRechargesAsync(Guid gsmNumberId, CancellationToken cancellationToken)
+    {
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        await EnsureGsmNumberExistsAsync(currentMember.HouseholdId, gsmNumberId, cancellationToken);
+
+        var recharges = await db.GsmRecharges
+            .AsNoTracking()
+            .Where(item => item.HouseholdId == currentMember.HouseholdId && item.GsmNumberId == gsmNumberId)
+            .OrderByDescending(item => item.RechargedOn)
+            .ThenByDescending(item => item.CreatedAt)
+            .ToArrayAsync(cancellationToken);
+
+        return recharges
+            .Select(item => ToRechargeDto(item, currentMember))
+            .ToArray();
+    }
+
+    public async Task<GsmRechargeDto> CreateRechargeAsync(
+        Guid gsmNumberId,
+        CreateGsmRechargeRequest request,
+        CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var gsmNumber = await db.GsmNumbers
+            .FirstOrDefaultAsync(item => item.Id == gsmNumberId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Número GSM não encontrado.");
+
+        EnsureCanManageEntity(currentMember, gsmNumber.CreatedByMemberId, "Você não pode editar um número GSM criado por outra pessoa.");
+
+        ValidateRechargeDate(request.RechargedOn, gsmNumber.AcquiredOn);
+        ValidateRechargeAmount(request.Amount);
+
+        var recharge = new GsmRecharge
+        {
+            HouseholdId = gsmNumber.HouseholdId,
+            GsmNumberId = gsmNumber.Id,
+            CreatedByMemberId = currentMember.Id,
+            RechargedOn = request.RechargedOn,
+            Amount = request.Amount,
+            Note = NormalizeRechargeNote(request.Note)
+        };
+
+        db.GsmRecharges.Add(recharge);
+        await db.SaveChangesAsync(cancellationToken);
+        await RefreshLastRechargeOnAsync(gsmNumber, cancellationToken);
+
+        return ToRechargeDto(recharge, currentMember);
+    }
+
+    public async Task<GsmRechargeDto> UpdateRechargeAsync(
+        Guid gsmNumberId,
+        Guid rechargeId,
+        UpdateGsmRechargeRequest request,
+        CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var gsmNumber = await db.GsmNumbers
+            .FirstOrDefaultAsync(item => item.Id == gsmNumberId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Número GSM não encontrado.");
+        var recharge = await db.GsmRecharges
+            .FirstOrDefaultAsync(item =>
+                item.Id == rechargeId &&
+                item.GsmNumberId == gsmNumberId &&
+                item.HouseholdId == currentMember.HouseholdId,
+                cancellationToken)
+            ?? throw new NotFoundException("Recarga não encontrada.");
+
+        EnsureCanManageEntity(currentMember, gsmNumber.CreatedByMemberId, "Você não pode editar recargas de um número GSM criado por outra pessoa.");
+        EnsureCanManageEntity(currentMember, recharge.CreatedByMemberId, "Você não pode editar uma recarga criada por outra pessoa.");
+
+        ValidateRechargeDate(request.RechargedOn, gsmNumber.AcquiredOn);
+        ValidateRechargeAmount(request.Amount);
+
+        recharge.RechargedOn = request.RechargedOn;
+        recharge.Amount = request.Amount;
+        recharge.Note = NormalizeRechargeNote(request.Note);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await RefreshLastRechargeOnAsync(gsmNumber, cancellationToken);
+
+        return ToRechargeDto(recharge, currentMember);
+    }
+
+    public async Task DeleteRechargeAsync(Guid gsmNumberId, Guid rechargeId, CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var gsmNumber = await db.GsmNumbers
+            .FirstOrDefaultAsync(item => item.Id == gsmNumberId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Número GSM não encontrado.");
+        var recharge = await db.GsmRecharges
+            .FirstOrDefaultAsync(item =>
+                item.Id == rechargeId &&
+                item.GsmNumberId == gsmNumberId &&
+                item.HouseholdId == currentMember.HouseholdId,
+                cancellationToken)
+            ?? throw new NotFoundException("Recarga não encontrada.");
+
+        EnsureCanManageEntity(currentMember, gsmNumber.CreatedByMemberId, "Você não pode excluir recargas de um número GSM criado por outra pessoa.");
+        EnsureCanManageEntity(currentMember, recharge.CreatedByMemberId, "Você não pode excluir uma recarga criada por outra pessoa.");
+
+        db.GsmRecharges.Remove(recharge);
+        await db.SaveChangesAsync(cancellationToken);
+        await RefreshLastRechargeOnAsync(gsmNumber, cancellationToken);
     }
 
     private async Task EnsureUniqueNumberAsync(
@@ -224,7 +334,7 @@ public sealed class GsmNumberService(
         }
     }
 
-    private void ValidateDates(DateOnly acquiredOn, DateOnly? lastRechargeOn)
+    private void ValidateAcquiredOn(DateOnly acquiredOn)
     {
         if (acquiredOn == default)
         {
@@ -236,21 +346,6 @@ public sealed class GsmNumberService(
         if (acquiredOn > today)
         {
             throw new ValidationException("A data de aquisição não pode estar no futuro.");
-        }
-
-        if (lastRechargeOn is null)
-        {
-            return;
-        }
-
-        if (lastRechargeOn > today)
-        {
-            throw new ValidationException("A data da última recarga não pode estar no futuro.");
-        }
-
-        if (lastRechargeOn < acquiredOn)
-        {
-            throw new ValidationException("A data da última recarga não pode ser anterior à data de aquisição.");
         }
     }
 
@@ -267,6 +362,52 @@ public sealed class GsmNumberService(
         }
     }
 
+    private static void ValidateDaysWithoutRecharge(int? daysWithoutRecharge)
+    {
+        if (!daysWithoutRecharge.HasValue)
+        {
+            return;
+        }
+
+        if (daysWithoutRecharge.Value <= 0)
+        {
+            throw new ValidationException("Os dias possíveis sem recarga devem ser um inteiro positivo.");
+        }
+    }
+
+    private void ValidateRechargeDate(DateOnly rechargedOn, DateOnly acquiredOn)
+    {
+        if (rechargedOn == default)
+        {
+            throw new ValidationException("Informe a data da recarga.");
+        }
+
+        var today = DateOnly.FromDateTime(timeProvider.GetLocalNow().DateTime);
+
+        if (rechargedOn > today)
+        {
+            throw new ValidationException("A data da recarga não pode estar no futuro.");
+        }
+
+        if (rechargedOn < acquiredOn)
+        {
+            throw new ValidationException("A data da recarga não pode ser anterior à data de aquisição.");
+        }
+    }
+
+    private static void ValidateRechargeAmount(decimal? amount)
+    {
+        if (!amount.HasValue)
+        {
+            throw new ValidationException("Informe o valor da recarga.");
+        }
+
+        if (amount.Value <= 0)
+        {
+            throw new ValidationException("O valor da recarga deve ser maior que zero.");
+        }
+    }
+
     private static GsmNumberDto ToDto(GsmNumber gsmNumber, HouseholdMember currentMember)
     {
         var canManage = CanManageEntity(currentMember, gsmNumber.CreatedByMemberId);
@@ -277,12 +418,29 @@ public sealed class GsmNumberService(
             gsmNumber.Description,
             gsmNumber.Plan,
             gsmNumber.MonthlyCost,
+            gsmNumber.DaysWithoutRecharge,
             gsmNumber.AcquiredOn,
             gsmNumber.LastRechargeOn,
             gsmNumber.Status,
             gsmNumber.CreatedByMemberId,
             gsmNumber.CreatedAt,
             gsmNumber.UpdatedAt,
+            canManage,
+            canManage);
+    }
+
+    private static GsmRechargeDto ToRechargeDto(GsmRecharge recharge, HouseholdMember currentMember)
+    {
+        var canManage = CanManageEntity(currentMember, recharge.CreatedByMemberId);
+        return new GsmRechargeDto(
+            recharge.Id,
+            recharge.GsmNumberId,
+            recharge.RechargedOn,
+            recharge.Amount,
+            recharge.Note,
+            recharge.CreatedByMemberId,
+            recharge.CreatedAt,
+            recharge.UpdatedAt,
             canManage,
             canManage);
     }
@@ -304,6 +462,17 @@ public sealed class GsmNumberService(
         if (normalized is not null && normalized.Length > DescriptionMaxLength)
         {
             throw new ValidationException($"A descrição do número GSM deve ter no máximo {DescriptionMaxLength} caracteres.");
+        }
+
+        return normalized;
+    }
+
+    private static string? NormalizeRechargeNote(string? value)
+    {
+        var normalized = NormalizeOptional(value);
+        if (normalized is not null && normalized.Length > DescriptionMaxLength)
+        {
+            throw new ValidationException($"A observação da recarga deve ter no máximo {DescriptionMaxLength} caracteres.");
         }
 
         return normalized;
@@ -333,6 +502,29 @@ public sealed class GsmNumberService(
             13 => digits,
             _ => throw new ValidationException("Informe um número GSM válido com DDI opcional e DDD obrigatório.")
         };
+    }
+
+    private async Task RefreshLastRechargeOnAsync(GsmNumber gsmNumber, CancellationToken cancellationToken)
+    {
+        var lastRechargeOn = await db.GsmRecharges
+            .AsNoTracking()
+            .Where(item => item.GsmNumberId == gsmNumber.Id)
+            .MaxAsync(item => (DateOnly?)item.RechargedOn, cancellationToken);
+
+        gsmNumber.LastRechargeOn = lastRechargeOn;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureGsmNumberExistsAsync(Guid householdId, Guid gsmNumberId, CancellationToken cancellationToken)
+    {
+        var exists = await db.GsmNumbers
+            .AsNoTracking()
+            .AnyAsync(item => item.Id == gsmNumberId && item.HouseholdId == householdId, cancellationToken);
+
+        if (!exists)
+        {
+            throw new NotFoundException("Número GSM não encontrado.");
+        }
     }
 
     private static bool IsContentManager(HouseholdMember member)

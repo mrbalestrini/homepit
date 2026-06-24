@@ -8,10 +8,14 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ### Added
 - O módulo `/gsm` passou a registrar plano da linha e custo mensal opcional, com persistência na API e no banco.
+- O módulo `/gsm` passou a registrar o histórico de recargas, com informacao, edicao, exclusao e recalculo automatico da ultima recarga.
+- O formulario GSM passou a aceitar `DaysWithoutRecharge` para projetar a proxima recarga.
 
 ### Changed
 - A gestão GSM saiu do layout em cards e passou a usar tabela responsiva com título, número, plano, custo, datas e ações.
 - O texto principal da tela foi simplificado para focar no gerenciamento de números de telefone da casa.
+- A listagem GSM agora combina tabela no desktop com cards no mobile, e exibe a proxima recarga com destaque de atraso.
+- `LastRechargeOn` deixou de ser editado diretamente no formulario e passou a ser um resumo do historico.
 
 ## [1.5.0] - 2026-06-23
 

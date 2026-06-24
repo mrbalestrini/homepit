@@ -24,8 +24,8 @@ public sealed class GsmNumberServiceTests
                 "Recarga mensal",
                 GsmNumberPlan.PrePago,
                 59.9m,
+                30,
                 new DateOnly(2026, 1, 10),
-                new DateOnly(2026, 6, 20),
                 GsmNumberStatus.Ativo),
             CancellationToken.None);
 
@@ -49,8 +49,8 @@ public sealed class GsmNumberServiceTests
                 null,
                 GsmNumberPlan.PosPago,
                 null,
-                new DateOnly(2026, 2, 1),
                 null,
+                new DateOnly(2026, 2, 1),
                 GsmNumberStatus.Inativo),
             CancellationToken.None);
 
@@ -74,8 +74,8 @@ public sealed class GsmNumberServiceTests
                 null,
                 GsmNumberPlan.PrePago,
                 null,
-                new DateOnly(2026, 2, 1),
                 null,
+                new DateOnly(2026, 2, 1),
                 GsmNumberStatus.Ativo),
             CancellationToken.None));
 
@@ -83,7 +83,7 @@ public sealed class GsmNumberServiceTests
     }
 
     [Fact]
-    public async Task Create_rejects_last_recharge_before_acquisition()
+    public async Task Create_rejects_invalid_days_without_recharge()
     {
         await using var context = CreateDbContext();
         var fixture = await SeedFixtureAsync(context);
@@ -91,17 +91,17 @@ public sealed class GsmNumberServiceTests
 
         var exception = await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(
             new CreateGsmNumberRequest(
-                "Linha com datas inválidas",
+                "Linha com prazo inválido",
                 "11912345678",
                 null,
                 GsmNumberPlan.PrePago,
                 null,
+                0,
                 new DateOnly(2026, 6, 10),
-                new DateOnly(2026, 6, 1),
                 GsmNumberStatus.Ativo),
             CancellationToken.None));
 
-        Assert.Equal("A data da última recarga não pode ser anterior à data de aquisição.", exception.Message);
+        Assert.Equal("Os dias possíveis sem recarga devem ser um inteiro positivo.", exception.Message);
     }
 
     [Fact]
@@ -118,8 +118,8 @@ public sealed class GsmNumberServiceTests
                 null,
                 GsmNumberPlan.PrePago,
                 null,
-                new DateOnly(2026, 1, 10),
                 null,
+                new DateOnly(2026, 1, 10),
                 GsmNumberStatus.Ativo),
             CancellationToken.None);
 
@@ -130,8 +130,8 @@ public sealed class GsmNumberServiceTests
                 null,
                 GsmNumberPlan.PrePago,
                 null,
-                new DateOnly(2026, 1, 11),
                 null,
+                new DateOnly(2026, 1, 11),
                 GsmNumberStatus.Ativo),
             CancellationToken.None));
 
@@ -167,8 +167,8 @@ public sealed class GsmNumberServiceTests
                 null,
                 GsmNumberPlan.PosPago,
                 42.5m,
-                new DateOnly(2026, 1, 1),
                 null,
+                new DateOnly(2026, 1, 1),
                 GsmNumberStatus.Inativo),
             CancellationToken.None));
     }
@@ -187,8 +187,8 @@ public sealed class GsmNumberServiceTests
                 null,
                 GsmNumberPlan.PrePago,
                 null,
-                new DateOnly(2026, 1, 1),
                 null,
+                new DateOnly(2026, 1, 1),
                 GsmNumberStatus.Ativo),
             CancellationToken.None));
 
@@ -209,12 +209,159 @@ public sealed class GsmNumberServiceTests
                 null,
                 GsmNumberPlan.PrePago,
                 -1m,
-                new DateOnly(2026, 1, 1),
                 null,
+                new DateOnly(2026, 1, 1),
                 GsmNumberStatus.Ativo),
             CancellationToken.None));
 
         Assert.Equal("O custo mensal da linha não pode ser negativo.", exception.Message);
+    }
+
+    [Fact]
+    public async Task Recharge_crud_updates_last_recharge_on_from_history()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var gsmNumber = new GsmNumber
+        {
+            HouseholdId = fixture.HouseholdId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Title = "Linha com histórico",
+            NormalizedNumber = "5511912345678",
+            AcquiredOn = new DateOnly(2026, 1, 1),
+            Status = GsmNumberStatus.Ativo
+        };
+        context.GsmNumbers.Add(gsmNumber);
+        await context.SaveChangesAsync();
+
+        var first = await service.CreateRechargeAsync(
+            gsmNumber.Id,
+            new CreateGsmRechargeRequest(new DateOnly(2026, 6, 10), 50m, "Primeira recarga"),
+            CancellationToken.None);
+
+        Assert.Equal(new DateOnly(2026, 6, 10), first.RechargedOn);
+        Assert.Equal(50m, first.Amount);
+        Assert.Equal("Primeira recarga", first.Note);
+
+        var second = await service.CreateRechargeAsync(
+            gsmNumber.Id,
+            new CreateGsmRechargeRequest(new DateOnly(2026, 6, 20), 60m, "Segunda recarga"),
+            CancellationToken.None);
+
+        Assert.Equal(new DateOnly(2026, 6, 20), second.RechargedOn);
+        Assert.Equal(new DateOnly(2026, 6, 20), gsmNumber.LastRechargeOn);
+
+        var history = await service.ListRechargesAsync(gsmNumber.Id, CancellationToken.None);
+        Assert.Equal(2, history.Count);
+        Assert.Equal(new DateOnly(2026, 6, 20), history.First().RechargedOn);
+
+        var updated = await service.UpdateRechargeAsync(
+            gsmNumber.Id,
+            second.Id,
+            new UpdateGsmRechargeRequest(new DateOnly(2026, 6, 22), 62.5m, "Ajustada"),
+            CancellationToken.None);
+
+        Assert.Equal(new DateOnly(2026, 6, 22), updated.RechargedOn);
+        Assert.Equal(62.5m, updated.Amount);
+        Assert.Equal("Ajustada", updated.Note);
+        Assert.Equal(new DateOnly(2026, 6, 22), gsmNumber.LastRechargeOn);
+
+        await service.DeleteRechargeAsync(gsmNumber.Id, updated.Id, CancellationToken.None);
+        Assert.Equal(new DateOnly(2026, 6, 10), gsmNumber.LastRechargeOn);
+    }
+
+    [Fact]
+    public async Task Member_cannot_manage_recharge_created_by_someone_else()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+
+        var gsmNumber = new GsmNumber
+        {
+            HouseholdId = fixture.HouseholdId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Title = "Linha da casa",
+            NormalizedNumber = "5511912345678",
+            AcquiredOn = new DateOnly(2026, 1, 1),
+            Status = GsmNumberStatus.Ativo
+        };
+        var recharge = new GsmRecharge
+        {
+            HouseholdId = fixture.HouseholdId,
+            GsmNumber = gsmNumber,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            RechargedOn = new DateOnly(2026, 6, 10),
+            Amount = 50m,
+            Note = "Recarga inicial"
+        };
+        context.GsmNumbers.Add(gsmNumber);
+        context.GsmRecharges.Add(recharge);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context, fixture.MemberUserId, fixture.HouseholdId);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => service.UpdateRechargeAsync(
+            gsmNumber.Id,
+            recharge.Id,
+            new UpdateGsmRechargeRequest(new DateOnly(2026, 6, 11), 55m, "Tentativa"),
+            CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Create_recharge_rejects_date_before_acquisition()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var gsmNumber = new GsmNumber
+        {
+            HouseholdId = fixture.HouseholdId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Title = "Linha com data",
+            NormalizedNumber = "5511912345678",
+            AcquiredOn = new DateOnly(2026, 6, 10),
+            Status = GsmNumberStatus.Ativo
+        };
+        context.GsmNumbers.Add(gsmNumber);
+        await context.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => service.CreateRechargeAsync(
+            gsmNumber.Id,
+            new CreateGsmRechargeRequest(new DateOnly(2026, 6, 1), 50m, "Tentativa"),
+            CancellationToken.None));
+
+        Assert.Equal("A data da recarga não pode ser anterior à data de aquisição.", exception.Message);
+    }
+
+    [Fact]
+    public async Task Superadmin_cannot_create_recharge()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+
+        var gsmNumber = new GsmNumber
+        {
+            HouseholdId = fixture.HouseholdId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Title = "Linha SA",
+            NormalizedNumber = "5511912345678",
+            AcquiredOn = new DateOnly(2026, 1, 1),
+            Status = GsmNumberStatus.Ativo
+        };
+        context.GsmNumbers.Add(gsmNumber);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context, Guid.NewGuid(), fixture.HouseholdId, SystemRole.SuperAdmin);
+
+        var exception = await Assert.ThrowsAsync<ForbiddenException>(() => service.CreateRechargeAsync(
+            gsmNumber.Id,
+            new CreateGsmRechargeRequest(new DateOnly(2026, 6, 10), 50m, "Recarga"),
+            CancellationToken.None));
+
+        Assert.Equal("O superadmin possui acesso somente leitura nesta etapa.", exception.Message);
     }
 
     private static HomePitDbContext CreateDbContext()

@@ -15,5 +15,6 @@ public sealed class Household : AuditableEntity
     public ICollection<Prompt> Prompts { get; } = new List<Prompt>();
     public ICollection<PromptCategory> PromptCategories { get; } = new List<PromptCategory>();
     public ICollection<GsmNumber> GsmNumbers { get; } = new List<GsmNumber>();
+    public ICollection<GsmRecharge> GsmRecharges { get; } = new List<GsmRecharge>();
     public ICollection<NotificationRun> NotificationRuns { get; } = new List<NotificationRun>();
 }
