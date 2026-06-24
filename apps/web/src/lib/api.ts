@@ -130,6 +130,7 @@ export type PromptListItem = {
   linkUrl?: string | null;
   linkTitle?: string | null;
   createdByMemberId?: string | null;
+  isArchived: boolean;
   hasImage: boolean;
   imageUpdatedAt?: string | null;
   updatedAt: string;
@@ -158,6 +159,7 @@ export type PromptDetail = {
   linkUrl?: string | null;
   linkTitle?: string | null;
   createdByMemberId?: string | null;
+  isArchived: boolean;
   hasImage: boolean;
   imageUpdatedAt?: string | null;
   createdAt: string;

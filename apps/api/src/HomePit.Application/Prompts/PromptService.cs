@@ -29,6 +29,7 @@ public sealed class PromptService(
         string? search,
         Guid? universeId,
         bool withoutUniverse,
+        bool archivedOnly,
         IReadOnlyCollection<Guid>? categoryIds,
         int page,
         int pageSize,
@@ -54,7 +55,7 @@ public sealed class PromptService(
             .Include(prompt => prompt.Universe)
             .Include(prompt => prompt.CategoryAssignments)
                 .ThenInclude(assignment => assignment.Category)
-            .Where(prompt => prompt.HouseholdId == currentMember.HouseholdId);
+            .Where(prompt => prompt.HouseholdId == currentMember.HouseholdId && prompt.IsArchived == archivedOnly);
 
         if (normalizedSearch is not null)
         {
@@ -220,6 +221,16 @@ public sealed class PromptService(
 
         db.Prompts.Remove(prompt);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public Task<PromptDetailDto> ArchivePromptAsync(Guid promptId, CancellationToken cancellationToken)
+    {
+        return SetPromptArchivedStateAsync(promptId, true, cancellationToken);
+    }
+
+    public Task<PromptDetailDto> UnarchivePromptAsync(Guid promptId, CancellationToken cancellationToken)
+    {
+        return SetPromptArchivedStateAsync(promptId, false, cancellationToken);
     }
 
     public async Task<PromptDetailDto> UploadPromptImageAsync(
@@ -446,6 +457,30 @@ public sealed class PromptService(
             ?? throw new NotFoundException("Prompt não encontrado.");
     }
 
+    private async Task<PromptDetailDto> SetPromptArchivedStateAsync(Guid promptId, bool isArchived, CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var prompt = await db.Prompts
+            .Include(item => item.CategoryAssignments)
+                .ThenInclude(assignment => assignment.Category)
+            .Include(item => item.Universe)
+            .FirstOrDefaultAsync(item => item.Id == promptId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Prompt não encontrado.");
+
+        EnsureCanManageEntity(
+            currentMember,
+            prompt.CreatedByMemberId,
+            isArchived
+                ? "Você não pode arquivar um prompt criado por outra pessoa."
+                : "Você não pode desarquivar um prompt criado por outra pessoa.");
+
+        prompt.IsArchived = isArchived;
+        await db.SaveChangesAsync(cancellationToken);
+
+        return ToPromptDetailDto(prompt, currentMember);
+    }
+
     private async Task<IReadOnlyCollection<Guid>> ValidatePromptPayloadAsync(
         Guid householdId,
         Guid? universeId,
@@ -591,6 +626,7 @@ public sealed class PromptService(
             prompt.LinkUrl,
             prompt.LinkTitle,
             prompt.CreatedByMemberId,
+            prompt.IsArchived,
             !string.IsNullOrWhiteSpace(prompt.ImageObjectKey),
             prompt.ImageUpdatedAt,
             prompt.UpdatedAt,
@@ -618,6 +654,7 @@ public sealed class PromptService(
             prompt.LinkUrl,
             prompt.LinkTitle,
             prompt.CreatedByMemberId,
+            prompt.IsArchived,
             !string.IsNullOrWhiteSpace(prompt.ImageObjectKey),
             prompt.ImageUpdatedAt,
             prompt.CreatedAt,

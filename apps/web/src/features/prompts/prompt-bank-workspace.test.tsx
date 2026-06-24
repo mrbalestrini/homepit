@@ -1,8 +1,16 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
-import { ApiError, apiFetchBlob } from "@/lib/api";
-import { CategoryDeleteDialog, PromptCard, PromptDetailDialog, buildPromptMasonryLayout } from "./prompt-bank-workspace";
+import { ApiError, apiFetchBlob, type PromptDetail, type PromptListItem } from "@/lib/api";
+import { uiStorageKeys } from "@/features/projects/project-dashboard.constants";
+import {
+  CategoryDeleteDialog,
+  PromptCard,
+  PromptDetailDialog,
+  buildPromptMasonryLayout,
+  estimatePromptCardHeight,
+} from "./prompt-bank-workspace";
+import { readStoredPromptImagesHidden, storePromptImagesHidden } from "./use-prompt-bank";
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -19,9 +27,57 @@ vi.mock("sonner", () => ({
   },
 }));
 
+vi.mock("@/components/ui/dropdown-menu", () => ({
+  DropdownMenu: ({ children }: { children: any }) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children }: { children: any }) => <>{children}</>,
+  DropdownMenuContent: ({ children }: { children: any }) => <div>{children}</div>,
+  DropdownMenuItem: ({ children, onClick, disabled, className }: any) => (
+    <button type="button" role="menuitem" className={className} disabled={disabled} onClick={onClick}>
+      {children}
+    </button>
+  ),
+  DropdownMenuLabel: ({ children }: { children: any }) => <div>{children}</div>,
+  DropdownMenuSeparator: () => <hr />,
+}));
+
 beforeEach(() => {
+  cleanup();
   vi.mocked(apiFetchBlob).mockReset();
+  window.localStorage.clear();
 });
+
+function createPromptListItem(overrides: Partial<PromptListItem> = {}): PromptListItem {
+  return {
+    id: "prompt-1",
+    universeId: null,
+    universeName: null,
+    universeImageUrl: null,
+    universeHasImage: false,
+    universeImageUpdatedAt: null,
+    title: "Prompt visual",
+    description: null,
+    promptText: "Texto do prompt.",
+    categories: [{ id: "cat-1", name: "Categoria" }],
+    linkUrl: null,
+    linkTitle: null,
+    createdByMemberId: null,
+    isArchived: false,
+    hasImage: false,
+    imageUpdatedAt: null,
+    updatedAt: "2026-06-03T12:00:00Z",
+    canEdit: true,
+    canDelete: true,
+    ...overrides,
+  };
+}
+
+function createPromptDetail(overrides: Partial<PromptDetail> = {}): PromptDetail {
+  return {
+    ...createPromptListItem(),
+    createdAt: "2026-06-03T12:00:00Z",
+    ...overrides,
+  };
+}
 
 describe("PromptCard", () => {
   it("renders a compact card when the prompt has no image and truncates noisy text", () => {
@@ -29,29 +85,15 @@ describe("PromptCard", () => {
     const longPrompt = "B".repeat(260);
     const { container } = render(
       <PromptCard
-        prompt={{
-          id: "prompt-1",
-          universeId: null,
-          universeName: null,
-          universeImageUrl: null,
-          universeHasImage: false,
-          universeImageUpdatedAt: null,
+        prompt={createPromptListItem({
           title: "Prompt de teste",
           description: longDescription,
           promptText: longPrompt,
-          categories: [{ id: "cat-1", name: "Categoria" }],
-          linkUrl: null,
-          linkTitle: null,
-          createdByMemberId: null,
-          hasImage: false,
-          imageUpdatedAt: null,
-          updatedAt: "2026-06-03T12:00:00Z",
-          canEdit: true,
-          canDelete: true,
-        }}
+        })}
         token=""
         onOpen={() => undefined}
         onEdit={() => undefined}
+        onToggleArchive={() => undefined}
         onDelete={() => undefined}
       />,
     );
@@ -68,29 +110,14 @@ describe("PromptCard", () => {
   it("keeps the 4:5 frame when the prompt has an image", () => {
     const { container } = render(
       <PromptCard
-        prompt={{
-          id: "prompt-1",
-          universeId: null,
-          universeName: null,
-          universeImageUrl: null,
-          universeHasImage: false,
-          universeImageUpdatedAt: null,
-          title: "Prompt visual",
-          description: null,
-          promptText: "Texto do prompt.",
-          categories: [{ id: "cat-1", name: "Categoria" }],
-          linkUrl: null,
-          linkTitle: null,
-          createdByMemberId: null,
+        prompt={createPromptListItem({
           hasImage: true,
           imageUpdatedAt: "2026-06-03T12:00:00Z",
-          updatedAt: "2026-06-03T12:00:00Z",
-          canEdit: true,
-          canDelete: true,
-        }}
+        })}
         token=""
         onOpen={() => undefined}
         onEdit={() => undefined}
+        onToggleArchive={() => undefined}
         onDelete={() => undefined}
       />,
     );
@@ -103,30 +130,15 @@ describe("PromptCard", () => {
 
     render(
       <PromptCard
-        prompt={{
-          id: "prompt-1",
-          universeId: null,
-          universeName: null,
-          universeImageUrl: null,
-          universeHasImage: false,
-          universeImageUpdatedAt: null,
-          title: "Prompt visual",
-          description: null,
-          promptText: "Texto do prompt.",
-          categories: [{ id: "cat-1", name: "Categoria" }],
-          linkUrl: null,
-          linkTitle: null,
-          createdByMemberId: null,
+        prompt={createPromptListItem({
           hasImage: true,
           imageUpdatedAt: "2026-06-03T12:00:00Z",
-          updatedAt: "2026-06-03T12:00:00Z",
-          canEdit: true,
-          canDelete: true,
-        }}
+        })}
         token="token-1"
         householdId="household-1"
         onOpen={() => undefined}
         onEdit={() => undefined}
+        onToggleArchive={() => undefined}
         onDelete={() => undefined}
       />,
     );
@@ -142,34 +154,86 @@ describe("PromptCard", () => {
   it("renders the universe chip with avatar when the universe has an image", () => {
     render(
       <PromptCard
-        prompt={{
+        prompt={createPromptListItem({
           id: "prompt-2",
           universeId: "uni-1",
           universeName: "Universo Visual",
           universeImageUrl: "https://cdn.homepit.dev/universo-visual.png",
-          universeHasImage: false,
-          universeImageUpdatedAt: null,
-          title: "Prompt com universo",
-          description: null,
-          promptText: "Texto do prompt.",
-          categories: [{ id: "cat-1", name: "Categoria" }],
-          linkUrl: null,
-          linkTitle: null,
-          createdByMemberId: null,
-          hasImage: false,
-          imageUpdatedAt: null,
-          updatedAt: "2026-06-03T12:00:00Z",
-          canEdit: true,
-          canDelete: true,
-        }}
+        })}
         token=""
         onOpen={() => undefined}
         onEdit={() => undefined}
+        onToggleArchive={() => undefined}
         onDelete={() => undefined}
       />,
     );
 
     expect(screen.getByAltText("Universo Visual")).toHaveAttribute("src", "https://cdn.homepit.dev/universo-visual.png");
+  });
+
+  it("exposes archive actions in the card menu", async () => {
+    const onToggleArchive = vi.fn();
+
+    render(
+      <PromptCard
+        prompt={createPromptListItem()}
+        token=""
+        onOpen={() => undefined}
+        onEdit={() => undefined}
+        onToggleArchive={onToggleArchive}
+        onDelete={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Ações do prompt Prompt visual" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Arquivar" }));
+
+    expect(onToggleArchive).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fetch the protected image when images are hidden", async () => {
+    const { container } = render(
+      <PromptCard
+        prompt={createPromptListItem({
+          hasImage: true,
+          imageUpdatedAt: "2026-06-03T12:00:00Z",
+        })}
+        showImages={false}
+        token="token-1"
+        householdId="household-1"
+        onOpen={() => undefined}
+        onEdit={() => undefined}
+        onToggleArchive={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    expect(container.querySelector('[class*="aspect-[4/5]"]')).toBeNull();
+    await waitFor(() => {
+      expect(apiFetchBlob).not.toHaveBeenCalled();
+    });
+    expect(screen.getAllByText("Imagem oculta").length).toBeGreaterThan(0);
+  });
+
+  it("renders the restore action for archived prompts", async () => {
+    const onToggleArchive = vi.fn();
+
+    render(
+      <PromptCard
+        prompt={createPromptListItem({ isArchived: true })}
+        token=""
+        onOpen={() => undefined}
+        onEdit={() => undefined}
+        onToggleArchive={onToggleArchive}
+        onDelete={() => undefined}
+      />,
+    );
+
+    expect(screen.getAllByText("Arquivado").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Ações do prompt Prompt visual" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Desarquivar" }));
+
+    expect(onToggleArchive).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -196,6 +260,18 @@ describe("buildPromptMasonryLayout", () => {
     expect(layout.columnWidth).toBe(342);
     expect(layout.height).toBe(616);
   });
+
+  it("produces shorter height estimates when images are hidden", () => {
+    const prompt = createPromptListItem({
+      hasImage: true,
+      imageUpdatedAt: "2026-06-03T12:00:00Z",
+    });
+
+    const visibleHeight = estimatePromptCardHeight(prompt, 342, true);
+    const hiddenHeight = estimatePromptCardHeight(prompt, 342, false);
+
+    expect(hiddenHeight).toBeLessThan(visibleHeight);
+  });
 });
 
 describe("PromptDetailDialog", () => {
@@ -203,31 +279,23 @@ describe("PromptDetailDialog", () => {
     render(
       <PromptDetailDialog
         open
-        prompt={{
+        prompt={createPromptDetail({
           id: "prompt-1",
           universeId: "uni-1",
           universeName: "Universo",
           universeImageUrl: "https://cdn.homepit.dev/universo.png",
-          universeHasImage: false,
-          universeImageUpdatedAt: null,
           title: "Prompt detalhado",
           description: "Descrição completa",
           promptText: "Texto integral do prompt sem truncamento.",
           categories: [{ id: "cat-1", name: "Categoria" }],
           linkUrl: "https://homepit.dev",
           linkTitle: "Referência oficial",
-          createdByMemberId: null,
-          hasImage: false,
-          imageUpdatedAt: null,
-          createdAt: "2026-06-03T12:00:00Z",
-          updatedAt: "2026-06-03T12:00:00Z",
-          canEdit: true,
-          canDelete: true,
-        }}
+        })}
         loading={false}
         token=""
         onOpenChange={() => undefined}
         onEdit={() => undefined}
+        onToggleArchive={() => undefined}
         onDelete={() => undefined}
       />,
     );
@@ -249,31 +317,20 @@ describe("PromptDetailDialog", () => {
     render(
       <PromptDetailDialog
         open
-        prompt={{
+        prompt={createPromptDetail({
           id: "prompt-1",
           universeId: "uni-1",
           universeName: "Universo",
-          universeImageUrl: null,
-          universeHasImage: false,
-          universeImageUpdatedAt: null,
           title: "Prompt detalhado",
           description: "Descrição completa",
           promptText: "Texto integral do prompt sem truncamento.",
           categories: [{ id: "cat-1", name: "Categoria" }],
-          linkUrl: null,
-          linkTitle: null,
-          createdByMemberId: null,
-          hasImage: false,
-          imageUpdatedAt: null,
-          createdAt: "2026-06-03T12:00:00Z",
-          updatedAt: "2026-06-03T12:00:00Z",
-          canEdit: true,
-          canDelete: true,
-        }}
+        })}
         loading={false}
         token=""
         onOpenChange={() => undefined}
         onEdit={() => undefined}
+        onToggleArchive={() => undefined}
         onDelete={() => undefined}
       />,
     );
@@ -292,32 +349,23 @@ describe("PromptDetailDialog", () => {
     render(
       <PromptDetailDialog
         open
-        prompt={{
+        prompt={createPromptDetail({
           id: "prompt-1",
           universeId: "uni-1",
           universeName: "Universo",
-          universeImageUrl: null,
-          universeHasImage: false,
-          universeImageUpdatedAt: null,
           title: "Prompt detalhado",
           description: "Descrição completa",
           promptText: "Texto integral do prompt sem truncamento.",
           categories: [{ id: "cat-1", name: "Categoria" }],
-          linkUrl: null,
-          linkTitle: null,
-          createdByMemberId: null,
           hasImage: true,
           imageUpdatedAt: "2026-06-03T12:00:00Z",
-          createdAt: "2026-06-03T12:00:00Z",
-          updatedAt: "2026-06-03T12:00:00Z",
-          canEdit: true,
-          canDelete: true,
-        }}
+        })}
         loading={false}
         token="token-1"
         householdId="household-1"
         onOpenChange={() => undefined}
         onEdit={() => undefined}
+        onToggleArchive={() => undefined}
         onDelete={() => undefined}
       />,
     );
@@ -328,6 +376,68 @@ describe("PromptDetailDialog", () => {
         householdId: "household-1",
       });
     });
+  });
+
+  it("does not fetch the detail image when images are hidden", async () => {
+    const { container } = render(
+      <PromptDetailDialog
+        open
+        prompt={createPromptDetail({
+          id: "prompt-1",
+          universeId: "uni-1",
+          universeName: "Universo",
+          title: "Prompt detalhado",
+          description: "Descrição completa",
+          promptText: "Texto integral do prompt sem truncamento.",
+          categories: [{ id: "cat-1", name: "Categoria" }],
+          hasImage: true,
+          imageUpdatedAt: "2026-06-03T12:00:00Z",
+        })}
+        showImages={false}
+        loading={false}
+        token="token-1"
+        householdId="household-1"
+        onOpenChange={() => undefined}
+        onEdit={() => undefined}
+        onToggleArchive={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    expect(container.querySelector('[class*="aspect-[4/5]"]')).toBeNull();
+    await waitFor(() => {
+      expect(apiFetchBlob).not.toHaveBeenCalled();
+    });
+    expect(screen.getAllByText("Imagem oculta").length).toBeGreaterThan(0);
+  });
+
+  it("shows the restore action for archived prompts", () => {
+    const onToggleArchive = vi.fn();
+
+    render(
+      <PromptDetailDialog
+        open
+        prompt={createPromptDetail({
+          id: "prompt-1",
+          universeId: "uni-1",
+          universeName: "Universo",
+          title: "Prompt arquivado",
+          categories: [{ id: "cat-1", name: "Categoria" }],
+          isArchived: true,
+        })}
+        loading={false}
+        token=""
+        onOpenChange={() => undefined}
+        onEdit={() => undefined}
+        onToggleArchive={onToggleArchive}
+        onDelete={() => undefined}
+      />,
+    );
+
+    expect(screen.getAllByText("Arquivado").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole("button", { name: "Desarquivar" })[0]);
+
+    expect(onToggleArchive).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -375,5 +485,19 @@ describe("CategoryDeleteDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Excluir categoria" }));
 
     expect(onDelete).toHaveBeenCalledWith("cat-a", "cat-b");
+  });
+});
+
+describe("prompt image preference", () => {
+  it("stores only the hidden preference and removes it when images are shown again", () => {
+    expect(readStoredPromptImagesHidden()).toBe(false);
+
+    storePromptImagesHidden(true);
+    expect(window.localStorage.getItem(uiStorageKeys.promptImagesHidden)).toBe("true");
+    expect(readStoredPromptImagesHidden()).toBe(true);
+
+    storePromptImagesHidden(false);
+    expect(window.localStorage.getItem(uiStorageKeys.promptImagesHidden)).toBeNull();
+    expect(readStoredPromptImagesHidden()).toBe(false);
   });
 });

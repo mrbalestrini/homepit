@@ -356,10 +356,11 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(prompt => prompt.PromptText).HasMaxLength(20000).IsRequired();
             builder.Property(prompt => prompt.LinkUrl).HasMaxLength(2000);
             builder.Property(prompt => prompt.LinkTitle).HasMaxLength(240);
+            builder.Property(prompt => prompt.IsArchived).HasDefaultValue(false);
             builder.Property(prompt => prompt.ImageObjectKey).HasMaxLength(512);
             builder.Property(prompt => prompt.ImageContentType).HasMaxLength(120);
-            builder.HasIndex(prompt => new { prompt.HouseholdId, prompt.UpdatedAt });
-            builder.HasIndex(prompt => new { prompt.HouseholdId, prompt.UniverseId, prompt.UpdatedAt });
+            builder.HasIndex(prompt => new { prompt.HouseholdId, prompt.IsArchived, prompt.UpdatedAt });
+            builder.HasIndex(prompt => new { prompt.HouseholdId, prompt.IsArchived, prompt.UniverseId, prompt.UpdatedAt });
             builder.HasOne(prompt => prompt.Household)
                 .WithMany(household => household.Prompts)
                 .HasForeignKey(prompt => prompt.HouseholdId)

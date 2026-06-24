@@ -32,7 +32,9 @@
   para persistencia segura, validacao contra a sessao e limpeza de valores obsoletos.
 - O banco de prompts envia `householdId` ao buscar imagens protegidas de prompt no card e
   no detalhe, seguindo a mesma regra de tenancy das demais rotas protegidas.
-- O dashboard de projetos persiste a ordenacao dos filtros em `localStorage` via
+- O banco de prompts expõe um filtro de visão arquivada e persiste a preferência de
+  imagens em `localStorage`, removendo a chave quando a visualização padrão é restaurada.
+- O dashboard de projetos persiste a ordenação dos filtros em `localStorage` via
   `uiStorageKeys.projectActivitySort`, restaurando o valor salvo ao reiniciar o
   controller.
 - Casas na sessao agora incluem `CreatedAt`, permitindo fallback por recencia quando a

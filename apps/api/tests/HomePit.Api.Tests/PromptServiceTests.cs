@@ -57,6 +57,124 @@ public sealed class PromptServiceTests
     }
 
     [Fact]
+    public async Task Archive_and_unarchive_prompt_preserve_categories_and_image()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var created = await service.CreatePromptAsync(
+            new CreatePromptRequest(
+                fixture.UniverseId,
+                "Prompt arquivável",
+                "Descrição",
+                "Conteúdo do prompt",
+                [fixture.CategoryAId, fixture.CategoryBId],
+                null,
+                null),
+            CancellationToken.None);
+
+        var prompt = await context.Prompts
+            .Include(item => item.CategoryAssignments)
+            .FirstAsync(item => item.Id == created.Id);
+
+        prompt.ImageObjectKey = "prompts/prompt-1.png";
+        prompt.ImageContentType = "image/png";
+        prompt.ImageUpdatedAt = new DateTimeOffset(2026, 6, 24, 9, 30, 0, TimeSpan.Zero);
+        await context.SaveChangesAsync();
+
+        var archived = await service.ArchivePromptAsync(created.Id, CancellationToken.None);
+
+        Assert.True(archived.IsArchived);
+        Assert.True(archived.HasImage);
+        Assert.Equal(2, archived.Categories.Count);
+        Assert.Contains(archived.Categories, category => category.Id == fixture.CategoryAId);
+        Assert.Contains(archived.Categories, category => category.Id == fixture.CategoryBId);
+
+        var archivedEntity = await context.Prompts
+            .Include(item => item.CategoryAssignments)
+            .FirstAsync(item => item.Id == created.Id);
+
+        Assert.True(archivedEntity.IsArchived);
+        Assert.Equal("prompts/prompt-1.png", archivedEntity.ImageObjectKey);
+        Assert.Equal("image/png", archivedEntity.ImageContentType);
+        Assert.Equal(new DateTimeOffset(2026, 6, 24, 9, 30, 0, TimeSpan.Zero), archivedEntity.ImageUpdatedAt);
+        Assert.Equal(2, archivedEntity.CategoryAssignments.Count);
+
+        var unarchived = await service.UnarchivePromptAsync(created.Id, CancellationToken.None);
+
+        Assert.False(unarchived.IsArchived);
+        Assert.True(unarchived.HasImage);
+        Assert.Equal(2, unarchived.Categories.Count);
+
+        var unarchivedEntity = await context.Prompts
+            .Include(item => item.CategoryAssignments)
+            .FirstAsync(item => item.Id == created.Id);
+
+        Assert.False(unarchivedEntity.IsArchived);
+        Assert.Equal("prompts/prompt-1.png", unarchivedEntity.ImageObjectKey);
+        Assert.Equal("image/png", unarchivedEntity.ImageContentType);
+        Assert.Equal(2, unarchivedEntity.CategoryAssignments.Count);
+    }
+
+    [Fact]
+    public async Task List_prompts_separates_active_and_archived_items()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var active = await service.CreatePromptAsync(
+            new CreatePromptRequest(
+                fixture.UniverseId,
+                "Prompt ativo",
+                null,
+                "Conteúdo ativo",
+                [fixture.CategoryAId],
+                null,
+                null),
+            CancellationToken.None);
+
+        var archived = await service.CreatePromptAsync(
+            new CreatePromptRequest(
+                fixture.UniverseId,
+                "Prompt arquivado",
+                null,
+                "Conteúdo arquivado",
+                [fixture.CategoryBId],
+                null,
+                null),
+            CancellationToken.None);
+
+        await service.ArchivePromptAsync(archived.Id, CancellationToken.None);
+
+        var activeList = await service.ListPromptsAsync(null, null, false, false, null, 1, 12, CancellationToken.None);
+        var archivedList = await service.ListPromptsAsync(null, null, false, true, null, 1, 12, CancellationToken.None);
+
+        Assert.Equal(1, activeList.TotalCount);
+        Assert.Single(activeList.Items, item => item.Id == active.Id);
+        Assert.DoesNotContain(activeList.Items, item => item.Id == archived.Id);
+        Assert.All(activeList.Items, item => Assert.False(item.IsArchived));
+
+        Assert.Equal(1, archivedList.TotalCount);
+        Assert.Single(archivedList.Items, item => item.Id == archived.Id);
+        Assert.DoesNotContain(archivedList.Items, item => item.Id == active.Id);
+        Assert.All(archivedList.Items, item => Assert.True(item.IsArchived));
+    }
+
+    [Fact]
+    public async Task Superadmin_cannot_archive_prompt()
+    {
+        await using var context = CreateDbContext();
+        var service = CreateService(context, Guid.NewGuid(), null, SystemRole.SuperAdmin);
+
+        var exception = await Assert.ThrowsAsync<ForbiddenException>(() =>
+            service.ArchivePromptAsync(Guid.NewGuid(), CancellationToken.None));
+
+        Assert.Equal("O superadmin possui acesso somente leitura nesta etapa.", exception.Message);
+    }
+
+    [Fact]
     public async Task Create_prompt_requires_link_title_when_url_is_informed()
     {
         await using var context = CreateDbContext();
@@ -185,11 +303,11 @@ public sealed class PromptServiceTests
         return new HomePitDbContext(options);
     }
 
-    private static PromptService CreateService(HomePitDbContext context, Guid userId, Guid householdId)
+    private static PromptService CreateService(HomePitDbContext context, Guid userId, Guid? householdId, SystemRole systemRole = SystemRole.User)
     {
         return new PromptService(
             context,
-            new TestUserContext(userId, householdId),
+            new TestUserContext(userId, householdId, systemRole),
             new InMemoryObjectStorage(),
             TimeProvider.System);
     }
@@ -273,10 +391,10 @@ public sealed class PromptServiceTests
         Guid CategoryAId,
         Guid CategoryBId);
 
-    private sealed class TestUserContext(Guid userId, Guid? householdId) : IUserContext
+    private sealed class TestUserContext(Guid userId, Guid? householdId, SystemRole systemRole) : IUserContext
     {
         public Guid UserId { get; } = userId;
-        public SystemRole SystemRole => SystemRole.User;
+        public SystemRole SystemRole { get; } = systemRole;
         public Guid? HouseholdId { get; } = householdId;
     }
 

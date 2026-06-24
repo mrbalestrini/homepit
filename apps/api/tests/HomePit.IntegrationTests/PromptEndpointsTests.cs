@@ -169,6 +169,109 @@ public sealed class PromptEndpointsTests
     }
 
     [Fact]
+    public async Task Prompt_archiving_is_reversible_and_filtered_by_state()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+        var seed = await SeedHouseholdAsync(factory);
+
+        var categoryA = await CreateCategoryAsync(client, seed, "Categoria A");
+        var categoryB = await CreateCategoryAsync(client, seed, "Categoria B");
+        var prompt = await CreatePromptAsync(client, seed, new
+        {
+            universeId = (string?)null,
+            title = "Prompt arquivável",
+            description = "Guardado para referência",
+            promptText = "Texto arquivável",
+            categoryIds = new[] { categoryA.Id.ToString(), categoryB.Id.ToString() },
+            linkUrl = (string?)null,
+            linkTitle = (string?)null
+        });
+
+        using (var uploadRequest = CreateAuthorizedRequest(seed.AccessToken, seed.HouseholdId, HttpMethod.Post, $"/api/prompts/{prompt.Id}/image"))
+        {
+            using var form = new MultipartFormDataContent();
+            using var file = new ByteArrayContent([9, 8, 7, 6]);
+            file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            form.Add(file, "file", "prompt.png");
+            uploadRequest.Content = form;
+
+            var uploadResponse = await client.SendAsync(uploadRequest);
+            uploadResponse.EnsureSuccessStatusCode();
+        }
+
+        var archiveResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Post,
+            $"/api/prompts/{prompt.Id}/archive");
+
+        archiveResponse.EnsureSuccessStatusCode();
+        var archivedPrompt = await archiveResponse.Content.ReadFromJsonAsync<PromptDetailResponse>(JsonSerializerOptions.Web);
+
+        Assert.NotNull(archivedPrompt);
+        Assert.True(archivedPrompt.IsArchived);
+        Assert.True(archivedPrompt.HasImage);
+        Assert.Equal(2, archivedPrompt.Categories.Count);
+
+        var activeListResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Get,
+            "/api/prompts?page=1&pageSize=12");
+
+        activeListResponse.EnsureSuccessStatusCode();
+        var activeList = await activeListResponse.Content.ReadFromJsonAsync<PromptListResponse>(JsonSerializerOptions.Web);
+
+        Assert.NotNull(activeList);
+        Assert.DoesNotContain(activeList.Items, item => item.Id == prompt.Id);
+
+        var archivedListResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Get,
+            "/api/prompts?archivedOnly=true&page=1&pageSize=12");
+
+        archivedListResponse.EnsureSuccessStatusCode();
+        var archivedList = await archivedListResponse.Content.ReadFromJsonAsync<PromptListResponse>(JsonSerializerOptions.Web);
+
+        Assert.NotNull(archivedList);
+        var archivedItem = Assert.Single(archivedList.Items, item => item.Id == prompt.Id);
+        Assert.True(archivedItem.IsArchived);
+
+        var unarchiveResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Delete,
+            $"/api/prompts/{prompt.Id}/archive");
+
+        unarchiveResponse.EnsureSuccessStatusCode();
+        var unarchivedPrompt = await unarchiveResponse.Content.ReadFromJsonAsync<PromptDetailResponse>(JsonSerializerOptions.Web);
+
+        Assert.NotNull(unarchivedPrompt);
+        Assert.False(unarchivedPrompt.IsArchived);
+        Assert.True(unarchivedPrompt.HasImage);
+        Assert.Equal(2, unarchivedPrompt.Categories.Count);
+
+        var activeAfterRestoreResponse = await SendAuthorizedAsync(
+            client,
+            seed.AccessToken,
+            seed.HouseholdId,
+            HttpMethod.Get,
+            "/api/prompts?page=1&pageSize=12");
+
+        activeAfterRestoreResponse.EnsureSuccessStatusCode();
+        var activeAfterRestore = await activeAfterRestoreResponse.Content.ReadFromJsonAsync<PromptListResponse>(JsonSerializerOptions.Web);
+
+        Assert.NotNull(activeAfterRestore);
+        Assert.Contains(activeAfterRestore.Items, item => item.Id == prompt.Id && !item.IsArchived);
+    }
+
+    [Fact]
     public async Task Delete_universe_preserves_prompt_and_clears_universe_reference()
     {
         await using var factory = new HomePitApiFactory();
@@ -456,7 +559,7 @@ public sealed class PromptEndpointsTests
 
     private sealed record PromptListResponse(IReadOnlyCollection<PromptListItemResponse> Items, int Page, int PageSize, int TotalCount);
 
-    private sealed record PromptListItemResponse(Guid Id, Guid? UniverseId, string? UniverseName, string? UniverseImageUrl, string Title);
+    private sealed record PromptListItemResponse(Guid Id, Guid? UniverseId, string? UniverseName, string? UniverseImageUrl, string Title, bool IsArchived);
 
     private sealed record PromptDetailResponse(
         Guid Id,
@@ -464,6 +567,7 @@ public sealed class PromptEndpointsTests
         string? UniverseName,
         string? UniverseImageUrl,
         string Title,
+        bool IsArchived,
         IReadOnlyCollection<PromptCategoryReferenceResponse> Categories,
         bool HasImage);
 

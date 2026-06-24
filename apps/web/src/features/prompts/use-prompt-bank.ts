@@ -50,6 +50,35 @@ function applyDocumentTheme(theme: AppTheme) {
   document.documentElement.dataset.theme = theme;
 }
 
+export function readStoredPromptImagesHidden() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(uiStorageKeys.promptImagesHidden) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function storePromptImagesHidden(hidden: boolean) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    if (hidden) {
+      window.localStorage.setItem(uiStorageKeys.promptImagesHidden, "true");
+      return;
+    }
+
+    window.localStorage.removeItem(uiStorageKeys.promptImagesHidden);
+  } catch {
+    // Ignore storage failures so a restricted browser does not block the UI.
+  }
+}
+
 export function usePromptBank() {
   const [session, setSession] = useState<AuthResponse | null>(null);
   const [activeHouseholdId, setActiveHouseholdId] = useState("");
@@ -62,6 +91,8 @@ export function usePromptBank() {
   const [universeFilter, setUniverseFilter] = useState("all");
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+  const [archivedOnly, setArchivedOnlyState] = useState(false);
+  const [showImages, setShowImagesState] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
   const [theme, setThemeState] = useState<AppTheme>(defaultAppTheme);
   const [activeModal, setActiveModal] = useState<PromptActiveModal>(null);
@@ -86,6 +117,7 @@ export function usePromptBank() {
     setUniverseFilter("all");
     setSelectedCategoryIds([]);
     setPage(1);
+    setArchivedOnlyState(false);
     setEditingHousehold(null);
     setEditingPrompt(null);
     setEditingCategory(null);
@@ -137,6 +169,7 @@ export function usePromptBank() {
     let cancelled = false;
     const savedSidebarState = window.localStorage.getItem(uiStorageKeys.sidebarCollapsed);
     const savedTheme = window.localStorage.getItem(uiStorageKeys.theme);
+    const savedPromptImagesHidden = window.localStorage.getItem(uiStorageKeys.promptImagesHidden);
 
     void Promise.resolve().then(() => {
       if (cancelled) {
@@ -155,6 +188,8 @@ export function usePromptBank() {
       } else {
         applyDocumentTheme(defaultAppTheme);
       }
+
+      setShowImagesState(savedPromptImagesHidden !== "true");
     });
 
     const unsubscribe = subscribeToSessionChanges(syncSession);
@@ -201,27 +236,29 @@ export function usePromptBank() {
   }, [universeFilter, universes]);
 
   const subtitle = useMemo(() => {
+    const archivedPrefix = archivedOnly ? "Arquivados" : "Prompts";
+
     if (universeFilter === "none") {
-      return "Prompts sem universo";
+      return archivedOnly ? "Prompts arquivados sem universo" : "Prompts sem universo";
     }
 
     if (selectedUniverse) {
-      return `Prompts em ${selectedUniverse.name}`;
+      return archivedOnly ? `Prompts arquivados em ${selectedUniverse.name}` : `Prompts em ${selectedUniverse.name}`;
     }
 
     if (selectedCategoryIds.length === 1) {
       const category = categories.find((item) => item.id === selectedCategoryIds[0]);
       if (category) {
-        return `Filtrado por ${category.name}`;
+        return archivedOnly ? `${archivedPrefix} por ${category.name}` : `Filtrado por ${category.name}`;
       }
     }
 
     if (selectedCategoryIds.length > 1) {
-      return `Filtrado por ${selectedCategoryIds.length} categorias`;
+      return archivedOnly ? `${archivedPrefix} por ${selectedCategoryIds.length} categorias` : `Filtrado por ${selectedCategoryIds.length} categorias`;
     }
 
-    return "Banco de Prompts";
-  }, [categories, selectedCategoryIds, selectedUniverse, universeFilter]);
+    return archivedOnly ? "Banco de prompts arquivados" : "Banco de Prompts";
+  }, [archivedOnly, categories, selectedCategoryIds, selectedUniverse, universeFilter]);
 
   const imageCount = useMemo(() => promptPage.items.filter((item) => item.hasImage).length, [promptPage.items]);
 
@@ -273,6 +310,7 @@ export function usePromptBank() {
         universeFilter?: string;
         categoryIds?: string[];
         page?: number;
+        archivedOnly?: boolean;
       },
     ) => {
       if (!token || !householdId) {
@@ -283,6 +321,7 @@ export function usePromptBank() {
       const nextUniverseFilter = options?.universeFilter ?? universeFilter;
       const nextCategoryIds = options?.categoryIds ?? selectedCategoryIds;
       const nextPage = options?.page ?? page;
+      const nextArchivedOnly = options?.archivedOnly ?? archivedOnly;
       const query = new URLSearchParams();
       if (nextSearch.trim()) {
         query.set("search", nextSearch.trim());
@@ -295,6 +334,9 @@ export function usePromptBank() {
       }
 
       nextCategoryIds.forEach((categoryId) => query.append("categoryId", categoryId));
+      if (nextArchivedOnly) {
+        query.set("archivedOnly", "true");
+      }
       query.set("page", String(nextPage));
       query.set("pageSize", String(promptPage.pageSize));
 
@@ -312,7 +354,7 @@ export function usePromptBank() {
         setLoadingPrompts(false);
       }
     },
-    [activeHouseholdId, deferredSearch, page, promptPage.pageSize, selectedCategoryIds, session?.accessToken, universeFilter],
+    [activeHouseholdId, archivedOnly, deferredSearch, page, promptPage.pageSize, selectedCategoryIds, session?.accessToken, universeFilter],
   );
 
   const refreshWorkspace = useCallback(async () => {
@@ -348,7 +390,7 @@ export function usePromptBank() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeHouseholdId, deferredSearch, loadPrompts, page, selectedCategoryIds, session, universeFilter]);
+  }, [activeHouseholdId, archivedOnly, deferredSearch, loadPrompts, page, selectedCategoryIds, session, universeFilter]);
 
   const handleAuthenticated = useCallback((auth: AuthResponse) => {
     storeSession(auth);
@@ -367,6 +409,7 @@ export function usePromptBank() {
     setUniverseFilter("all");
     setSelectedCategoryIds([]);
     setPage(1);
+    setArchivedOnlyState(false);
     setSelectedPromptDetail(null);
     setEditingPrompt(null);
     setEditingCategory(null);
@@ -775,6 +818,27 @@ export function usePromptBank() {
     }
   }
 
+  async function setPromptArchived(promptId: string, isArchived: boolean) {
+    if (!session || !activeHouseholdId) {
+      return;
+    }
+
+    try {
+      const updated = await apiFetch<PromptDetail>(`/api/prompts/${promptId}/archive`, {
+        method: isArchived ? "POST" : "DELETE",
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+      });
+      if (selectedPromptDetail?.id === promptId) {
+        setSelectedPromptDetail(updated);
+      }
+      await refreshWorkspace();
+      toast.success(isArchived ? "Prompt arquivado." : "Prompt desarquivado.");
+    } catch (exception) {
+      reportError(exception, isArchived ? "Não foi possível arquivar o prompt." : "Não foi possível desarquivar o prompt.");
+    }
+  }
+
   async function openPrompt(promptId: string) {
     if (!session || !activeHouseholdId) {
       return;
@@ -888,6 +952,8 @@ export function usePromptBank() {
     universeFilter,
     selectedCategoryIds,
     page,
+    archivedOnly,
+    showImages,
     totalPages,
     subtitle,
     imageCount,
@@ -918,6 +984,14 @@ export function usePromptBank() {
     setUniverseFilterValue,
     toggleCategoryFilter,
     setPage,
+    setArchivedOnly: (value: boolean) => {
+      setPage(1);
+      setArchivedOnlyState(value);
+    },
+    setShowImages: (value: boolean) => {
+      setShowImagesState(value);
+      storePromptImagesHidden(!value);
+    },
     handleAuthenticated,
     handleHouseholdChange,
     handleLogout,
@@ -940,6 +1014,7 @@ export function usePromptBank() {
     deletePrompt,
     openPrompt,
     closePrompt,
+    setPromptArchived,
     openCreateCategory,
     openEditCategory,
     openDeleteCategory,

@@ -514,6 +514,11 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: archivedOnly
+          in: query
+          schema:
+            type: boolean
+            default: false
         - name: categoryId
           in: query
           description: Repeat the query parameter to filter by one or more categories using OR semantics.
@@ -596,6 +601,29 @@ paths:
       responses:
         "204":
           description: Prompt deleted
+  /api/prompts/{id}/archive:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Prompt archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Prompt unarchived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
   /api/prompts/{id}/image:
     post:
       parameters:
@@ -1691,9 +1719,11 @@ components:
       required:
         [
           id,
+          universeHasImage,
           title,
           promptText,
           categories,
+          isArchived,
           hasImage,
           updatedAt,
           canEdit,
@@ -1709,6 +1739,15 @@ components:
           nullable: true
         universeName:
           type: string
+          nullable: true
+        universeImageUrl:
+          type: string
+          nullable: true
+        universeHasImage:
+          type: boolean
+        universeImageUpdatedAt:
+          type: string
+          format: date-time
           nullable: true
         title:
           type: string
@@ -1732,6 +1771,8 @@ components:
           type: string
           format: uuid
           nullable: true
+        isArchived:
+          type: boolean
         hasImage:
           type: boolean
         imageUpdatedAt:
@@ -1764,9 +1805,11 @@ components:
       required:
         [
           id,
+          universeHasImage,
           title,
           promptText,
           categories,
+          isArchived,
           hasImage,
           createdAt,
           updatedAt,
@@ -1783,6 +1826,15 @@ components:
           nullable: true
         universeName:
           type: string
+          nullable: true
+        universeImageUrl:
+          type: string
+          nullable: true
+        universeHasImage:
+          type: boolean
+        universeImageUpdatedAt:
+          type: string
+          format: date-time
           nullable: true
         title:
           type: string
@@ -1806,6 +1858,8 @@ components:
           type: string
           format: uuid
           nullable: true
+        isArchived:
+          type: boolean
         hasImage:
           type: boolean
         imageUpdatedAt:

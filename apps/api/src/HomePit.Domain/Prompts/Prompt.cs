@@ -20,6 +20,7 @@ public sealed class Prompt : AuditableEntity, IHouseholdScoped
     public required string PromptText { get; set; }
     public string? LinkUrl { get; set; }
     public string? LinkTitle { get; set; }
+    public bool IsArchived { get; set; }
     public string? ImageObjectKey { get; set; }
     public string? ImageContentType { get; set; }
     public DateTimeOffset? ImageUpdatedAt { get; set; }

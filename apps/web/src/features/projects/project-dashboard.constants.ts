@@ -56,6 +56,7 @@ export const modules = [
 export const uiStorageKeys = {
   projectViewMode: "homepit.projects.view-mode",
   projectActivitySort: "homepit.projects.activity-sort",
+  promptImagesHidden: "homepit.prompts.images-hidden",
   sidebarCollapsed: "homepit.ui.sidebar-collapsed",
   theme: "homepit.ui.theme",
 };

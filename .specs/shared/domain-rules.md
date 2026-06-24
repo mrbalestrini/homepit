@@ -24,6 +24,7 @@
 - Texto do prompt aceita no maximo 20000 caracteres.
 - Titulo e URL do link devem existir juntos; URL deve ser HTTP ou HTTPS.
 - Universo do prompt e opcional; excluir universo limpa o vinculo sem excluir o prompt.
+- Prompt pode ser arquivado de forma reversível; a listagem padrão mostra apenas prompts ativos e a visão arquivada mostra apenas itens com `IsArchived = true`.
 - Categoria e unica por nome dentro da casa.
 - Excluir categoria exige substituta quando algum prompt ficaria sem categoria.
 - Numero GSM pertence a uma casa, exige titulo, numero valido com 11 ou 13 digitos e data

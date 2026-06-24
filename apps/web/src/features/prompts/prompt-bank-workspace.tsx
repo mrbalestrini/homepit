@@ -1,12 +1,16 @@
 "use client";
 
 import {
+  Archive,
   Check,
   ChevronLeft,
   ChevronRight,
   Copy,
   ExternalLink,
+  Eye,
+  EyeOff,
   Link2,
+  Inbox,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -147,8 +151,17 @@ export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
         loading={bank.detailLoading}
         token={bank.session?.accessToken ?? ""}
         householdId={bank.activeHouseholdId}
+        showImages={bank.showImages}
         onOpenChange={(open) => !open && bank.closePrompt()}
         onEdit={(promptId) => void bank.openEditPrompt(promptId)}
+        onToggleArchive={
+          bank.selectedPromptDetail
+            ? () =>
+                void bank
+                  .setPromptArchived(bank.selectedPromptDetail!.id, !bank.selectedPromptDetail!.isArchived)
+                  .catch(() => undefined)
+            : () => undefined
+        }
         onDelete={(prompt) => void bank.deletePrompt(prompt).catch(() => undefined)}
       />
 
@@ -253,6 +266,11 @@ function CategoryManager({ bank }: { bank: PromptBankController }) {
 }
 
 function PromptBoard({ bank }: { bank: PromptBankController }) {
+  const archiveToggleLabel = bank.archivedOnly ? "Ver prompts ativos" : "Ver prompts arquivados";
+  const archiveToggleIcon = bank.archivedOnly ? <Inbox /> : <Archive />;
+  const imageToggleLabel = bank.showImages ? "Esconder imagens" : "Ver imagens";
+  const imageToggleIcon = bank.showImages ? <EyeOff /> : <Eye />;
+
   return (
     <Card>
       <CardHeader className="border-b border-border/60 pb-4">
@@ -264,6 +282,14 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" onClick={() => bank.setArchivedOnly(!bank.archivedOnly)}>
+                {archiveToggleIcon}
+                {archiveToggleLabel}
+              </Button>
+              <Button variant="secondary" onClick={() => bank.setShowImages(!bank.showImages)}>
+                {imageToggleIcon}
+                {imageToggleLabel}
+              </Button>
               <Button onClick={bank.openCreatePrompt} disabled={bank.categories.length === 0}>
                 <Plus />
                 Novo prompt
@@ -316,6 +342,18 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
               </Button>
             }
           />
+        ) : bank.promptPage.items.length === 0 && bank.archivedOnly ? (
+          <EmptyState
+            icon={<Archive className="size-5" />}
+            title="Nenhum prompt arquivado encontrado"
+            description="Arquive prompts para consultá-los depois ou volte para a visão ativa."
+            action={
+              <Button variant="secondary" onClick={() => bank.setArchivedOnly(false)}>
+                <Inbox />
+                Ver prompts ativos
+              </Button>
+            }
+          />
         ) : bank.promptPage.items.length === 0 ? (
           <EmptyState
             icon={<Sparkles className="size-5" />}
@@ -331,15 +369,19 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
         ) : (
           <>
             <PromptMasonry
+              key={bank.showImages ? "prompt-masonry-images" : "prompt-masonry-hidden"}
               prompts={bank.promptPage.items}
+              showImages={bank.showImages}
               renderItem={(prompt) => (
                 <PromptCard
                   key={prompt.id}
                   prompt={prompt}
                   token={bank.session?.accessToken ?? ""}
                   householdId={bank.activeHouseholdId}
+                  showImages={bank.showImages}
                   onOpen={() => void bank.openPrompt(prompt.id)}
                   onEdit={() => void bank.openEditPrompt(prompt.id)}
+                  onToggleArchive={() => void bank.setPromptArchived(prompt.id, !prompt.isArchived).catch(() => undefined)}
                   onDelete={() => void bank.deletePrompt(prompt).catch(() => undefined)}
                 />
               )}
@@ -377,9 +419,11 @@ type MasonryLayout = {
 
 function PromptMasonry({
   prompts,
+  showImages,
   renderItem,
 }: {
   prompts: PromptListItem[];
+  showImages: boolean;
   renderItem: (prompt: PromptListItem) => ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -430,11 +474,11 @@ function PromptMasonry({
 
           return {
             id: prompt.id,
-            height: measuredHeight ?? estimatePromptCardHeight(prompt, geometry.columnWidth),
+            height: measuredHeight ?? estimatePromptCardHeight(prompt, geometry.columnWidth, showImages),
           };
         }),
       }),
-    [containerWidth, geometry.columnWidth, measurements, prompts],
+    [containerWidth, geometry.columnWidth, measurements, prompts, showImages],
   );
   const layoutById = useMemo(() => new Map(layout.items.map((item) => [item.id, item])), [layout.items]);
   const ready = containerWidth > 0;
@@ -582,9 +626,9 @@ export function buildPromptMasonryLayout({
   };
 }
 
-function estimatePromptCardHeight(prompt: PromptListItem, columnWidth: number) {
+export function estimatePromptCardHeight(prompt: PromptListItem, columnWidth: number, showImages = true) {
   const safeWidth = Math.max(columnWidth, PROMPT_CARD_MIN_WIDTH);
-  const mediaHeight = prompt.hasImage ? safeWidth * 1.25 : 92;
+  const mediaHeight = prompt.hasImage && showImages ? safeWidth * 1.25 : 92;
   const descriptionHeight = prompt.description ? 56 : 28;
   const linkHeight = prompt.linkUrl && prompt.linkTitle ? 30 : 0;
 
@@ -698,17 +742,26 @@ export function PromptCard({
   prompt,
   token,
   householdId,
+  showImages = true,
   onOpen,
   onEdit,
+  onToggleArchive,
   onDelete,
 }: {
   prompt: PromptListItem;
   token: string;
   householdId?: string;
+  showImages?: boolean;
   onOpen: () => void;
   onEdit: () => void;
+  onToggleArchive: () => void;
   onDelete: () => void;
 }) {
+  const hasVisibleImage = prompt.hasImage && showImages;
+  const headerLabel = prompt.hasImage ? (showImages ? "Prompt visual" : "Imagem oculta") : "Prompt de texto";
+  const archiveActionLabel = prompt.isArchived ? "Desarquivar" : "Arquivar";
+  const archiveActionIcon = prompt.isArchived ? <Inbox className="size-4" /> : <Archive className="size-4" />;
+
   const actionsMenu = (
     <div onClick={(event) => event.stopPropagation()}>
       <DropdownMenu>
@@ -722,6 +775,10 @@ export function PromptCard({
           <DropdownMenuItem onClick={onEdit} disabled={!prompt.canEdit}>
             <Pencil className="size-4" />
             Editar
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onToggleArchive} disabled={!prompt.canEdit}>
+            {archiveActionIcon}
+            {archiveActionLabel}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem className="text-danger focus:text-danger" onClick={onDelete} disabled={!prompt.canDelete}>
@@ -746,7 +803,7 @@ export function PromptCard({
         }
       }}
     >
-      {prompt.hasImage ? (
+      {hasVisibleImage ? (
         <div className="relative">
           <PromptImageFrame
             promptId={prompt.id}
@@ -765,8 +822,8 @@ export function PromptCard({
             <div className="grid size-11 shrink-0 place-items-center rounded-[16px] bg-surface-strong text-accent-foreground shadow-xs">
               <Sparkles className="size-5" />
             </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Prompt de texto</p>
+            <div className="min-w-0 space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{headerLabel}</p>
             </div>
           </div>
           {actionsMenu}
@@ -788,6 +845,8 @@ export function PromptCard({
           ) : (
             <Badge variant="neutral">Sem universo</Badge>
           )}
+          {prompt.isArchived ? <Badge variant="neutral">Arquivado</Badge> : null}
+          {prompt.hasImage && !showImages ? <Badge variant="neutral">Imagem oculta</Badge> : null}
           {prompt.categories.slice(0, 2).map((category) => (
             <Badge key={category.id} variant="neutral">
               {category.name}
@@ -1250,8 +1309,10 @@ export function PromptDetailDialog({
   loading,
   token,
   householdId,
+  showImages = true,
   onOpenChange,
   onEdit,
+  onToggleArchive,
   onDelete,
 }: {
   open: boolean;
@@ -1259,8 +1320,10 @@ export function PromptDetailDialog({
   loading: boolean;
   token: string;
   householdId?: string;
+  showImages?: boolean;
   onOpenChange: (open: boolean) => void;
   onEdit: (promptId: string) => void;
+  onToggleArchive: () => void;
   onDelete: (prompt: PromptDetail) => void;
 }) {
   return (
@@ -1291,6 +1354,8 @@ export function PromptDetailDialog({
                     ) : (
                       <Badge variant="neutral">Sem universo</Badge>
                     )}
+                    {prompt.isArchived ? <Badge variant="neutral">Arquivado</Badge> : null}
+                    {prompt.hasImage && !showImages ? <Badge variant="neutral">Imagem oculta</Badge> : null}
                     {prompt.categories.map((category) => (
                       <Badge key={category.id} variant="neutral">
                         {category.name}
@@ -1310,6 +1375,10 @@ export function PromptDetailDialog({
                     <Pencil />
                     Editar
                   </Button>
+                  <Button variant="secondary" onClick={onToggleArchive} disabled={!prompt.canEdit}>
+                    {prompt.isArchived ? <Inbox /> : <Archive />}
+                    {prompt.isArchived ? "Desarquivar" : "Arquivar"}
+                  </Button>
                   <Button variant="danger" onClick={() => onDelete(prompt)} disabled={!prompt.canDelete}>
                     <Trash2 />
                     Excluir
@@ -1318,8 +1387,8 @@ export function PromptDetailDialog({
               </div>
             </DialogHeader>
 
-            <div className={cn("grid gap-4", prompt.hasImage && "lg:grid-cols-[260px_minmax(0,1fr)]")}>
-              {prompt.hasImage ? (
+            <div className={cn("grid gap-4", prompt.hasImage && showImages && "lg:grid-cols-[260px_minmax(0,1fr)]")}>
+              {prompt.hasImage && showImages ? (
                 <PromptImageFrame
                   promptId={prompt.id}
                   title={prompt.title}

@@ -458,6 +458,7 @@ api.MapGet("/prompts", async (
             ReadOptionalQueryString(request, "search"),
             ReadOptionalGuidQuery(request, "universeId"),
             ReadOptionalBoolQuery(request, "withoutUniverse") ?? false,
+            ReadOptionalBoolQuery(request, "archivedOnly") ?? false,
             ReadGuidCollectionQuery(request, "categoryId"),
             ReadOptionalIntQuery(request, "page") ?? 1,
             ReadOptionalIntQuery(request, "pageSize") ?? 12,
@@ -480,6 +481,16 @@ api.MapDelete("/prompts/{id:guid}", async (
     await service.DeletePromptAsync(id, cancellationToken);
     return Results.NoContent();
 });
+api.MapPost("/prompts/{id:guid}/archive", async (
+    Guid id,
+    PromptService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ArchivePromptAsync(id, cancellationToken)));
+api.MapDelete("/prompts/{id:guid}/archive", async (
+    Guid id,
+    PromptService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UnarchivePromptAsync(id, cancellationToken)));
 api.MapPost("/prompts/{id:guid}/image", async (
     Guid id,
     HttpRequest request,
