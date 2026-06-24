@@ -643,12 +643,11 @@ export function GsmNumberDialog({
             label={
               <span className="inline-flex items-center gap-1.5">
                 Dias possíveis sem recarga
-                <CircleHelp
-                  className="size-3.5 text-muted-foreground"
-                  aria-hidden="true"
-                  focusable="false"
+                <span
                   title="Informe quantos dias a linha pode ficar sem recarga. O sistema calcula a próxima recarga a partir da última recarga registrada, ou da data de aquisição se ainda não houver histórico."
-                />
+                >
+                  <CircleHelp className="size-3.5 text-muted-foreground" aria-hidden="true" focusable="false" />
+                </span>
               </span>
             }
           >
