@@ -949,7 +949,7 @@ public sealed class ProjectService(
             comment.AuthorMemberId,
             comment.AuthorMember?.UserId ?? Guid.Empty,
             comment.AuthorMember?.User?.DisplayName ?? string.Empty,
-            comment.AuthorMember?.User?.HasProfilePhoto ?? false,
+            !string.IsNullOrWhiteSpace(comment.AuthorMember?.User?.ProfilePhotoObjectKey),
             comment.AuthorMember?.User?.ProfilePhotoUpdatedAt,
             comment.Body,
             comment.CreatedAt,

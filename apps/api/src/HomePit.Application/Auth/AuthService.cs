@@ -241,7 +241,7 @@ public sealed class AuthService(
     public async Task<StoredObject> GetProfilePhotoAsync(Guid userId, CancellationToken cancellationToken)
     {
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
-        var user = await db.AppUsers
+        var user = await db.Users
             .AsNoTracking()
             .Where(item => item.Id == userId)
             .Select(item => new
@@ -259,6 +259,97 @@ public sealed class AuthService(
         }
 
         return await objectStorage.GetAsync(user.ProfilePhotoObjectKey, cancellationToken);
+    }
+
+    private async Task<HouseholdMember> ResolveCurrentMemberAsync(CancellationToken cancellationToken)
+    {
+        var householdId = await ResolveHouseholdIdAsync(cancellationToken);
+
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            return new HouseholdMember
+            {
+                HouseholdId = householdId,
+                UserId = userContext.UserId,
+                Role = HouseholdRole.Member
+            };
+        }
+
+        return await db.HouseholdMembers
+            .Include(member => member.User)
+            .FirstOrDefaultAsync(member =>
+                member.HouseholdId == householdId &&
+                member.UserId == userContext.UserId &&
+                member.IsActive,
+                cancellationToken)
+            ?? throw new ForbiddenException("Você não tem acesso a esta casa.");
+    }
+
+    private async Task<Guid> ResolveHouseholdIdAsync(CancellationToken cancellationToken)
+    {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            return await ResolveSuperAdminHouseholdIdAsync(cancellationToken);
+        }
+
+        var memberships = await db.HouseholdMembers
+            .AsNoTracking()
+            .Where(member => member.UserId == userContext.UserId && member.IsActive)
+            .Select(member => member.HouseholdId)
+            .ToArrayAsync(cancellationToken);
+
+        if (memberships.Length == 0)
+        {
+            throw new ForbiddenException("Usuário sem casa vinculada.");
+        }
+
+        if (userContext.HouseholdId is null)
+        {
+            if (memberships.Length == 1)
+            {
+                return memberships[0];
+            }
+
+            throw new ValidationException("Informe X-Household-Id para escolher a casa.");
+        }
+
+        if (!memberships.Contains(userContext.HouseholdId.Value))
+        {
+            throw new ForbiddenException("Você não tem acesso a esta casa.");
+        }
+
+        return userContext.HouseholdId.Value;
+    }
+
+    private async Task<Guid> ResolveSuperAdminHouseholdIdAsync(CancellationToken cancellationToken)
+    {
+        if (userContext.HouseholdId is null)
+        {
+            var householdIds = await db.Households
+                .AsNoTracking()
+                .OrderBy(household => household.Name)
+                .Select(household => household.Id)
+                .Take(2)
+                .ToArrayAsync(cancellationToken);
+
+            return householdIds.Length switch
+            {
+                0 => throw new NotFoundException("Casa não encontrada."),
+                1 => householdIds[0],
+                _ => throw new ValidationException("Informe X-Household-Id para escolher a casa.")
+            };
+        }
+
+        var exists = await db.Households
+            .AsNoTracking()
+            .AnyAsync(household => household.Id == userContext.HouseholdId.Value, cancellationToken);
+
+        if (!exists)
+        {
+            throw new NotFoundException("Casa não encontrada.");
+        }
+
+        return userContext.HouseholdId.Value;
     }
 
     private async Task<AuthResponse> IssueTokensAsync(
