@@ -238,6 +238,29 @@ public sealed class AuthService(
         return await objectStorage.GetAsync(user.ProfilePhotoObjectKey, cancellationToken);
     }
 
+    public async Task<StoredObject> GetProfilePhotoAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var user = await db.AppUsers
+            .AsNoTracking()
+            .Where(item => item.Id == userId)
+            .Select(item => new
+            {
+                item.Id,
+                item.ProfilePhotoObjectKey,
+                IsHouseholdMember = item.HouseholdMembers.Any(member =>
+                    member.HouseholdId == currentMember.HouseholdId && member.IsActive),
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (user is null || !user.IsHouseholdMember || string.IsNullOrWhiteSpace(user.ProfilePhotoObjectKey))
+        {
+            throw new NotFoundException("Foto de perfil não encontrada.");
+        }
+
+        return await objectStorage.GetAsync(user.ProfilePhotoObjectKey, cancellationToken);
+    }
+
     private async Task<AuthResponse> IssueTokensAsync(
         AppUser user,
         IReadOnlyCollection<HouseholdMember> memberships,

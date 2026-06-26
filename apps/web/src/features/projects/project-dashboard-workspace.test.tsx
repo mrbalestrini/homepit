@@ -208,6 +208,47 @@ describe("project dashboard kanban drag states", () => {
     expect(screen.getByText("Imagem")).toBeInTheDocument();
   });
 
+  it("renders the comment author photo when the profile photo exists", async () => {
+    const mockedApiFetchBlob = vi.mocked(api.apiFetchBlob);
+    mockedApiFetchBlob.mockResolvedValue(new Blob([1, 2, 3, 4], { type: "image/png" }));
+    const activity = buildActivity({ id: "activity-1", title: "Montar prateleira" });
+
+    render(
+      <ActivityDetailsSheet
+        activity={activity}
+        token="token"
+        householdId="household-1"
+        comments={[
+          {
+            id: "comment-1",
+            activityId: activity.id,
+            authorMemberId: "member-1",
+            authorUserId: "user-1",
+            authorName: "Ana Teste",
+            authorHasProfilePhoto: true,
+            authorProfilePhotoUpdatedAt: "2026-06-20T12:00:00.000Z",
+            body: "Comentário com foto.",
+            createdAt: "2026-06-20T12:00:00.000Z",
+            isEdited: false,
+            canEdit: true,
+            canDelete: true,
+          },
+        ]}
+        commentsLoading={false}
+        onClose={() => undefined}
+        onCreateComment={async () => undefined}
+        onUpdateComment={async () => undefined}
+        onDeleteComment={async () => undefined}
+        onMove={async () => undefined}
+        onEditActivity={() => undefined}
+        onDeleteActivity={async () => undefined}
+        onOpenImage={() => undefined}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByAltText("Ana Teste")).toHaveAttribute("src", "blob:activity-1"));
+  });
+
   it("renders the compact image controls in the editor when an attachment exists", async () => {
     const mockedApiFetchBlob = vi.mocked(api.apiFetchBlob);
     mockedApiFetchBlob.mockResolvedValue(new Blob([1, 2, 3, 4], { type: "image/png" }));

@@ -223,6 +223,16 @@ api.MapGet("/users/me/profile-photo", async (
     context.Response.Headers.CacheControl = "no-store";
     return Results.File(photo.Content, photo.ContentType);
 });
+api.MapGet("/users/{userId:guid}/profile-photo", async (
+    Guid userId,
+    HttpContext context,
+    AuthService service,
+    CancellationToken cancellationToken) =>
+{
+    var photo = await service.GetProfilePhotoAsync(userId, cancellationToken);
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.File(photo.Content, photo.ContentType);
+});
 api.MapGet("/gsm-numbers", async (GsmNumberService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.ListAsync(cancellationToken)));
 api.MapPost("/gsm-numbers", async (

@@ -4,6 +4,11 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.6.1] - 2026-06-26
+
+### Changed
+- Os comentários no detalhe da atividade passaram a exibir o avatar real do autor quando a foto de perfil existe, com leitura protegida da imagem do usuário correspondente.
+
 ## [1.6.0] - 2026-06-24
 
 ### Added

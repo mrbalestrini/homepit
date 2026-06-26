@@ -47,23 +47,28 @@ export function ProtectedUserAvatar({
   token: string;
   className?: string;
 }) {
-  const imageUrl = useProtectedUserPhoto(user, token);
+  const imageUrl = useProtectedUserPhoto(user.id, user.hasProfilePhoto, user.profilePhotoUpdatedAt, token);
   return <AvatarCircle name={user.displayName} imageUrl={imageUrl} className={className} />;
 }
 
-export function useProtectedUserPhoto(user: User, token: string) {
+export function useProtectedUserPhoto(
+  userId: string,
+  hasProfilePhoto: boolean,
+  profilePhotoUpdatedAt: string | null | undefined,
+  token: string,
+) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!user.hasProfilePhoto || !token) {
+    if (!hasProfilePhoto || !token) {
       return () => {
         cancelled = true;
       };
     }
 
-    void apiFetchBlob("/api/users/me/profile-photo", { token })
+    void apiFetchBlob(`/api/users/${userId}/profile-photo`, { token })
       .then((blob) => {
         if (cancelled) {
           return;
@@ -85,7 +90,7 @@ export function useProtectedUserPhoto(user: User, token: string) {
     return () => {
       cancelled = true;
     };
-  }, [token, user.hasProfilePhoto, user.id, user.profilePhotoUpdatedAt]);
+  }, [hasProfilePhoto, profilePhotoUpdatedAt, token, userId]);
 
   useEffect(() => {
     return () => {
@@ -95,7 +100,7 @@ export function useProtectedUserPhoto(user: User, token: string) {
     };
   }, [imageUrl]);
 
-  return user.hasProfilePhoto && token ? imageUrl : null;
+  return hasProfilePhoto && token ? imageUrl : null;
 }
 
 function getInitials(name: string) {

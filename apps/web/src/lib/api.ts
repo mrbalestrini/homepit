@@ -93,7 +93,10 @@ export type ActivityComment = {
   id: string;
   activityId: string;
   authorMemberId: string;
+  authorUserId: string;
   authorName: string;
+  authorHasProfilePhoto: boolean;
+  authorProfilePhotoUpdatedAt?: string | null;
   body: string;
   createdAt: string;
   isEdited: boolean;
