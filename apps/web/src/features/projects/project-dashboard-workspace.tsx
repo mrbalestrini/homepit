@@ -73,7 +73,7 @@ import {
   Notice,
 } from "@/features/workspace/homepit-workspace-shell";
 import { ProtectedUniverseAvatar, useProtectedUniverseImage } from "@/features/workspace/protected-universe-avatar";
-import { AvatarCircle, useProtectedUserPhotoById } from "@/features/workspace/protected-user-avatar";
+import { AvatarCircle, HouseholdMemberAvatar, useProtectedUserPhotoById } from "@/features/workspace/protected-user-avatar";
 import { ProtectedActivityImageFrame } from "./protected-activity-image";
 import {
   activityColumns,
@@ -287,15 +287,16 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
       {dashboard.selectedActivity ? (
         <ActivityDetailsSheet
           activity={dashboard.selectedActivity}
-        token={dashboard.session?.accessToken}
-        householdId={dashboard.activeHouseholdId}
-        comments={dashboard.activityComments}
-        commentsLoading={dashboard.commentsLoading}
-        onOpenImage={openActivityImage}
-        onClose={dashboard.closeActivity}
-        onCreateComment={dashboard.createComment}
-        onUpdateComment={dashboard.updateComment}
-        onDeleteComment={dashboard.deleteComment}
+          token={dashboard.session?.accessToken}
+          householdId={dashboard.activeHouseholdId}
+          members={dashboard.members}
+          comments={dashboard.activityComments}
+          commentsLoading={dashboard.commentsLoading}
+          onOpenImage={openActivityImage}
+          onClose={dashboard.closeActivity}
+          onCreateComment={dashboard.createComment}
+          onUpdateComment={dashboard.updateComment}
+          onDeleteComment={dashboard.deleteComment}
           onMove={dashboard.moveActivity}
           onEditActivity={dashboard.openEditActivity}
           onDeleteActivity={dashboard.deleteActivity}
@@ -837,12 +838,12 @@ export function ActivityListView({ dashboard }: { dashboard: ProjectDashboardCon
                         </TableCell>
                         <TableCell>
                           {activity.responsibleName ? (
-                            <div className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-surface-strong px-2 py-1">
-                              <span className="grid size-6 place-items-center rounded-full bg-accent text-[10px] font-semibold text-accent-foreground">
-                                {getInitials(activity.responsibleName)}
-                              </span>
-                              <span className="text-[13px]">{activity.responsibleName}</span>
-                            </div>
+                            <ResponsibleMemberChip
+                              activity={activity}
+                              members={dashboard.members}
+                              token={dashboard.session?.accessToken}
+                              householdId={dashboard.activeHouseholdId}
+                            />
                           ) : (
                             <span className="text-[13px] text-muted-foreground">Sem responsável</span>
                           )}
@@ -1018,6 +1019,7 @@ function KanbanColumn({
               <SortableActivityCard
                 key={activity.id}
                 activity={activity}
+                members={dashboard.members}
                 token={dashboard.session?.accessToken}
                 householdId={dashboard.activeHouseholdId}
                 onOpenImage={onOpenImage}
@@ -1088,6 +1090,7 @@ export function KanbanColumnFrame({
 
 function SortableActivityCard({
   activity,
+  members,
   token,
   householdId,
   onOpenImage,
@@ -1097,6 +1100,7 @@ function SortableActivityCard({
   isDropTarget,
 }: {
   activity: Activity;
+  members: HouseholdMember[];
   token?: string;
   householdId?: string;
   onOpenImage: (title: string, imageUrl: string) => void;
@@ -1119,6 +1123,7 @@ function SortableActivityCard({
     >
       <ActivityCard
         activity={activity}
+        members={members}
         token={token}
         householdId={householdId}
         onOpenImage={onOpenImage}
@@ -1135,6 +1140,7 @@ function SortableActivityCard({
 
 export function ActivityCard({
   activity,
+  members,
   token,
   householdId,
   onOpenImage,
@@ -1146,6 +1152,7 @@ export function ActivityCard({
   dragHandleProps,
 }: {
   activity: Activity;
+  members: HouseholdMember[];
   token?: string;
   householdId?: string;
   onOpenImage?: (title: string, imageUrl: string) => void;
@@ -1226,16 +1233,101 @@ export function ActivityCard({
           {activity.size != null ? <Badge variant="neutral">{activity.size} pts</Badge> : null}
           {activity.hasImage ? <Badge variant="neutral">Imagem</Badge> : null}
           <Badge variant="neutral">{activity.dueDate ? `Prazo ${formatDateOnly(activity.dueDate)}` : "Sem prazo"}</Badge>
-          {activity.responsibleName ? <Badge variant="neutral">{activity.responsibleName}</Badge> : null}
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-2 text-[12px] text-muted-foreground">
           <span>{activity.commentCount} comentários</span>
-          <span>{activity.pendingCount} pendências</span>
+          <div className="flex items-center gap-2">
+            <ResponsibleMemberMarker
+              activity={activity}
+              members={members}
+              token={token}
+              householdId={householdId}
+            />
+            <span>{activity.pendingCount} pendências</span>
+          </div>
         </div>
       </CardContent>
     </Card>
   );
+}
+
+function ResponsibleMemberChip({
+  activity,
+  members,
+  token,
+  householdId,
+}: {
+  activity: Activity;
+  members: HouseholdMember[];
+  token?: string;
+  householdId?: string;
+}) {
+  const responsibleMember = resolveResponsibleMember(activity, members);
+
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-surface-strong px-2 py-1">
+      {responsibleMember ? (
+        <HouseholdMemberAvatar
+          member={responsibleMember}
+          token={token}
+          householdId={householdId}
+          className="size-6 border border-border/60 text-[10px]"
+        />
+      ) : (
+        <AvatarCircle
+          name={activity.responsibleName ?? ""}
+          className="size-6 border border-border/60 text-[10px]"
+        />
+      )}
+      <span className="text-[13px]">{activity.responsibleName}</span>
+    </div>
+  );
+}
+
+function ResponsibleMemberMarker({
+  activity,
+  members,
+  token,
+  householdId,
+}: {
+  activity: Activity;
+  members: HouseholdMember[];
+  token?: string;
+  householdId?: string;
+}) {
+  if (!activity.responsibleName) {
+    return null;
+  }
+
+  const responsibleMember = resolveResponsibleMember(activity, members);
+  const label = `Responsável: ${activity.responsibleName}`;
+
+  return (
+    <span aria-label={label} title={activity.responsibleName}>
+      {responsibleMember ? (
+        <HouseholdMemberAvatar
+          member={responsibleMember}
+          token={token}
+          householdId={householdId}
+          className="size-7 border border-border/70 bg-surface text-[10px] opacity-85 shadow-xs"
+        />
+      ) : (
+        <AvatarCircle
+          name={activity.responsibleName}
+          className="size-7 border border-border/70 bg-surface text-[10px] opacity-85 shadow-xs"
+        />
+      )}
+    </span>
+  );
+}
+
+function resolveResponsibleMember(activity: Activity, members: HouseholdMember[]) {
+  if (!activity.responsibleMemberId) {
+    return null;
+  }
+
+  return members.find((member) => member.id === activity.responsibleMemberId) ?? null;
 }
 
 export function ActivityDragPreview({
@@ -1863,6 +1955,7 @@ export function ActivityDetailsSheet({
   activity,
   token,
   householdId,
+  members,
   comments,
   commentsLoading,
   onClose,
@@ -1875,6 +1968,7 @@ export function ActivityDetailsSheet({
   onOpenImage,
 }: {
   activity: Activity;
+  members: HouseholdMember[];
   token?: string;
   householdId?: string;
   comments: ActivityComment[];
@@ -1954,7 +2048,21 @@ export function ActivityDetailsSheet({
           <div className="grid gap-3 sm:grid-cols-2">
             <DetailCard label="Status" value={activityColumns.find((column) => column.status === activity.status)?.label ?? activity.status} />
             <DetailCard label="Prioridade" value={priorityLabels[activity.priority]} />
-            <DetailCard label="Responsável" value={activity.responsibleName ?? "Sem responsável"} />
+            <DetailCard
+              label="Responsável"
+              value={
+                activity.responsibleName ? (
+                  <ResponsibleMemberChip
+                    activity={activity}
+                    members={members}
+                    token={token}
+                    householdId={householdId}
+                  />
+                ) : (
+                  "Sem responsável"
+                )
+              }
+            />
             <DetailCard label="Tamanho" value={activity.size != null ? `${activity.size} pts` : "Sem tamanho"} />
             <DetailCard label="Prazo esperado" value={formatDateOnly(activity.dueDate)} />
             <DetailCard label="Criada em" value={formatDateTime(activity.createdAt)} />
@@ -2003,11 +2111,11 @@ export function ActivityDetailsSheet({
   );
 }
 
-function DetailCard({ label, value }: { label: string; value: string }) {
+function DetailCard({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-[18px] border border-border/60 bg-surface-elevated px-4 py-3.5">
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
+      <div className="mt-2 text-sm font-semibold text-foreground">{value}</div>
     </div>
   );
 }

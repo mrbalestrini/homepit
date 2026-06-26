@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { HomePitAuth } from "@/features/workspace/homepit-auth";
-import { AvatarCircle } from "@/features/workspace/protected-user-avatar";
+import { HouseholdMemberAvatar } from "@/features/workspace/protected-user-avatar";
 import {
   LoadingState,
   Notice,
@@ -188,6 +188,8 @@ function HouseholdDashboardWorkspace({ dashboard }: { dashboard: ReturnType<type
                     <MemberRow
                       key={`${member.id}-${member.role}`}
                       member={member}
+                      householdId={dashboard.activeHouseholdId}
+                      token={dashboard.session?.accessToken}
                       canManageHousehold={dashboard.canManageHousehold}
                       onUpdateRole={dashboard.updateHouseholdMember}
                       onRemove={dashboard.removeHouseholdMember}
@@ -253,11 +255,15 @@ function ShortcutButton({
 
 function MemberRow({
   member,
+  householdId,
+  token,
   canManageHousehold,
   onUpdateRole,
   onRemove,
 }: {
   member: HouseholdMember;
+  householdId?: string;
+  token?: string;
   canManageHousehold: boolean;
   onUpdateRole: (memberId: string, role: HouseholdMember["role"]) => Promise<void>;
   onRemove: (member: HouseholdMember) => Promise<void>;
@@ -284,7 +290,12 @@ function MemberRow({
   return (
     <div className="flex flex-col gap-3 rounded-[18px] border border-border/70 bg-surface-muted p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-3">
-        <AvatarCircle name={member.displayName} className="size-11 border border-border/70 bg-surface-strong text-foreground" />
+        <HouseholdMemberAvatar
+          member={member}
+          token={token}
+          householdId={householdId}
+          className="size-11 border border-border/70 bg-surface-strong text-foreground"
+        />
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-semibold text-foreground">{member.displayName}</p>

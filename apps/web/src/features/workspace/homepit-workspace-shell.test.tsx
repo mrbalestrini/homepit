@@ -1,8 +1,28 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HomePitWorkspaceShell } from "./homepit-workspace-shell";
 
 describe("HomePitWorkspaceShell header", () => {
+  const fetchMock = vi.fn();
+  let objectUrlCounter = 0;
+
+  beforeEach(() => {
+    objectUrlCounter = 0;
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal(
+      "URL",
+      Object.assign(URL, {
+        createObjectURL: vi.fn(() => `blob:shell-avatar-${++objectUrlCounter}`),
+        revokeObjectURL: vi.fn(),
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("shows the institutional CMS shortcut only to SuperAdmin", () => {
     const baseController = {
       activeHouseholdId: "",
@@ -218,5 +238,90 @@ describe("HomePitWorkspaceShell header", () => {
 
     expect(confirmButton).not.toBeDisabled();
     expect(deleteHousehold).not.toHaveBeenCalled();
+  });
+
+  it("renders the real member avatar inside the share dialog when the photo exists", async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response(new Blob([Uint8Array.from([1, 2, 3])], { type: "image/png" }), {
+          status: 200,
+          headers: { "Content-Type": "image/png" },
+        }),
+      ),
+    );
+
+    render(
+      <HomePitWorkspaceShell
+        controller={{
+          session: {
+            accessToken: "token",
+            refreshToken: "refresh",
+            expiresAt: "2026-06-26T18:00:00Z",
+            user: {
+              id: "user-1",
+              email: "user@homepit.dev",
+              displayName: "User",
+              systemRole: "User",
+              hasProfilePhoto: false,
+            },
+            households: [],
+          },
+          activeHouseholdId: "household-1",
+          activeHousehold: {
+            id: "household-1",
+            name: "Casa Teste",
+            role: "Owner",
+          },
+          members: [
+            {
+              id: "member-1",
+              userId: "user-2",
+              displayName: "Paula Balestrini",
+              email: "paula@homepit.dev",
+              phoneNumber: null,
+              hasProfilePhoto: true,
+              profilePhotoUpdatedAt: "2026-06-26T12:00:00Z",
+              role: "Admin",
+              isCurrentUser: false,
+            },
+          ],
+          theme: "cozy",
+          sidebarCollapsed: false,
+          loading: false,
+          error: null,
+          canShareHousehold: true,
+          canManageHousehold: true,
+          editingHousehold: null,
+          isHouseholdDialogOpen: false,
+          isShareDialogOpen: true,
+          setError: () => undefined,
+          setSidebarCollapsed: () => undefined,
+          setTheme: () => undefined,
+          handleHouseholdChange: () => undefined,
+          handleLogout: () => undefined,
+          refreshHouseholds: async () => undefined,
+          refreshWorkspace: async () => undefined,
+          openCreateHousehold: () => undefined,
+          openEditHousehold: () => undefined,
+          openShareHousehold: () => undefined,
+          closeCommonModal: () => undefined,
+          createHousehold: async () => undefined,
+          updateHousehold: async () => undefined,
+          deleteHousehold: async () => undefined,
+          shareHousehold: async () => undefined,
+          updateProfile: async () => undefined,
+        }}
+        activeModule="projects"
+        subtitle="Escopo atual"
+        visibleCount={0}
+        headerStats={[]}
+      >
+        <div>Conteúdo</div>
+      </HomePitWorkspaceShell>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getAllByAltText("Paula Balestrini").every((image) => image.getAttribute("src") === "blob:shell-avatar-1")).toBe(true),
+    );
   });
 });

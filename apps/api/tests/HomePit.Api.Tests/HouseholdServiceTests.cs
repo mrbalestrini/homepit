@@ -67,6 +67,26 @@ public sealed class HouseholdServiceTests
             () => service.RemoveMemberAsync(fixture.OwnerMemberId, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task List_members_includes_profile_photo_metadata()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var members = await service.ListMembersAsync(CancellationToken.None);
+        var owner = Assert.Single(members, member => member.UserId == fixture.OwnerUserId);
+        var member = Assert.Single(members, item => item.UserId == fixture.MemberUserId);
+
+        Assert.False(owner.HasProfilePhoto);
+        Assert.Null(owner.ProfilePhotoUpdatedAt);
+        Assert.True(owner.IsCurrentUser);
+
+        Assert.True(member.HasProfilePhoto);
+        Assert.Equal(fixture.MemberProfilePhotoUpdatedAt, member.ProfilePhotoUpdatedAt);
+        Assert.False(member.IsCurrentUser);
+    }
+
     private static HomePitDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<HomePitDbContext>()
@@ -95,6 +115,8 @@ public sealed class HouseholdServiceTests
             Email = "member@homepit.dev",
             PasswordHash = "hash",
             DisplayName = "Member",
+            ProfilePhotoObjectKey = "users/member/profile-photo",
+            ProfilePhotoUpdatedAt = DateTimeOffset.Parse("2026-06-26T12:00:00Z"),
             SystemRole = SystemRole.User
         };
         var household = new Household
@@ -157,7 +179,8 @@ public sealed class HouseholdServiceTests
             ownerUser.Id,
             ownerMember.Id,
             memberUser.Id,
-            member.Id);
+            member.Id,
+            memberUser.ProfilePhotoUpdatedAt);
     }
 
     private sealed record HouseholdFixture(
@@ -165,7 +188,8 @@ public sealed class HouseholdServiceTests
         Guid OwnerUserId,
         Guid OwnerMemberId,
         Guid MemberUserId,
-        Guid MemberId);
+        Guid MemberId,
+        DateTimeOffset? MemberProfilePhotoUpdatedAt);
 
     private sealed class TestUserContext(Guid userId, Guid? householdId) : IUserContext
     {

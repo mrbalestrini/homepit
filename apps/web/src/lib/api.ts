@@ -11,6 +11,8 @@ export type HouseholdMember = {
   displayName: string;
   email: string;
   phoneNumber?: string | null;
+  hasProfilePhoto: boolean;
+  profilePhotoUpdatedAt?: string | null;
   role: "Owner" | "Admin" | "Member";
   isCurrentUser: boolean;
 };

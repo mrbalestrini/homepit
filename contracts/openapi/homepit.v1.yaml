@@ -1354,7 +1354,7 @@ components:
           format: date-time
     HouseholdMember:
       type: object
-      required: [id, userId, displayName, email, role, isCurrentUser]
+      required: [id, userId, displayName, email, hasProfilePhoto, role, isCurrentUser]
       properties:
         id:
           type: string
@@ -1369,6 +1369,12 @@ components:
           format: email
         phoneNumber:
           type: string
+          nullable: true
+        hasProfilePhoto:
+          type: boolean
+        profilePhotoUpdatedAt:
+          type: string
+          format: date-time
           nullable: true
         role:
           enum: [Owner, Admin, Member]

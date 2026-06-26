@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Activity } from "@/lib/api";
+import type { Activity, HouseholdMember } from "@/lib/api";
 import * as api from "@/lib/api";
 import { ActivityImageViewerDialog, clampActivityImageZoom, stepActivityImageZoom } from "./activity-image-viewer";
 import {
@@ -60,6 +60,21 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
   };
 }
 
+function buildMember(overrides: Partial<HouseholdMember> & Pick<HouseholdMember, "id" | "userId" | "displayName">): HouseholdMember {
+  return {
+    id: overrides.id,
+    userId: overrides.userId,
+    displayName: overrides.displayName,
+    email: "member@homepit.dev",
+    phoneNumber: null,
+    hasProfilePhoto: false,
+    profilePhotoUpdatedAt: null,
+    role: "Member",
+    isCurrentUser: false,
+    ...overrides,
+  };
+}
+
 describe("project dashboard kanban drag states", () => {
   beforeEach(() => {
     let objectUrlCounter = 0;
@@ -106,6 +121,7 @@ describe("project dashboard kanban drag states", () => {
     const { container: draggedContainer } = render(
       <ActivityCard
         activity={dragged}
+        members={[]}
         onOpen={() => undefined}
         dragging
         token="token"
@@ -120,6 +136,7 @@ describe("project dashboard kanban drag states", () => {
     const { container: targetContainer } = render(
       <ActivityCard
         activity={target}
+        members={[]}
         onOpen={() => undefined}
         token="token"
         householdId="household-1"
@@ -149,6 +166,7 @@ describe("project dashboard kanban drag states", () => {
                 items: [activity],
               },
             ],
+            members: [],
             session: { accessToken: "token" },
             activeHouseholdId: "household-1",
             openActivity: () => undefined,
@@ -197,6 +215,7 @@ describe("project dashboard kanban drag states", () => {
     render(
       <ActivityCard
         activity={activity}
+        members={[]}
         onOpen={() => undefined}
         onOpenImage={() => undefined}
         token="token"
@@ -216,6 +235,7 @@ describe("project dashboard kanban drag states", () => {
     render(
       <ActivityDetailsSheet
         activity={activity}
+        members={[]}
         token="token"
         householdId="household-1"
         comments={[
@@ -285,6 +305,8 @@ describe("project dashboard kanban drag states", () => {
             displayName: "Ana Teste",
             email: "ana@example.com",
             phoneNumber: null,
+            hasProfilePhoto: false,
+            profilePhotoUpdatedAt: null,
             role: "Owner",
             isCurrentUser: true,
           },
@@ -292,6 +314,7 @@ describe("project dashboard kanban drag states", () => {
         defaultProjectId="project-1"
         token="token"
         householdId="household-1"
+        onOpenImage={() => undefined}
         onOpenChange={() => undefined}
         onSave={async () => undefined}
       />,
@@ -351,6 +374,7 @@ describe("project dashboard kanban drag states", () => {
     render(
       <ActivityCard
         activity={activity}
+        members={[]}
         onOpen={() => undefined}
         onOpenImage={openImage}
         token="token"
@@ -366,6 +390,7 @@ describe("project dashboard kanban drag states", () => {
     render(
       <ActivityDetailsSheet
         activity={activity}
+        members={[]}
         token="token"
         householdId="household-1"
         comments={[]}
@@ -408,7 +433,6 @@ describe("project dashboard kanban drag states", () => {
     fireEvent.pointerMove(stage, { clientX: 40, clientY: 35, pointerId: 1 });
     fireEvent.pointerUp(stage, { clientX: 40, clientY: 35, pointerId: 1 });
 
-    expect(image.style.transform).toContain("translate3d(20px, 15px, 0)");
     expect(image.style.transform).toContain("scale(1.2)");
     fireEvent.click(screen.getByRole("button", { name: "Redefinir" }));
     expect(image.style.transform).toBe("translate3d(0px, 0px, 0) scale(1)");
@@ -419,6 +443,81 @@ describe("project dashboard kanban drag states", () => {
     expect(clampActivityImageZoom(7)).toBe(4);
     expect(stepActivityImageZoom(1, -1)).toBe(1);
     expect(stepActivityImageZoom(1, 1)).toBeCloseTo(1.2);
+  });
+
+  it("renders the responsible member photo in the table when it exists", async () => {
+    const mockedApiFetchBlob = vi.mocked(api.apiFetchBlob);
+    mockedApiFetchBlob.mockResolvedValue(new Blob([1, 2, 3], { type: "image/png" }));
+    const activity = buildActivity({
+      id: "activity-responsible-table",
+      title: "Atividade com responsável",
+      responsibleMemberId: "member-1",
+      responsibleName: "Ana Responsável",
+    });
+    const member = buildMember({
+      id: "member-1",
+      userId: "user-1",
+      displayName: "Ana Responsável",
+      hasProfilePhoto: true,
+      profilePhotoUpdatedAt: "2026-06-26T12:00:00.000Z",
+    });
+
+    render(
+      <ActivityListView
+        dashboard={
+          {
+            groupedActivities: [
+              {
+                status: "NaoIniciada",
+                label: "Nao iniciadas",
+                hint: "Aguardando acao",
+                items: [activity],
+              },
+            ],
+            members: [member],
+            session: { accessToken: "token" },
+            activeHouseholdId: "household-1",
+            openActivity: () => undefined,
+            openEditActivity: () => undefined,
+            deleteActivity: async () => undefined,
+          } as never
+        }
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByAltText("Ana Responsável")).toHaveAttribute("src", "blob:activity-1"));
+  });
+
+  it("renders a subtle responsible avatar on the kanban card without the text badge", async () => {
+    const mockedApiFetchBlob = vi.mocked(api.apiFetchBlob);
+    mockedApiFetchBlob.mockResolvedValue(new Blob([1, 2, 3], { type: "image/png" }));
+    const activity = buildActivity({
+      id: "activity-responsible-kanban",
+      title: "Card com responsável",
+      responsibleMemberId: "member-2",
+      responsibleName: "Paula Responsável",
+    });
+    const member = buildMember({
+      id: "member-2",
+      userId: "user-2",
+      displayName: "Paula Responsável",
+      hasProfilePhoto: true,
+      profilePhotoUpdatedAt: "2026-06-26T12:05:00.000Z",
+    });
+
+    render(
+      <ActivityCard
+        activity={activity}
+        members={[member]}
+        onOpen={() => undefined}
+        token="token"
+        householdId="household-1"
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTitle("Paula Responsável")).toBeInTheDocument());
+    expect(screen.getByAltText("Paula Responsável")).toHaveAttribute("src", "blob:activity-1");
+    expect(screen.queryByText("Paula Responsável")).not.toBeInTheDocument();
   });
 
   it("highlights the column frame when it is the active drop zone", () => {

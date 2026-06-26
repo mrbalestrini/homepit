@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ProtectedUserAvatar } from "./protected-user-avatar";
+import { HouseholdMemberAvatar, ProtectedUserAvatar } from "./protected-user-avatar";
 
 describe("ProtectedUserAvatar", () => {
   const fetchMock = vi.fn();
@@ -79,5 +79,38 @@ describe("ProtectedUserAvatar", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByAltText("Ana Teste")).toHaveAttribute("src", "blob:avatar-2"));
+  });
+
+  it("reuses the same fetch for repeated household member avatars", async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response(new Blob([Uint8Array.from([1, 2, 3])], { type: "image/png" }), {
+          status: 200,
+          headers: { "Content-Type": "image/png" },
+        }),
+      ),
+    );
+
+    const member = {
+      id: "member-1",
+      userId: "user-cache-1",
+      displayName: "Paula Teste",
+      email: "paula@homepit.dev",
+      phoneNumber: null,
+      hasProfilePhoto: true,
+      profilePhotoUpdatedAt: "2026-06-26T15:00:00Z",
+      role: "Member" as const,
+      isCurrentUser: false,
+    };
+
+    render(
+      <>
+        <HouseholdMemberAvatar member={member} token="token" householdId="household-1" className="size-10" />
+        <HouseholdMemberAvatar member={member} token="token" householdId="household-1" className="size-10" />
+      </>,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getAllByAltText("Paula Teste")).toHaveLength(2));
   });
 });

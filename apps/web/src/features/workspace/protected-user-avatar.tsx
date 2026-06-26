@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ApiError, apiFetchBlob, type User } from "@/lib/api";
+import { ApiError, apiFetchBlob, type HouseholdMember, type User } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+const photoCache = new Map<string, string>();
+const photoRequests = new Map<string, Promise<string>>();
 
 export function AvatarCircle({
   name,
@@ -41,65 +44,35 @@ export function AvatarCircle({
 export function ProtectedUserAvatar({
   user,
   token,
+  householdId,
   className,
 }: {
   user: User;
   token: string;
+  householdId?: string;
   className?: string;
 }) {
-  const imageUrl = useProtectedUserPhoto(user.hasProfilePhoto, user.profilePhotoUpdatedAt, token);
+  const imageUrl = useProtectedUserPhoto(user.id, user.hasProfilePhoto, user.profilePhotoUpdatedAt, token, householdId);
   return <AvatarCircle name={user.displayName} imageUrl={imageUrl} className={className} />;
 }
 
 export function useProtectedUserPhoto(
+  userId: string,
   hasProfilePhoto: boolean,
   profilePhotoUpdatedAt: string | null | undefined,
   token: string,
+  householdId?: string,
 ) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const cacheKey = hasProfilePhoto && token
+    ? householdId
+      ? `member:${userId}:${householdId}:${profilePhotoUpdatedAt ?? ""}`
+      : `me:${userId}:${profilePhotoUpdatedAt ?? ""}`
+    : null;
+  const path = householdId
+    ? `/api/users/${userId}/profile-photo`
+    : "/api/users/me/profile-photo";
 
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!hasProfilePhoto || !token) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    void apiFetchBlob("/api/users/me/profile-photo", { token })
-      .then((blob) => {
-        if (cancelled) {
-          return;
-        }
-
-        setImageUrl(URL.createObjectURL(blob));
-      })
-      .catch((exception) => {
-        if (cancelled) {
-          return;
-        }
-
-        setImageUrl(null);
-        if (!(exception instanceof ApiError && exception.status === 404)) {
-          console.error(exception);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasProfilePhoto, profilePhotoUpdatedAt, token]);
-
-  useEffect(() => {
-    return () => {
-      if (imageUrl) {
-        URL.revokeObjectURL(imageUrl);
-      }
-    };
-  }, [imageUrl]);
-
-  return hasProfilePhoto && token ? imageUrl : null;
+  return useCachedProtectedUserPhoto(cacheKey, path, token, householdId);
 }
 
 export function useProtectedUserPhotoById(
@@ -109,31 +82,87 @@ export function useProtectedUserPhotoById(
   token: string,
   householdId?: string,
 ) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const cacheKey = hasProfilePhoto && token && householdId
+    ? `member:${userId}:${householdId}:${profilePhotoUpdatedAt ?? ""}`
+    : null;
+
+  return useCachedProtectedUserPhoto(cacheKey, `/api/users/${userId}/profile-photo`, token, householdId);
+}
+
+export function HouseholdMemberAvatar({
+  member,
+  token,
+  householdId,
+  className,
+}: {
+  member: HouseholdMember;
+  token?: string;
+  householdId?: string;
+  className?: string;
+}) {
+  const imageUrl = useProtectedUserPhotoById(
+    member.userId,
+    member.hasProfilePhoto,
+    member.profilePhotoUpdatedAt,
+    token ?? "",
+    householdId,
+  );
+
+  return <AvatarCircle name={member.displayName} imageUrl={imageUrl} className={className} />;
+}
+
+function useCachedProtectedUserPhoto(
+  cacheKey: string | null,
+  path: string,
+  token: string,
+  householdId?: string,
+) {
+  const [fetchedImage, setFetchedImage] = useState<{ cacheKey: string; imageUrl: string | null } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!hasProfilePhoto || !token || !householdId) {
+    if (!cacheKey || !token) {
       return () => {
         cancelled = true;
       };
     }
 
-    void apiFetchBlob(`/api/users/${userId}/profile-photo`, { token, householdId })
-      .then((blob) => {
+    const cachedImageUrl = photoCache.get(cacheKey);
+    if (cachedImageUrl) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const pendingRequest =
+      photoRequests.get(cacheKey) ??
+      apiFetchBlob(path, { token, householdId })
+        .then((blob) => {
+          const objectUrl = URL.createObjectURL(blob);
+          photoCache.set(cacheKey, objectUrl);
+          return objectUrl;
+        })
+        .finally(() => {
+          photoRequests.delete(cacheKey);
+        });
+
+    photoRequests.set(cacheKey, pendingRequest);
+
+    pendingRequest
+      .then((imageUrl) => {
         if (cancelled) {
           return;
         }
 
-        setImageUrl(URL.createObjectURL(blob));
+        setFetchedImage({ cacheKey, imageUrl });
       })
       .catch((exception) => {
         if (cancelled) {
           return;
         }
 
-        setImageUrl(null);
+        setFetchedImage({ cacheKey, imageUrl: null });
         if (!(exception instanceof ApiError && exception.status === 404)) {
           console.error(exception);
         }
@@ -142,17 +171,13 @@ export function useProtectedUserPhotoById(
     return () => {
       cancelled = true;
     };
-  }, [hasProfilePhoto, householdId, profilePhotoUpdatedAt, token, userId]);
+  }, [cacheKey, householdId, path, token]);
 
-  useEffect(() => {
-    return () => {
-      if (imageUrl) {
-        URL.revokeObjectURL(imageUrl);
-      }
-    };
-  }, [imageUrl]);
+  if (!cacheKey) {
+    return null;
+  }
 
-  return hasProfilePhoto && token && householdId ? imageUrl : null;
+  return photoCache.get(cacheKey) ?? (fetchedImage?.cacheKey === cacheKey ? fetchedImage.imageUrl : null);
 }
 
 function getInitials(name: string) {

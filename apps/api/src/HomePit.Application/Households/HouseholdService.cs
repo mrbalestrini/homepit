@@ -20,6 +20,8 @@ public sealed record HouseholdMemberDto(
     string DisplayName,
     string Email,
     string? PhoneNumber,
+    bool HasProfilePhoto,
+    DateTimeOffset? ProfilePhotoUpdatedAt,
     HouseholdRole Role,
     bool IsCurrentUser);
 
@@ -124,6 +126,8 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
                     member.User!.DisplayName,
                     member.User.Email,
                     member.User.PhoneNumber,
+                    !string.IsNullOrWhiteSpace(member.User.ProfilePhotoObjectKey),
+                    member.User.ProfilePhotoUpdatedAt,
                     member.Role,
                     false))
                 .ToArrayAsync(cancellationToken);
@@ -142,6 +146,8 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
                 member.User!.DisplayName,
                 member.User.Email,
                 member.User.PhoneNumber,
+                !string.IsNullOrWhiteSpace(member.User.ProfilePhotoObjectKey),
+                member.User.ProfilePhotoUpdatedAt,
                 member.Role,
                 member.UserId == userContext.UserId))
             .ToArrayAsync(cancellationToken);
@@ -375,6 +381,8 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
             member.User?.DisplayName ?? string.Empty,
             member.User?.Email ?? string.Empty,
             member.User?.PhoneNumber,
+            !string.IsNullOrWhiteSpace(member.User?.ProfilePhotoObjectKey),
+            member.User?.ProfilePhotoUpdatedAt,
             member.Role,
             member.UserId == currentUserId);
     }

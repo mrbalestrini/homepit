@@ -8,6 +8,8 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ### Changed
 - Os comentários no detalhe da atividade passaram a exibir o avatar real do autor quando a foto de perfil existe, com leitura protegida da imagem do usuário correspondente.
+- A coluna de responsável na tabela de projetos, o detalhe da atividade e os cards do kanban agora exibem o avatar real do membro quando a foto existe, com fallback seguro para iniciais.
+- As listas de membros da casa e o diálogo de compartilhamento passaram a reutilizar o avatar protegido dos participantes, com cache compartilhado para evitar downloads repetidos da mesma foto.
 
 ## [1.6.0] - 2026-06-24
 

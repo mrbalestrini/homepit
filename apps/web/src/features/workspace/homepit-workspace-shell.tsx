@@ -54,7 +54,7 @@ import { Select } from "@/components/ui/select";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
-import { AvatarCircle, ProtectedUserAvatar } from "./protected-user-avatar";
+import { AvatarCircle, HouseholdMemberAvatar, ProtectedUserAvatar } from "./protected-user-avatar";
 
 type WorkspaceTheme = "cozy" | "earthy" | "dark";
 type ActiveModule = "projects" | "prompts" | "household" | "gsm";
@@ -240,6 +240,8 @@ export function HomePitWorkspaceShell({
         key={`share-${controller.members.length}-${controller.isShareDialogOpen ? "open" : "closed"}`}
         open={controller.isShareDialogOpen}
         members={controller.members}
+        token={controller.session?.accessToken}
+        householdId={controller.activeHouseholdId}
         canShare={Boolean(controller.canShareHousehold)}
         onOpenChange={(open) => !open && controller.closeCommonModal()}
         onShare={controller.shareHousehold}
@@ -251,6 +253,7 @@ export function HomePitWorkspaceShell({
           open={profileDialogOpen}
           user={controller.session.user}
           token={controller.session.accessToken}
+          householdId={controller.activeHouseholdId}
           onOpenChange={setProfileDialogOpen}
           onSave={controller.updateProfile}
         />
@@ -465,6 +468,7 @@ function SidebarContent({
           <SidebarUserMenu
             user={controller.session.user}
             token={controller.session.accessToken}
+            householdId={controller.activeHouseholdId}
             collapsed={collapsed}
             theme={controller.theme}
             onChangeTheme={controller.setTheme}
@@ -531,6 +535,7 @@ function TopBar({
               members={controller.members}
               currentUser={controller.session.user}
               token={controller.session.accessToken}
+              householdId={controller.activeHouseholdId}
               onOpenProfile={onOpenProfile}
             />
             <Button
@@ -578,11 +583,13 @@ function MembersBar({
   members,
   currentUser,
   token,
+  householdId,
   onOpenProfile,
 }: {
   members: HouseholdMember[];
   currentUser: User;
   token: string;
+  householdId?: string;
   onOpenProfile: () => void;
 }) {
   if (members.length === 0) {
@@ -600,6 +607,7 @@ function MembersBar({
           member={member}
           currentUser={currentUser}
           token={token}
+          householdId={householdId}
           onOpenProfile={onOpenProfile}
         />
       ))}
@@ -612,11 +620,13 @@ function MemberAvatarPill({
   member,
   currentUser,
   token,
+  householdId,
   onOpenProfile,
 }: {
   member: HouseholdMember;
   currentUser: User;
   token: string;
+  householdId?: string;
   onOpenProfile: () => void;
 }) {
   return (
@@ -625,11 +635,14 @@ function MemberAvatarPill({
         <ProtectedUserAvatar
           user={currentUser}
           token={token}
+          householdId={householdId}
           className="size-9 border border-primary/30 bg-highlight text-accent-foreground shadow-xs"
         />
       ) : (
-        <AvatarCircle
-          name={member.displayName}
+        <HouseholdMemberAvatar
+          member={member}
+          token={token}
+          householdId={householdId}
           className="size-9 border border-border/70 bg-surface text-[11px] font-semibold text-foreground shadow-xs"
         />
       )}
@@ -656,6 +669,7 @@ function MemberAvatarPill({
 function SidebarUserMenu({
   user,
   token,
+  householdId,
   collapsed,
   theme,
   onChangeTheme,
@@ -664,6 +678,7 @@ function SidebarUserMenu({
 }: {
   user: User;
   token: string;
+  householdId?: string;
   collapsed: boolean;
   theme: WorkspaceTheme;
   onChangeTheme: (theme: WorkspaceTheme) => void;
@@ -681,7 +696,12 @@ function SidebarUserMenu({
           type="button"
           aria-label="Menu do usuário"
         >
-          <ProtectedUserAvatar user={user} token={token} className="size-9 border border-border/70 bg-surface text-foreground" />
+          <ProtectedUserAvatar
+            user={user}
+            token={token}
+            householdId={householdId}
+            className="size-9 border border-border/70 bg-surface text-foreground"
+          />
           {!collapsed ? <span className="truncate">{user.displayName}</span> : null}
         </button>
       </DropdownMenuTrigger>
@@ -813,12 +833,14 @@ export function ProfileDialog({
   open,
   user,
   token,
+  householdId,
   onOpenChange,
   onSave,
 }: {
   open: boolean;
   user: User;
   token: string;
+  householdId?: string;
   onOpenChange: (open: boolean) => void;
   onSave: (input: { displayName: string; phoneNumber?: string; profilePhoto?: File | null }) => Promise<void>;
 }) {
@@ -858,7 +880,7 @@ export function ProfileDialog({
               {previewUrl ? (
                 <AvatarCircle name={displayName || user.displayName} imageUrl={previewUrl} className="size-14" />
               ) : (
-                <ProtectedUserAvatar user={user} token={token} className="size-14" />
+                <ProtectedUserAvatar user={user} token={token} householdId={householdId} className="size-14" />
               )}
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-foreground">
@@ -911,12 +933,16 @@ function useObjectUrl(file: File | null) {
 
 function ShareDialog({
   members,
+  token,
+  householdId,
   canShare,
   open,
   onOpenChange,
   onShare,
 }: {
   members: HouseholdMember[];
+  token?: string;
+  householdId?: string;
   canShare: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -982,9 +1008,12 @@ function ShareDialog({
                   className="flex items-center justify-between gap-3 rounded-[16px] border border-border/60 bg-surface-strong px-4 py-3"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid size-10 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
-                      {getInitials(member.displayName)}
-                    </span>
+                    <HouseholdMemberAvatar
+                      member={member}
+                      token={token}
+                      householdId={householdId}
+                      className="size-10"
+                    />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-foreground">{member.displayName}</p>
                       <p className="truncate text-xs text-muted-foreground">{member.email}</p>
@@ -1119,11 +1148,3 @@ export function LoadingState({
   );
 }
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
