@@ -47,11 +47,62 @@ export function ProtectedUserAvatar({
   token: string;
   className?: string;
 }) {
-  const imageUrl = useProtectedUserPhoto(user.id, user.hasProfilePhoto, user.profilePhotoUpdatedAt, token);
+  const imageUrl = useProtectedUserPhoto(user.hasProfilePhoto, user.profilePhotoUpdatedAt, token);
   return <AvatarCircle name={user.displayName} imageUrl={imageUrl} className={className} />;
 }
 
 export function useProtectedUserPhoto(
+  hasProfilePhoto: boolean,
+  profilePhotoUpdatedAt: string | null | undefined,
+  token: string,
+) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!hasProfilePhoto || !token) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void apiFetchBlob("/api/users/me/profile-photo", { token })
+      .then((blob) => {
+        if (cancelled) {
+          return;
+        }
+
+        setImageUrl(URL.createObjectURL(blob));
+      })
+      .catch((exception) => {
+        if (cancelled) {
+          return;
+        }
+
+        setImageUrl(null);
+        if (!(exception instanceof ApiError && exception.status === 404)) {
+          console.error(exception);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasProfilePhoto, profilePhotoUpdatedAt, token]);
+
+  useEffect(() => {
+    return () => {
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
+      }
+    };
+  }, [imageUrl]);
+
+  return hasProfilePhoto && token ? imageUrl : null;
+}
+
+export function useProtectedUserPhotoById(
   userId: string,
   hasProfilePhoto: boolean,
   profilePhotoUpdatedAt: string | null | undefined,

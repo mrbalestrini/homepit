@@ -73,7 +73,7 @@ import {
   Notice,
 } from "@/features/workspace/homepit-workspace-shell";
 import { ProtectedUniverseAvatar, useProtectedUniverseImage } from "@/features/workspace/protected-universe-avatar";
-import { AvatarCircle, useProtectedUserPhoto } from "@/features/workspace/protected-user-avatar";
+import { AvatarCircle, useProtectedUserPhotoById } from "@/features/workspace/protected-user-avatar";
 import { ProtectedActivityImageFrame } from "./protected-activity-image";
 import {
   activityColumns,
@@ -2149,7 +2149,7 @@ function EditableComment({
 }
 
 function CommentAuthorAvatar({ comment, token }: { comment: ActivityComment; token?: string }) {
-  const imageUrl = useProtectedUserPhoto(
+  const imageUrl = useProtectedUserPhotoById(
     comment.authorUserId,
     comment.authorHasProfilePhoto,
     comment.authorProfilePhotoUpdatedAt,

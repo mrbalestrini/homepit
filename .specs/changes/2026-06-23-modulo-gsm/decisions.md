@@ -24,3 +24,6 @@
     podem gerenciar tudo e `Member` apenas os registros que criou.
 15. A listagem GSM passa a usar cards no mobile abaixo de `lg`, mantendo a tabela no
     desktop.
+16. O avatar do usuário atual continua lendo a foto por `/api/users/me/profile-photo`,
+    enquanto avatares de terceiros em comentários usam `/api/users/{userId}/profile-photo`
+    para preservar a foto no perfil e no cabeçalho sem perder a foto do autor.
