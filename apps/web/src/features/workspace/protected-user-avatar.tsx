@@ -107,19 +107,20 @@ export function useProtectedUserPhotoById(
   hasProfilePhoto: boolean,
   profilePhotoUpdatedAt: string | null | undefined,
   token: string,
+  householdId?: string,
 ) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!hasProfilePhoto || !token) {
+    if (!hasProfilePhoto || !token || !householdId) {
       return () => {
         cancelled = true;
       };
     }
 
-    void apiFetchBlob(`/api/users/${userId}/profile-photo`, { token })
+    void apiFetchBlob(`/api/users/${userId}/profile-photo`, { token, householdId })
       .then((blob) => {
         if (cancelled) {
           return;
@@ -141,7 +142,7 @@ export function useProtectedUserPhotoById(
     return () => {
       cancelled = true;
     };
-  }, [hasProfilePhoto, profilePhotoUpdatedAt, token, userId]);
+  }, [hasProfilePhoto, householdId, profilePhotoUpdatedAt, token, userId]);
 
   useEffect(() => {
     return () => {
@@ -151,7 +152,7 @@ export function useProtectedUserPhotoById(
     };
   }, [imageUrl]);
 
-  return hasProfilePhoto && token ? imageUrl : null;
+  return hasProfilePhoto && token && householdId ? imageUrl : null;
 }
 
 function getInitials(name: string) {

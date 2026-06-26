@@ -1986,6 +1986,7 @@ export function ActivityDetailsSheet({
                     <EditableComment
                       key={comment.id}
                       activityId={activity.id}
+                      householdId={householdId}
                       token={token}
                       comment={comment}
                       onUpdateComment={onUpdateComment}
@@ -2053,12 +2054,14 @@ function CommentComposer({
 
 function EditableComment({
   activityId,
+  householdId,
   token,
   comment,
   onUpdateComment,
   onDeleteComment,
 }: {
   activityId: string;
+  householdId?: string;
   token?: string;
   comment: ActivityComment;
   onUpdateComment: (activityId: string, commentId: string, body: string) => Promise<void>;
@@ -2088,7 +2091,7 @@ function EditableComment({
     <div className="rounded-[18px] border border-border/60 bg-surface-elevated px-4 py-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <CommentAuthorAvatar comment={comment} token={token} />
+          <CommentAuthorAvatar comment={comment} token={token} householdId={householdId} />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-semibold text-foreground">{comment.authorName}</p>
@@ -2148,12 +2151,21 @@ function EditableComment({
   );
 }
 
-function CommentAuthorAvatar({ comment, token }: { comment: ActivityComment; token?: string }) {
+function CommentAuthorAvatar({
+  comment,
+  token,
+  householdId,
+}: {
+  comment: ActivityComment;
+  token?: string;
+  householdId?: string;
+}) {
   const imageUrl = useProtectedUserPhotoById(
     comment.authorUserId,
     comment.authorHasProfilePhoto,
     comment.authorProfilePhotoUpdatedAt,
     token ?? "",
+    householdId,
   );
 
   return <AvatarCircle name={comment.authorName} imageUrl={imageUrl} className="size-10" />;
