@@ -1,5 +1,6 @@
 using HomePit.Domain.Households;
 using HomePit.Domain.Institutional;
+using HomePit.Domain.Finance;
 using HomePit.Domain.Gsm;
 using HomePit.Domain.Notifications;
 using HomePit.Domain.Prompts;
@@ -17,6 +18,16 @@ public interface IHomePitDbContext
     DbSet<InstitutionalPage> InstitutionalPages { get; }
     DbSet<InstitutionalBenefit> InstitutionalBenefits { get; }
     DbSet<InstitutionalStep> InstitutionalSteps { get; }
+    DbSet<FinancePeriod> FinancePeriods { get; }
+    DbSet<FinanceRecurringTemplate> FinanceRecurringTemplates { get; }
+    DbSet<FinanceEntry> FinanceEntries { get; }
+    DbSet<Asset> Assets { get; }
+    DbSet<AssetPropertyDetails> AssetPropertyDetails { get; }
+    DbSet<AssetVehicleDetails> AssetVehicleDetails { get; }
+    DbSet<AssetValuation> AssetValuations { get; }
+    DbSet<CreditCardAccount> CreditCardAccounts { get; }
+    DbSet<CreditCardTransaction> CreditCardTransactions { get; }
+    DbSet<CreditCardStatement> CreditCardStatements { get; }
     DbSet<GsmNumber> GsmNumbers { get; }
     DbSet<GsmRecharge> GsmRecharges { get; }
     DbSet<Universe> Universes { get; }

@@ -4,6 +4,18 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.7.0] - 2026-07-06
+
+### Added
+- Novo módulo interno `/finance` compartilhado por household, com seções de resumo, caixa, recorrências, cartões e patrimônio.
+- API protegida em `/api/finance`, com CRUD para períodos, lançamentos, recorrências, bens, referências anuais, cartões, compras e faturas.
+- Persistência financeira dedicada no banco para períodos mensais, templates recorrentes, patrimônio, avaliações anuais e fluxo de cartão de crédito.
+
+### Changed
+- O shell do workspace agora ativa `Financeiro` como rota real em vez de espaço reservado.
+- O resumo mensal passou a separar fluxo de caixa e visão analítica de gastos, somando compras de cartão sem duplicar a fatura consolidada.
+- `Universe` e `Project` passaram a funcionar como classificações opcionais no financeiro, com validação e nulificação segura ao excluir vínculos.
+
 ## [1.6.1] - 2026-06-26
 
 ### Changed

@@ -1,4 +1,5 @@
 using HomePit.Application.Auth;
+using HomePit.Application.Finance;
 using HomePit.Application.Gsm;
 using HomePit.Application.Households;
 using HomePit.Application.Institutional;
@@ -13,6 +14,7 @@ public static class DependencyInjection
     public static IServiceCollection AddHomePitApplication(this IServiceCollection services)
     {
         services.AddScoped<AuthService>();
+        services.AddScoped<FinanceService>();
         services.AddScoped<GsmNumberService>();
         services.AddScoped<HouseholdService>();
         services.AddScoped<InstitutionalPageService>();

@@ -57,7 +57,7 @@ import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 import { AvatarCircle, HouseholdMemberAvatar, ProtectedUserAvatar } from "./protected-user-avatar";
 
 type WorkspaceTheme = "cozy" | "earthy" | "dark";
-type ActiveModule = "projects" | "prompts" | "household" | "gsm";
+type ActiveModule = "projects" | "prompts" | "household" | "gsm" | "finance";
 
 type ThemeOption = { value: WorkspaceTheme; label: string };
 
@@ -116,7 +116,7 @@ const modules = [
   { key: "gsm", label: "GSM", href: "/gsm", state: "active" as const, superAdminOnly: false },
   { key: "institutional", label: "Site institucional", href: "/admin/institutional", state: "active" as const, superAdminOnly: true },
   { key: "market", label: "Mercado", href: "#", state: "roadmap" as const, superAdminOnly: false },
-  { key: "finance", label: "Financeiro", href: "#", state: "roadmap" as const, superAdminOnly: false },
+  { key: "finance", label: "Financeiro", href: "/finance", state: "active" as const, superAdminOnly: false },
   { key: "routines", label: "Rotinas", href: "#", state: "roadmap" as const, superAdminOnly: false },
 ];
 

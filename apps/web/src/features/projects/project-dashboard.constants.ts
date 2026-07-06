@@ -49,7 +49,7 @@ export const activitySortOptions: Array<{ value: ActivitySortState; label: strin
 export const modules = [
   { key: "projects", label: "Projetos", state: "active" as const },
   { key: "market", label: "Mercado", state: "roadmap" as const },
-  { key: "finance", label: "Financeiro", state: "roadmap" as const },
+  { key: "finance", label: "Financeiro", state: "active" as const },
   { key: "routines", label: "Rotinas", state: "roadmap" as const },
 ];
 

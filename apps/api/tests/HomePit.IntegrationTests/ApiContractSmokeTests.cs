@@ -39,4 +39,23 @@ public sealed class ApiContractSmokeTests
         Assert.Contains("monthlyCost:", contract);
         Assert.Contains("daysWithoutRecharge:", contract);
     }
+
+    [Fact]
+    public void Openapi_contract_lists_finance_routes_and_enums()
+    {
+        var contractPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "..", "contracts", "openapi", "homepit.v1.yaml"));
+        var contract = File.ReadAllText(contractPath);
+
+        Assert.Contains("/api/finance/periods:", contract);
+        Assert.Contains("/api/finance/periods/{year}/{month}:", contract);
+        Assert.Contains("/api/finance/periods/{year}/{month}/generate:", contract);
+        Assert.Contains("/api/finance/recurring-templates:", contract);
+        Assert.Contains("/api/finance/entries:", contract);
+        Assert.Contains("/api/finance/assets:", contract);
+        Assert.Contains("/api/finance/credit-cards:", contract);
+        Assert.Contains("enum: [Entrada, Saida]", contract);
+        Assert.Contains("enum: [Manual, RecurringTemplate, CreditCardStatement]", contract);
+        Assert.Contains("enum: [Monthly, Annual]", contract);
+        Assert.Contains("enum: [Property, Vehicle, Other]", contract);
+    }
 }

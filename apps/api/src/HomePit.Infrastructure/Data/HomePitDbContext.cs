@@ -1,5 +1,6 @@
 using HomePit.Application.Common;
 using HomePit.Domain.Common;
+using HomePit.Domain.Finance;
 using HomePit.Domain.Gsm;
 using HomePit.Domain.Households;
 using HomePit.Domain.Institutional;
@@ -20,6 +21,16 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<InstitutionalPage> InstitutionalPages => Set<InstitutionalPage>();
     public DbSet<InstitutionalBenefit> InstitutionalBenefits => Set<InstitutionalBenefit>();
     public DbSet<InstitutionalStep> InstitutionalSteps => Set<InstitutionalStep>();
+    public DbSet<FinancePeriod> FinancePeriods => Set<FinancePeriod>();
+    public DbSet<FinanceRecurringTemplate> FinanceRecurringTemplates => Set<FinanceRecurringTemplate>();
+    public DbSet<FinanceEntry> FinanceEntries => Set<FinanceEntry>();
+    public DbSet<Asset> Assets => Set<Asset>();
+    public DbSet<AssetPropertyDetails> AssetPropertyDetails => Set<AssetPropertyDetails>();
+    public DbSet<AssetVehicleDetails> AssetVehicleDetails => Set<AssetVehicleDetails>();
+    public DbSet<AssetValuation> AssetValuations => Set<AssetValuation>();
+    public DbSet<CreditCardAccount> CreditCardAccounts => Set<CreditCardAccount>();
+    public DbSet<CreditCardTransaction> CreditCardTransactions => Set<CreditCardTransaction>();
+    public DbSet<CreditCardStatement> CreditCardStatements => Set<CreditCardStatement>();
     public DbSet<GsmNumber> GsmNumbers => Set<GsmNumber>();
     public DbSet<GsmRecharge> GsmRecharges => Set<GsmRecharge>();
     public DbSet<Universe> Universes => Set<Universe>();
@@ -38,6 +49,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
         modelBuilder.HasDefaultSchema("homepit");
 
         ConfigureHouseholds(modelBuilder);
+        ConfigureFinance(modelBuilder);
         ConfigureGsm(modelBuilder);
         ConfigureInstitutional(modelBuilder);
         ConfigureProjects(modelBuilder);
@@ -216,6 +228,229 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.HasOne(item => item.CreatedByMember)
                 .WithMany(member => member.CreatedGsmRecharges)
                 .HasForeignKey(item => item.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+    }
+
+    private static void ConfigureFinance(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinancePeriod>(builder =>
+        {
+            builder.ToTable("finance_periods");
+            builder.HasIndex(period => new { period.HouseholdId, period.Year, period.Month }).IsUnique();
+            builder.HasOne(period => period.Household)
+                .WithMany(household => household.FinancePeriods)
+                .HasForeignKey(period => period.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FinanceRecurringTemplate>(builder =>
+        {
+            builder.ToTable("finance_recurring_templates");
+            builder.Property(item => item.Title).HasMaxLength(200).IsRequired();
+            builder.Property(item => item.Notes).HasMaxLength(4000);
+            builder.Property(item => item.Type).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.DefaultAmount).HasPrecision(10, 2);
+            builder.Property(item => item.Recurrence).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.IsActive).HasDefaultValue(true);
+            builder.HasIndex(item => new { item.HouseholdId, item.IsActive, item.Recurrence });
+            builder.HasOne(item => item.Household)
+                .WithMany(household => household.FinanceRecurringTemplates)
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.CreatedByMember)
+                .WithMany(member => member.CreatedFinanceRecurringTemplates)
+                .HasForeignKey(item => item.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.Universe)
+                .WithMany()
+                .HasForeignKey(item => item.UniverseId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.Project)
+                .WithMany()
+                .HasForeignKey(item => item.ProjectId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<FinanceEntry>(builder =>
+        {
+            builder.ToTable("finance_entries");
+            builder.Property(item => item.Title).HasMaxLength(240).IsRequired();
+            builder.Property(item => item.Notes).HasMaxLength(4000);
+            builder.Property(item => item.Amount).HasPrecision(10, 2);
+            builder.Property(item => item.Type).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.ReferenceDate).HasColumnType("date");
+            builder.Property(item => item.Origin).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.HasIndex(item => new { item.HouseholdId, item.FinancePeriodId, item.ReferenceDate });
+            builder.HasIndex(item => item.CreditCardStatementId).IsUnique();
+            builder.HasOne(item => item.Household)
+                .WithMany(household => household.FinanceEntries)
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.FinancePeriod)
+                .WithMany(period => period.Entries)
+                .HasForeignKey(item => item.FinancePeriodId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.CreatedByMember)
+                .WithMany(member => member.CreatedFinanceEntries)
+                .HasForeignKey(item => item.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.RecurringTemplate)
+                .WithMany(template => template.Entries)
+                .HasForeignKey(item => item.RecurringTemplateId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.CreditCardStatement)
+                .WithOne(statement => statement.FinanceEntry)
+                .HasForeignKey<FinanceEntry>(item => item.CreditCardStatementId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.Universe)
+                .WithMany()
+                .HasForeignKey(item => item.UniverseId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.Project)
+                .WithMany()
+                .HasForeignKey(item => item.ProjectId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Asset>(builder =>
+        {
+            builder.ToTable("assets");
+            builder.Property(item => item.Title).HasMaxLength(200).IsRequired();
+            builder.Property(item => item.Type).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.CurrentValue).HasPrecision(12, 2);
+            builder.Property(item => item.RemainingDebt).HasPrecision(12, 2);
+            builder.Property(item => item.Notes).HasMaxLength(4000);
+            builder.HasIndex(item => new { item.HouseholdId, item.Type, item.Title });
+            builder.HasOne(item => item.Household)
+                .WithMany(household => household.Assets)
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.CreatedByMember)
+                .WithMany(member => member.CreatedAssets)
+                .HasForeignKey(item => item.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<AssetPropertyDetails>(builder =>
+        {
+            builder.ToTable("asset_property_details");
+            builder.HasKey(item => item.AssetId);
+            builder.Property(item => item.RegistryNumber).HasMaxLength(160);
+            builder.Property(item => item.PropertyInscription).HasMaxLength(160);
+            builder.Property(item => item.PrivateAreaSquareMeters).HasPrecision(8, 2);
+            builder.Property(item => item.DebtCheckOn).HasColumnType("date");
+            builder.HasOne(item => item.Asset)
+                .WithOne(asset => asset.PropertyDetails)
+                .HasForeignKey<AssetPropertyDetails>(item => item.AssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssetVehicleDetails>(builder =>
+        {
+            builder.ToTable("asset_vehicle_details");
+            builder.HasKey(item => item.AssetId);
+            builder.Property(item => item.Brand).HasMaxLength(120);
+            builder.Property(item => item.Model).HasMaxLength(160);
+            builder.Property(item => item.YearModel).HasMaxLength(80);
+            builder.Property(item => item.Renavam).HasMaxLength(40);
+            builder.HasOne(item => item.Asset)
+                .WithOne(asset => asset.VehicleDetails)
+                .HasForeignKey<AssetVehicleDetails>(item => item.AssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssetValuation>(builder =>
+        {
+            builder.ToTable("asset_valuations");
+            builder.Property(item => item.Label).HasMaxLength(120).IsRequired();
+            builder.Property(item => item.Amount).HasPrecision(12, 2);
+            builder.Property(item => item.Notes).HasMaxLength(4000);
+            builder.HasIndex(item => new { item.AssetId, item.ReferenceYear, item.Label }).IsUnique();
+            builder.HasOne(item => item.Asset)
+                .WithMany(asset => asset.Valuations)
+                .HasForeignKey(item => item.AssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CreditCardAccount>(builder =>
+        {
+            builder.ToTable("credit_card_accounts");
+            builder.Property(item => item.Name).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.Brand).HasMaxLength(120);
+            builder.Property(item => item.LastFourDigits).HasMaxLength(4);
+            builder.Property(item => item.Notes).HasMaxLength(4000);
+            builder.Property(item => item.IsActive).HasDefaultValue(true);
+            builder.HasIndex(item => new { item.HouseholdId, item.Name }).IsUnique();
+            builder.HasOne(item => item.Household)
+                .WithMany(household => household.CreditCardAccounts)
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.CreatedByMember)
+                .WithMany(member => member.CreatedCreditCardAccounts)
+                .HasForeignKey(item => item.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<CreditCardStatement>(builder =>
+        {
+            builder.ToTable("credit_card_statements");
+            builder.Property(item => item.ClosingDate).HasColumnType("date");
+            builder.Property(item => item.DueDate).HasColumnType("date");
+            builder.Property(item => item.TotalAmount).HasPrecision(10, 2);
+            builder.Property(item => item.Notes).HasMaxLength(4000);
+            builder.Property(item => item.ExternalSource).HasMaxLength(120);
+            builder.Property(item => item.ExternalReference).HasMaxLength(240);
+            builder.HasIndex(item => new { item.CreditCardAccountId, item.DueDate });
+            builder.HasOne(item => item.Household)
+                .WithMany(household => household.CreditCardStatements)
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.CreditCardAccount)
+                .WithMany(account => account.Statements)
+                .HasForeignKey(item => item.CreditCardAccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.CreatedByMember)
+                .WithMany(member => member.CreatedCreditCardStatements)
+                .HasForeignKey(item => item.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<CreditCardTransaction>(builder =>
+        {
+            builder.ToTable("credit_card_transactions");
+            builder.Property(item => item.Title).HasMaxLength(200).IsRequired();
+            builder.Property(item => item.Merchant).HasMaxLength(160);
+            builder.Property(item => item.Amount).HasPrecision(10, 2);
+            builder.Property(item => item.PurchasedOn).HasColumnType("date");
+            builder.Property(item => item.Notes).HasMaxLength(4000);
+            builder.Property(item => item.ExternalSource).HasMaxLength(120);
+            builder.Property(item => item.ExternalReference).HasMaxLength(240);
+            builder.HasIndex(item => new { item.CreditCardAccountId, item.PurchasedOn });
+            builder.HasIndex(item => item.CreditCardStatementId);
+            builder.HasOne(item => item.Household)
+                .WithMany(household => household.CreditCardTransactions)
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.CreditCardAccount)
+                .WithMany(account => account.Transactions)
+                .HasForeignKey(item => item.CreditCardAccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.CreditCardStatement)
+                .WithMany(statement => statement.Transactions)
+                .HasForeignKey(item => item.CreditCardStatementId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.CreatedByMember)
+                .WithMany(member => member.CreatedCreditCardTransactions)
+                .HasForeignKey(item => item.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.Universe)
+                .WithMany()
+                .HasForeignKey(item => item.UniverseId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.Project)
+                .WithMany()
+                .HasForeignKey(item => item.ProjectId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }

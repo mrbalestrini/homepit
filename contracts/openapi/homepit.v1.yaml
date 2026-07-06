@@ -297,6 +297,497 @@ paths:
                 format: binary
         "404":
           description: Profile photo not found
+  /api/finance/periods:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      responses:
+        "200":
+          description: Financial periods for the active household
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinancePeriodListItem"
+  /api/finance/periods/{year}/{month}:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Financial period detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancePeriodDetail"
+  /api/finance/periods/{year}/{month}/generate:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateFinancePeriodRequest"
+      responses:
+        "200":
+          description: Generated or updated financial period
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancePeriodDetail"
+  /api/finance/recurring-templates:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      responses:
+        "200":
+          description: Recurring finance templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinanceRecurringTemplate"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFinanceRecurringTemplateRequest"
+      responses:
+        "201":
+          description: Recurring finance template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceRecurringTemplate"
+  /api/finance/recurring-templates/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFinanceRecurringTemplateRequest"
+      responses:
+        "200":
+          description: Recurring finance template updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceRecurringTemplate"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Recurring finance template deleted
+  /api/finance/entries:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: year
+          in: query
+          schema:
+            type: integer
+            nullable: true
+        - name: month
+          in: query
+          schema:
+            type: integer
+            nullable: true
+      responses:
+        "200":
+          description: Finance entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinanceEntry"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFinanceEntryRequest"
+      responses:
+        "201":
+          description: Finance entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceEntry"
+  /api/finance/entries/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFinanceEntryRequest"
+      responses:
+        "200":
+          description: Finance entry updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceEntry"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Finance entry deleted
+  /api/finance/assets:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      responses:
+        "200":
+          description: Registered assets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Asset"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetRequest"
+      responses:
+        "201":
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+  /api/finance/assets/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetRequest"
+      responses:
+        "200":
+          description: Asset updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Asset deleted
+  /api/finance/assets/{id}/valuations:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Asset valuations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetValuation"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetValuationRequest"
+      responses:
+        "201":
+          description: Asset valuation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetValuation"
+  /api/finance/assets/{id}/valuations/{valuationId}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: valuationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetValuationRequest"
+      responses:
+        "200":
+          description: Asset valuation updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetValuation"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: valuationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Asset valuation deleted
+  /api/finance/credit-cards:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      responses:
+        "200":
+          description: Credit card accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CreditCardAccount"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditCardAccountRequest"
+      responses:
+        "201":
+          description: Credit card account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardAccount"
+  /api/finance/credit-cards/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCreditCardAccountRequest"
+      responses:
+        "200":
+          description: Credit card account updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardAccount"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Credit card account deleted
+  /api/finance/credit-cards/{id}/transactions:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Credit card transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CreditCardTransaction"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditCardTransactionRequest"
+      responses:
+        "201":
+          description: Credit card transaction created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardTransaction"
+  /api/finance/credit-cards/{id}/transactions/{transactionId}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCreditCardTransactionRequest"
+      responses:
+        "200":
+          description: Credit card transaction updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardTransaction"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Credit card transaction deleted
+  /api/finance/credit-cards/{id}/statements:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Credit card statements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CreditCardStatement"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditCardStatementRequest"
+      responses:
+        "201":
+          description: Credit card statement created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardStatement"
+  /api/finance/credit-cards/{id}/statements/{statementId}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: statementId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCreditCardStatementRequest"
+      responses:
+        "200":
+          description: Credit card statement updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardStatement"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: statementId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Credit card statement deleted
   /api/gsm-numbers:
     get:
       parameters:
@@ -1395,6 +1886,990 @@ components:
       properties:
         role:
           enum: [Admin, Member]
+    FinanceEntryType:
+      type: string
+      enum: [Entrada, Saida]
+    FinanceEntryOrigin:
+      type: string
+      enum: [Manual, RecurringTemplate, CreditCardStatement]
+    FinanceRecurrence:
+      type: string
+      enum: [Monthly, Annual]
+    AssetType:
+      type: string
+      enum: [Property, Vehicle, Other]
+    GenerateFinancePeriodRequest:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [missingOnly, duplicateAll]
+    FinancePeriodListItem:
+      type: object
+      required: [id, year, month, totalIncome, totalExpense, cashBalance, entryCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        year:
+          type: integer
+        month:
+          type: integer
+        totalIncome:
+          type: number
+          format: decimal
+        totalExpense:
+          type: number
+          format: decimal
+        cashBalance:
+          type: number
+          format: decimal
+        entryCount:
+          type: integer
+    FinancePeriodSummary:
+      type: object
+      required:
+        [
+          totalIncome,
+          totalExpense,
+          cashBalance,
+          analyticalExpenseTotal,
+          verifiedEntries,
+          pendingVerificationEntries,
+          cardPurchaseCount
+        ]
+      properties:
+        totalIncome:
+          type: number
+          format: decimal
+        totalExpense:
+          type: number
+          format: decimal
+        cashBalance:
+          type: number
+          format: decimal
+        analyticalExpenseTotal:
+          type: number
+          format: decimal
+        verifiedEntries:
+          type: integer
+        pendingVerificationEntries:
+          type: integer
+        cardPurchaseCount:
+          type: integer
+    FinancePeriodDetail:
+      type: object
+      required: [year, month, exists, summary, entries, cardTransactions, statements]
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+        year:
+          type: integer
+        month:
+          type: integer
+        exists:
+          type: boolean
+        summary:
+          $ref: "#/components/schemas/FinancePeriodSummary"
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/FinanceEntry"
+        cardTransactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditCardTransaction"
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditCardStatement"
+    CreateFinanceRecurringTemplateRequest:
+      type: object
+      required: [title, type, defaultAmount, recurrence, isActive]
+      properties:
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        defaultAmount:
+          type: number
+          format: decimal
+        recurrence:
+          $ref: "#/components/schemas/FinanceRecurrence"
+        dayOfMonth:
+          type: integer
+          nullable: true
+        monthOfYear:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+    UpdateFinanceRecurringTemplateRequest:
+      type: object
+      required: [title, type, defaultAmount, recurrence, isActive]
+      properties:
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        defaultAmount:
+          type: number
+          format: decimal
+        recurrence:
+          $ref: "#/components/schemas/FinanceRecurrence"
+        dayOfMonth:
+          type: integer
+          nullable: true
+        monthOfYear:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+    FinanceRecurringTemplate:
+      type: object
+      required:
+        [
+          id,
+          title,
+          type,
+          defaultAmount,
+          recurrence,
+          isActive,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        defaultAmount:
+          type: number
+          format: decimal
+        recurrence:
+          $ref: "#/components/schemas/FinanceRecurrence"
+        dayOfMonth:
+          type: integer
+          nullable: true
+        monthOfYear:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        universeName:
+          type: string
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        projectName:
+          type: string
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateFinanceEntryRequest:
+      type: object
+      required: [year, month, title, amount, type, verified, referenceDate]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        verified:
+          type: boolean
+        referenceDate:
+          type: string
+          format: date
+        recurringTemplateId:
+          type: string
+          format: uuid
+          nullable: true
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+    UpdateFinanceEntryRequest:
+      type: object
+      required: [year, month, title, amount, type, verified, referenceDate]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        verified:
+          type: boolean
+        referenceDate:
+          type: string
+          format: date
+        recurringTemplateId:
+          type: string
+          format: uuid
+          nullable: true
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+    FinanceEntry:
+      type: object
+      required:
+        [
+          id,
+          periodId,
+          year,
+          month,
+          title,
+          amount,
+          type,
+          verified,
+          referenceDate,
+          origin,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        periodId:
+          type: string
+          format: uuid
+        year:
+          type: integer
+        month:
+          type: integer
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        verified:
+          type: boolean
+        referenceDate:
+          type: string
+          format: date
+        origin:
+          $ref: "#/components/schemas/FinanceEntryOrigin"
+        recurringTemplateId:
+          type: string
+          format: uuid
+          nullable: true
+        creditCardStatementId:
+          type: string
+          format: uuid
+          nullable: true
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        universeName:
+          type: string
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        projectName:
+          type: string
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    AssetPropertyDetailsRequest:
+      type: object
+      properties:
+        registryNumber:
+          type: string
+          nullable: true
+        propertyInscription:
+          type: string
+          nullable: true
+        privateAreaSquareMeters:
+          type: number
+          format: decimal
+          nullable: true
+        debtCheckOn:
+          type: string
+          format: date
+          nullable: true
+    AssetVehicleDetailsRequest:
+      type: object
+      properties:
+        brand:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        yearModel:
+          type: string
+          nullable: true
+        renavam:
+          type: string
+          nullable: true
+    CreateAssetRequest:
+      type: object
+      required: [title, type, isPaidOff]
+      properties:
+        title:
+          type: string
+        type:
+          $ref: "#/components/schemas/AssetType"
+        currentValue:
+          type: number
+          format: decimal
+          nullable: true
+        remainingDebt:
+          type: number
+          format: decimal
+          nullable: true
+        isPaidOff:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        propertyDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetPropertyDetailsRequest"
+          nullable: true
+        vehicleDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetVehicleDetailsRequest"
+          nullable: true
+    UpdateAssetRequest:
+      type: object
+      required: [title, type, isPaidOff]
+      properties:
+        title:
+          type: string
+        type:
+          $ref: "#/components/schemas/AssetType"
+        currentValue:
+          type: number
+          format: decimal
+          nullable: true
+        remainingDebt:
+          type: number
+          format: decimal
+          nullable: true
+        isPaidOff:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        propertyDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetPropertyDetailsRequest"
+          nullable: true
+        vehicleDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetVehicleDetailsRequest"
+          nullable: true
+    AssetPropertyDetails:
+      type: object
+      properties:
+        registryNumber:
+          type: string
+          nullable: true
+        propertyInscription:
+          type: string
+          nullable: true
+        privateAreaSquareMeters:
+          type: number
+          format: decimal
+          nullable: true
+        debtCheckOn:
+          type: string
+          format: date
+          nullable: true
+    AssetVehicleDetails:
+      type: object
+      properties:
+        brand:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        yearModel:
+          type: string
+          nullable: true
+        renavam:
+          type: string
+          nullable: true
+    Asset:
+      type: object
+      required:
+        [id, title, type, isPaidOff, createdAt, updatedAt, canEdit, canDelete]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        type:
+          $ref: "#/components/schemas/AssetType"
+        currentValue:
+          type: number
+          format: decimal
+          nullable: true
+        remainingDebt:
+          type: number
+          format: decimal
+          nullable: true
+        isPaidOff:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        propertyDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetPropertyDetails"
+          nullable: true
+        vehicleDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetVehicleDetails"
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateAssetValuationRequest:
+      type: object
+      required: [referenceYear, label, amount]
+      properties:
+        referenceYear:
+          type: integer
+        label:
+          type: string
+        amount:
+          type: number
+          format: decimal
+        notes:
+          type: string
+          nullable: true
+    UpdateAssetValuationRequest:
+      type: object
+      required: [referenceYear, label, amount]
+      properties:
+        referenceYear:
+          type: integer
+        label:
+          type: string
+        amount:
+          type: number
+          format: decimal
+        notes:
+          type: string
+          nullable: true
+    AssetValuation:
+      type: object
+      required: [id, assetId, referenceYear, label, amount, createdAt, updatedAt, canEdit, canDelete]
+      properties:
+        id:
+          type: string
+          format: uuid
+        assetId:
+          type: string
+          format: uuid
+        referenceYear:
+          type: integer
+        label:
+          type: string
+        amount:
+          type: number
+          format: decimal
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateCreditCardAccountRequest:
+      type: object
+      required: [name, closingDay, dueDay, isActive]
+      properties:
+        name:
+          type: string
+        brand:
+          type: string
+          nullable: true
+        lastFourDigits:
+          type: string
+          nullable: true
+        closingDay:
+          type: integer
+        dueDay:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+    UpdateCreditCardAccountRequest:
+      type: object
+      required: [name, closingDay, dueDay, isActive]
+      properties:
+        name:
+          type: string
+        brand:
+          type: string
+          nullable: true
+        lastFourDigits:
+          type: string
+          nullable: true
+        closingDay:
+          type: integer
+        dueDay:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+    CreditCardAccount:
+      type: object
+      required:
+        [
+          id,
+          name,
+          closingDay,
+          dueDay,
+          isActive,
+          openTransactionCount,
+          openTransactionTotal,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        brand:
+          type: string
+          nullable: true
+        lastFourDigits:
+          type: string
+          nullable: true
+        closingDay:
+          type: integer
+        dueDay:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        openTransactionCount:
+          type: integer
+        openTransactionTotal:
+          type: number
+          format: decimal
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateCreditCardTransactionRequest:
+      type: object
+      required: [title, amount, purchasedOn]
+      properties:
+        title:
+          type: string
+        merchant:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        purchasedOn:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+    UpdateCreditCardTransactionRequest:
+      type: object
+      required: [title, amount, purchasedOn]
+      properties:
+        title:
+          type: string
+        merchant:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        purchasedOn:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+    CreditCardTransaction:
+      type: object
+      required:
+        [
+          id,
+          creditCardAccountId,
+          creditCardAccountName,
+          title,
+          amount,
+          purchasedOn,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        creditCardAccountId:
+          type: string
+          format: uuid
+        creditCardAccountName:
+          type: string
+        creditCardStatementId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        merchant:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        purchasedOn:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        universeName:
+          type: string
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        projectName:
+          type: string
+          nullable: true
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateCreditCardStatementRequest:
+      type: object
+      required: [closingDate, dueDate, transactionIds]
+      properties:
+        closingDate:
+          type: string
+          format: date
+        dueDate:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        transactionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+    UpdateCreditCardStatementRequest:
+      type: object
+      required: [closingDate, dueDate, transactionIds]
+      properties:
+        closingDate:
+          type: string
+          format: date
+        dueDate:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        transactionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+    CreditCardStatement:
+      type: object
+      required:
+        [
+          id,
+          creditCardAccountId,
+          creditCardAccountName,
+          closingDate,
+          dueDate,
+          totalAmount,
+          transactionCount,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        creditCardAccountId:
+          type: string
+          format: uuid
+        creditCardAccountName:
+          type: string
+        closingDate:
+          type: string
+          format: date
+        dueDate:
+          type: string
+          format: date
+        totalAmount:
+          type: number
+          format: decimal
+        notes:
+          type: string
+          nullable: true
+        transactionCount:
+          type: integer
+        financeEntryId:
+          type: string
+          format: uuid
+          nullable: true
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
     GsmNumberStatus:
       type: string
       enum: [Ativo, Inativo, Abandonado]

@@ -4,6 +4,7 @@ using HomePit.Api.Security;
 using HomePit.Application;
 using HomePit.Application.Auth;
 using HomePit.Application.Common;
+using HomePit.Application.Finance;
 using HomePit.Application.Gsm;
 using HomePit.Application.Households;
 using HomePit.Application.Institutional;
@@ -233,6 +234,199 @@ api.MapGet("/users/{userId:guid}/profile-photo", async (
     context.Response.Headers.CacheControl = "no-store";
     return Results.File(photo.Content, photo.ContentType);
 });
+var finance = api.MapGroup("/finance");
+
+finance.MapGet("/periods", async (FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListPeriodsAsync(cancellationToken)));
+finance.MapGet("/periods/{year:int}/{month:int}", async (
+    int year,
+    int month,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.GetPeriodAsync(year, month, cancellationToken)));
+finance.MapPost("/periods/{year:int}/{month:int}/generate", async (
+    int year,
+    int month,
+    GenerateFinancePeriodRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.GeneratePeriodAsync(year, month, request, cancellationToken)));
+
+finance.MapGet("/recurring-templates", async (FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListRecurringTemplatesAsync(cancellationToken)));
+finance.MapPost("/recurring-templates", async (
+    CreateFinanceRecurringTemplateRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Created("/api/finance/recurring-templates", await service.CreateRecurringTemplateAsync(request, cancellationToken)));
+finance.MapPut("/recurring-templates/{id:guid}", async (
+    Guid id,
+    UpdateFinanceRecurringTemplateRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateRecurringTemplateAsync(id, request, cancellationToken)));
+finance.MapDelete("/recurring-templates/{id:guid}", async (
+    Guid id,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteRecurringTemplateAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+
+finance.MapGet("/entries", async (
+    HttpRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListEntriesAsync(
+            ReadOptionalIntQuery(request, "year"),
+            ReadOptionalIntQuery(request, "month"),
+            cancellationToken)));
+finance.MapPost("/entries", async (
+    CreateFinanceEntryRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Created("/api/finance/entries", await service.CreateEntryAsync(request, cancellationToken)));
+finance.MapPut("/entries/{id:guid}", async (
+    Guid id,
+    UpdateFinanceEntryRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateEntryAsync(id, request, cancellationToken)));
+finance.MapDelete("/entries/{id:guid}", async (
+    Guid id,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteEntryAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+
+finance.MapGet("/assets", async (FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListAssetsAsync(cancellationToken)));
+finance.MapPost("/assets", async (
+    CreateAssetRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Created("/api/finance/assets", await service.CreateAssetAsync(request, cancellationToken)));
+finance.MapPut("/assets/{id:guid}", async (
+    Guid id,
+    UpdateAssetRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateAssetAsync(id, request, cancellationToken)));
+finance.MapDelete("/assets/{id:guid}", async (
+    Guid id,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteAssetAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+finance.MapGet("/assets/{id:guid}/valuations", async (
+    Guid id,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListAssetValuationsAsync(id, cancellationToken)));
+finance.MapPost("/assets/{id:guid}/valuations", async (
+    Guid id,
+    CreateAssetValuationRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Created($"/api/finance/assets/{id}/valuations", await service.CreateAssetValuationAsync(id, request, cancellationToken)));
+finance.MapPut("/assets/{id:guid}/valuations/{valuationId:guid}", async (
+    Guid id,
+    Guid valuationId,
+    UpdateAssetValuationRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateAssetValuationAsync(id, valuationId, request, cancellationToken)));
+finance.MapDelete("/assets/{id:guid}/valuations/{valuationId:guid}", async (
+    Guid id,
+    Guid valuationId,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteAssetValuationAsync(id, valuationId, cancellationToken);
+    return Results.NoContent();
+});
+
+finance.MapGet("/credit-cards", async (FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListCreditCardAccountsAsync(cancellationToken)));
+finance.MapPost("/credit-cards", async (
+    CreateCreditCardAccountRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Created("/api/finance/credit-cards", await service.CreateCreditCardAccountAsync(request, cancellationToken)));
+finance.MapPut("/credit-cards/{id:guid}", async (
+    Guid id,
+    UpdateCreditCardAccountRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateCreditCardAccountAsync(id, request, cancellationToken)));
+finance.MapDelete("/credit-cards/{id:guid}", async (
+    Guid id,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteCreditCardAccountAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+finance.MapGet("/credit-cards/{id:guid}/transactions", async (
+    Guid id,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListCreditCardTransactionsAsync(id, cancellationToken)));
+finance.MapPost("/credit-cards/{id:guid}/transactions", async (
+    Guid id,
+    CreateCreditCardTransactionRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Created($"/api/finance/credit-cards/{id}/transactions", await service.CreateCreditCardTransactionAsync(id, request, cancellationToken)));
+finance.MapPut("/credit-cards/{id:guid}/transactions/{transactionId:guid}", async (
+    Guid id,
+    Guid transactionId,
+    UpdateCreditCardTransactionRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateCreditCardTransactionAsync(id, transactionId, request, cancellationToken)));
+finance.MapDelete("/credit-cards/{id:guid}/transactions/{transactionId:guid}", async (
+    Guid id,
+    Guid transactionId,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteCreditCardTransactionAsync(id, transactionId, cancellationToken);
+    return Results.NoContent();
+});
+finance.MapGet("/credit-cards/{id:guid}/statements", async (
+    Guid id,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListCreditCardStatementsAsync(id, cancellationToken)));
+finance.MapPost("/credit-cards/{id:guid}/statements", async (
+    Guid id,
+    CreateCreditCardStatementRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Created($"/api/finance/credit-cards/{id}/statements", await service.CreateCreditCardStatementAsync(id, request, cancellationToken)));
+finance.MapPut("/credit-cards/{id:guid}/statements/{statementId:guid}", async (
+    Guid id,
+    Guid statementId,
+    UpdateCreditCardStatementRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateCreditCardStatementAsync(id, statementId, request, cancellationToken)));
+finance.MapDelete("/credit-cards/{id:guid}/statements/{statementId:guid}", async (
+    Guid id,
+    Guid statementId,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteCreditCardStatementAsync(id, statementId, cancellationToken);
+    return Results.NoContent();
+});
+
 api.MapGet("/gsm-numbers", async (GsmNumberService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.ListAsync(cancellationToken)));
 api.MapPost("/gsm-numbers", async (

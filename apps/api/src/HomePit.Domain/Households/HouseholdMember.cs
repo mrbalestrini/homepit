@@ -1,4 +1,5 @@
 using HomePit.Domain.Common;
+using HomePit.Domain.Finance;
 using HomePit.Domain.Gsm;
 using HomePit.Domain.Notifications;
 using HomePit.Domain.Prompts;
@@ -25,6 +26,12 @@ public sealed class HouseholdMember : AuditableEntity, IHouseholdScoped
     public ICollection<PromptCategory> CreatedPromptCategories { get; } = new List<PromptCategory>();
     public ICollection<GsmNumber> CreatedGsmNumbers { get; } = new List<GsmNumber>();
     public ICollection<GsmRecharge> CreatedGsmRecharges { get; } = new List<GsmRecharge>();
+    public ICollection<FinanceRecurringTemplate> CreatedFinanceRecurringTemplates { get; } = new List<FinanceRecurringTemplate>();
+    public ICollection<FinanceEntry> CreatedFinanceEntries { get; } = new List<FinanceEntry>();
+    public ICollection<Asset> CreatedAssets { get; } = new List<Asset>();
+    public ICollection<CreditCardAccount> CreatedCreditCardAccounts { get; } = new List<CreditCardAccount>();
+    public ICollection<CreditCardTransaction> CreatedCreditCardTransactions { get; } = new List<CreditCardTransaction>();
+    public ICollection<CreditCardStatement> CreatedCreditCardStatements { get; } = new List<CreditCardStatement>();
     public ICollection<ActivityComment> AuthoredActivityComments { get; } = new List<ActivityComment>();
     public NotificationPreference? NotificationPreference { get; set; }
 }

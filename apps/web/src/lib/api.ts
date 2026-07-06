@@ -207,6 +207,194 @@ export type GsmRecharge = {
   canDelete: boolean;
 };
 
+export type FinanceEntryType = "Entrada" | "Saida";
+export type FinanceEntryOrigin = "Manual" | "RecurringTemplate" | "CreditCardStatement";
+export type FinanceRecurrence = "Monthly" | "Annual";
+export type AssetType = "Property" | "Vehicle" | "Other";
+
+export type FinancePeriodListItem = {
+  id: string;
+  year: number;
+  month: number;
+  totalIncome: number;
+  totalExpense: number;
+  cashBalance: number;
+  entryCount: number;
+};
+
+export type FinancePeriodSummary = {
+  totalIncome: number;
+  totalExpense: number;
+  cashBalance: number;
+  analyticalExpenseTotal: number;
+  verifiedEntries: number;
+  pendingVerificationEntries: number;
+  cardPurchaseCount: number;
+};
+
+export type FinanceEntry = {
+  id: string;
+  periodId: string;
+  year: number;
+  month: number;
+  title: string;
+  notes?: string | null;
+  amount: number;
+  type: FinanceEntryType;
+  verified: boolean;
+  referenceDate: string;
+  origin: FinanceEntryOrigin;
+  recurringTemplateId?: string | null;
+  creditCardStatementId?: string | null;
+  universeId?: string | null;
+  universeName?: string | null;
+  projectId?: string | null;
+  projectName?: string | null;
+  createdByMemberId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type CreditCardTransaction = {
+  id: string;
+  creditCardAccountId: string;
+  creditCardAccountName: string;
+  creditCardStatementId?: string | null;
+  title: string;
+  merchant?: string | null;
+  amount: number;
+  purchasedOn: string;
+  notes?: string | null;
+  universeId?: string | null;
+  universeName?: string | null;
+  projectId?: string | null;
+  projectName?: string | null;
+  externalSource?: string | null;
+  externalReference?: string | null;
+  importedAt?: string | null;
+  createdByMemberId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type CreditCardStatement = {
+  id: string;
+  creditCardAccountId: string;
+  creditCardAccountName: string;
+  closingDate: string;
+  dueDate: string;
+  totalAmount: number;
+  notes?: string | null;
+  transactionCount: number;
+  financeEntryId?: string | null;
+  externalSource?: string | null;
+  externalReference?: string | null;
+  importedAt?: string | null;
+  createdByMemberId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type FinancePeriodDetail = {
+  id?: string | null;
+  year: number;
+  month: number;
+  exists: boolean;
+  summary: FinancePeriodSummary;
+  entries: FinanceEntry[];
+  cardTransactions: CreditCardTransaction[];
+  statements: CreditCardStatement[];
+};
+
+export type FinanceRecurringTemplate = {
+  id: string;
+  title: string;
+  notes?: string | null;
+  type: FinanceEntryType;
+  defaultAmount: number;
+  recurrence: FinanceRecurrence;
+  dayOfMonth?: number | null;
+  monthOfYear?: number | null;
+  isActive: boolean;
+  universeId?: string | null;
+  universeName?: string | null;
+  projectId?: string | null;
+  projectName?: string | null;
+  createdByMemberId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type AssetPropertyDetails = {
+  registryNumber?: string | null;
+  propertyInscription?: string | null;
+  privateAreaSquareMeters?: number | null;
+  debtCheckOn?: string | null;
+};
+
+export type AssetVehicleDetails = {
+  brand?: string | null;
+  model?: string | null;
+  yearModel?: string | null;
+  renavam?: string | null;
+};
+
+export type Asset = {
+  id: string;
+  title: string;
+  type: AssetType;
+  currentValue?: number | null;
+  remainingDebt?: number | null;
+  isPaidOff: boolean;
+  notes?: string | null;
+  propertyDetails?: AssetPropertyDetails | null;
+  vehicleDetails?: AssetVehicleDetails | null;
+  createdByMemberId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type AssetValuation = {
+  id: string;
+  assetId: string;
+  referenceYear: number;
+  label: string;
+  amount: number;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type CreditCardAccount = {
+  id: string;
+  name: string;
+  brand?: string | null;
+  lastFourDigits?: string | null;
+  closingDay: number;
+  dueDay: number;
+  notes?: string | null;
+  isActive: boolean;
+  openTransactionCount: number;
+  openTransactionTotal: number;
+  createdByMemberId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
 export type InstitutionalContentItem = {
   position: number;
   title: string;
