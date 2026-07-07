@@ -388,8 +388,50 @@ describe("FinanceDashboardWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Recorrências" }));
     fireEvent.click(await screen.findByRole("button", { name: "Nova recorrência" }));
 
-    expect(await screen.findByRole("dialog", { name: "Recorrências" })).toBeInTheDocument();
     expect(await screen.findByRole("dialog", { name: "Nova recorrência" })).toBeInTheDocument();
+    expect(screen.getByText("Gerencie as recorrências mensais e anuais em uma janela dedicada quase em tela cheia.")).toBeInTheDocument();
+  });
+
+  it("keeps both recurring dialogs open when interacting with the nested editor", async () => {
+    const dashboard = createDashboard({
+      recurringTemplates: [
+        {
+          id: "template-1",
+          title: "Aluguel",
+          notes: "Recorrência mensal",
+          type: "Saida",
+          defaultAmount: 1500,
+          recurrence: "Monthly",
+          dayOfMonth: 5,
+          monthOfYear: null,
+          isActive: true,
+          universeId: null,
+          universeName: null,
+          projectId: null,
+          projectName: null,
+          createdByMemberId: "member-1",
+          createdAt: "2026-07-06T12:00:00.000Z",
+          updatedAt: "2026-07-06T12:00:00.000Z",
+          canEdit: true,
+          canDelete: true,
+        },
+      ],
+    });
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Recorrências" }));
+    const recurringDialog = await screen.findByRole("dialog", { name: "Recorrências" });
+    fireEvent.click(within(recurringDialog).getByRole("button", { name: "Editar" }));
+
+    const editorDialog = await screen.findByRole("dialog", { name: "Editar recorrência" });
+    const titleInput = within(editorDialog).getByRole("textbox", { name: "Título" });
+
+    fireEvent.pointerDown(titleInput);
+    fireEvent.click(titleInput);
+
+    expect(screen.getByRole("dialog", { name: "Editar recorrência" })).toBeInTheDocument();
+    expect(screen.getByText("Gerencie as recorrências mensais e anuais em uma janela dedicada quase em tela cheia.")).toBeInTheDocument();
   });
 
   it("toggles verification and applies filters/grouping in the cash section", async () => {

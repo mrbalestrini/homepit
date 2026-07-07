@@ -1552,7 +1552,7 @@ function RecurringTemplateDialog({
   }
 
   return (
-    <Dialog open={open} modal={false} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{template ? "Editar recorrência" : "Nova recorrência"}</DialogTitle>

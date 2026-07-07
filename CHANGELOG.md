@@ -12,6 +12,7 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 ### Changed
 - O topo do financeiro passou a oferecer `Inserir Recorrências` como ação principal e um atalho dedicado para a gestão de recorrências.
 - A gestão de recorrências saiu da página principal e passou a viver em uma modal quase tela cheia, mantendo a lista e as ações de edição em um espaço dedicado.
+- A edição de recorrências dentro da janela dedicada voltou a aceitar cliques nos campos sem fechar a modal principal nem a modal de edição.
 - A copy do módulo financeiro foi revisada para pt-BR com acentuação correta em botões, títulos, mensagens e textos de apoio.
 - Lançamentos de caixa, recorrências e compras de cartão agora aceitam categoria opcional e exibem a classificação escolhida nas tabelas do financeiro.
 
