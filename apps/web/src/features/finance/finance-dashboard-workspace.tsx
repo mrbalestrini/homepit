@@ -102,6 +102,14 @@ type EntryDialogState = { mode: "create" | "edit"; entryType: FinanceEntryType; 
 type InlineCellMode = "idle" | "editing" | "saving" | "syncing";
 type InlineSelectOption = { value: string; label: string; disabled?: boolean };
 
+function areStringArraysEqual(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((value, index) => value === right[index]);
+}
+
 function InlineSyncLabel({ syncing, label = "Sincronizando..." }: { syncing: boolean; label?: string }) {
   if (!syncing) {
     return null;
@@ -560,17 +568,21 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
     .map((transaction) => transaction.id);
 
   useEffect(() => {
-    setSelectedEntryIds((current) => current.filter((entryId) => entries.some((entry) => entry.id === entryId)));
+    setSelectedEntryIds((current) => {
+      const next = current.filter((entryId) => entries.some((entry) => entry.id === entryId));
+      return areStringArraysEqual(current, next) ? current : next;
+    });
   }, [entries]);
 
   useEffect(() => {
-    setSelectedTransactionIds((current) =>
-      current.filter((transactionId) => dashboard.creditCardTransactions.some((transaction) => transaction.id === transactionId)),
-    );
+    setSelectedTransactionIds((current) => {
+      const next = current.filter((transactionId) => dashboard.creditCardTransactions.some((transaction) => transaction.id === transactionId));
+      return areStringArraysEqual(current, next) ? current : next;
+    });
   }, [dashboard.creditCardTransactions]);
 
   useEffect(() => {
-    setSelectedTransactionIds([]);
+    setSelectedTransactionIds((current) => (current.length === 0 ? current : []));
   }, [dashboard.selectedCreditCardId]);
 
   function setRowSaving(rowKey: string, saving: boolean) {
