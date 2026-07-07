@@ -224,6 +224,14 @@ function createDashboard(overrides: Partial<FinanceDashboardController> = {}): F
     theme: "earthy",
     loading: false,
     error: null,
+    syncingSections: {
+      cash: false,
+      categories: false,
+      recurringTemplates: false,
+      cardTransactions: false,
+      cardStatements: false,
+      assetValuations: false,
+    },
     subtitle: "Fluxo mensal, recorrências, cartões e patrimônio da casa",
     canShareHousehold: true,
     canManageHousehold: true,
@@ -441,16 +449,24 @@ describe("FinanceDashboardWorkspace", () => {
 
     const condominiumRow = screen.getAllByRole("row").find((row) => row.textContent?.includes("Condomínio"));
     expect(condominiumRow).not.toBeNull();
-    fireEvent.click(within(condominiumRow!).getByRole("checkbox"));
+    fireEvent.click(within(condominiumRow!).getByRole("button", { name: "Alternar verificação do lançamento Condomínio" }));
     await waitFor(() => {
-      expect(dashboard.toggleEntryVerified).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "entry-1", title: "Condomínio" }),
+      expect(dashboard.updateEntry).toHaveBeenCalledWith(
+        "entry-1",
+        expect.objectContaining({ verified: false }),
+        { silentSuccess: true },
       );
     });
 
-    fireEvent.change(screen.getByDisplayValue("Tipo"), { target: { value: "project" } });
-    expect(screen.getByText("Moradia", { selector: ".text-base" })).toBeInTheDocument();
-    expect(screen.getByText("Viagem", { selector: ".text-base" })).toBeInTheDocument();
+    const groupByField = screen.getByText("Agrupar por").parentElement?.querySelector("select") as HTMLSelectElement | null;
+    expect(groupByField).not.toBeNull();
+    fireEvent.change(groupByField!, { target: { value: "project" } });
+
+    await waitFor(() => {
+      const groupTitles = Array.from(document.querySelectorAll(".text-base")).map((element) => element.textContent?.trim());
+      expect(groupTitles).toEqual(expect.arrayContaining(["Moradia", "Viagem"]));
+      expect(groupTitles).not.toContain("Saídas");
+    });
 
     fireEvent.change(screen.getByPlaceholderText("Buscar lançamento"), { target: { value: "nubank" } });
     expect(screen.queryByText("Condomínio")).not.toBeInTheDocument();
@@ -499,5 +515,59 @@ describe("FinanceDashboardWorkspace", () => {
         vehicleDetails: null,
       });
     });
+  });
+
+  it("edits the cash title inline and still keeps the modal edit path", async () => {
+    const dashboard = createDashboard();
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    const condominiumRow = screen.getAllByRole("row").find((row) => row.textContent?.includes("Condomínio"));
+    expect(condominiumRow).not.toBeNull();
+
+    fireEvent.click(within(condominiumRow!).getByRole("button", { name: "Editar título do lançamento Condomínio" }));
+    const titleInput = within(condominiumRow!).getByRole("textbox", { name: "Editar título do lançamento Condomínio" });
+    fireEvent.change(titleInput, { target: { value: "Condomínio atualizado" } });
+    fireEvent.keyDown(titleInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(dashboard.updateEntry).toHaveBeenCalledWith(
+        "entry-1",
+        expect.objectContaining({ title: "Condomínio atualizado" }),
+        { silentSuccess: true },
+      );
+    });
+
+    fireEvent.click(within(condominiumRow!).getByRole("button", { name: "Editar" }));
+    expect(await screen.findByRole("dialog", { name: "Editar lançamento" })).toBeInTheDocument();
+  });
+
+  it("edits a custom category inline and keeps default categories read-only", async () => {
+    const dashboard = createDashboard();
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
+    const dialog = await screen.findByRole("dialog", { name: "Categorias" });
+
+    const customRow = within(dialog)
+      .getAllByRole("row")
+      .find((row) => row.textContent?.includes("Mercado"));
+    expect(customRow).not.toBeNull();
+
+    fireEvent.click(within(customRow!).getByRole("button", { name: "Editar nome da categoria Mercado" }));
+    const customInput = within(customRow!).getByRole("textbox", { name: "Editar nome da categoria Mercado" });
+    fireEvent.change(customInput, { target: { value: "Feira" } });
+    fireEvent.keyDown(customInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(dashboard.updateCategory).toHaveBeenCalledWith("category-2", { name: "Feira" }, { silentSuccess: true });
+    });
+
+    const defaultRow = within(dialog)
+      .getAllByRole("row")
+      .find((row) => row.textContent?.includes("Casa"));
+    expect(defaultRow).not.toBeNull();
+    expect(within(defaultRow!).queryByRole("button", { name: "Editar nome da categoria Casa" })).toBeNull();
   });
 });

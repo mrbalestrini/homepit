@@ -15,6 +15,7 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - A edição de recorrências dentro da janela dedicada voltou a aceitar cliques nos campos sem fechar a modal principal nem a modal de edição.
 - A copy do módulo financeiro foi revisada para pt-BR com acentuação correta em botões, títulos, mensagens e textos de apoio.
 - Lançamentos de caixa, recorrências e compras de cartão agora aceitam categoria opcional e exibem a classificação escolhida nas tabelas do financeiro.
+- As tabelas do financeiro passaram a aceitar edição inline em campos rápidos, com atualização otimista imediata, rollback em erro e sincronização pontual sem recarregar o módulo inteiro após cada edição.
 
 ## [1.7.0] - 2026-07-06
 

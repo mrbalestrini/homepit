@@ -22,3 +22,8 @@
     personalizadas podem ser criadas, editadas e excluidas.
 13. Excluir categoria personalizada apenas desvincula lancamentos, recorrencias e compras
     de cartao; a fatura consolidada do cartao permanece sem categoria.
+14. As listagens tabulares do financeiro passam a aceitar edicao inline em campos rapidos,
+    mantendo as modais atuais como caminho de edicao completa.
+15. Atualizacoes inline do financeiro devem aplicar patch otimista local com rollback em
+    erro e reconciliacao pontual do trecho afetado, sem depender de `refreshWorkspace()`
+    apos cada edicao.

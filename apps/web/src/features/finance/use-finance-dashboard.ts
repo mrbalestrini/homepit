@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type {
   Asset,
@@ -39,9 +39,22 @@ import {
 import { defaultAppTheme, uiStorageKeys } from "@/features/projects/project-dashboard.constants";
 import type { AppTheme } from "@/features/projects/project-dashboard.types";
 import { getErrorMessage } from "@/features/projects/project-dashboard.utils";
-import { getCurrentPeriodParts } from "./finance-dashboard.utils";
+import { getCurrentPeriodParts, summarizeAnalyticalExpenses } from "./finance-dashboard.utils";
 
 type WorkspaceTheme = AppTheme;
+type FinanceSyncSection = "cash" | "categories" | "recurringTemplates" | "cardTransactions" | "cardStatements" | "assetValuations";
+type FinanceMutationOptions = {
+  silentSuccess?: boolean;
+};
+
+const initialSyncCounts: Record<FinanceSyncSection, number> = {
+  cash: 0,
+  categories: 0,
+  recurringTemplates: 0,
+  cardTransactions: 0,
+  cardStatements: 0,
+  assetValuations: 0,
+};
 
 export type FinanceEntryFormInput = {
   year: number;
@@ -144,6 +157,166 @@ function applyDocumentTheme(theme: WorkspaceTheme) {
   document.documentElement.dataset.theme = theme;
 }
 
+function sortFinancePeriods(periods: FinancePeriodListItem[]) {
+  return [...periods].sort((left, right) => {
+    if (left.year !== right.year) {
+      return right.year - left.year;
+    }
+
+    return right.month - left.month;
+  });
+}
+
+function sortFinanceEntries(entries: FinanceEntry[]) {
+  return [...entries].sort((left, right) => {
+    const dateComparison = left.referenceDate.localeCompare(right.referenceDate);
+    if (dateComparison !== 0) {
+      return dateComparison;
+    }
+
+    const typeComparison = left.type.localeCompare(right.type);
+    if (typeComparison !== 0) {
+      return typeComparison;
+    }
+
+    return left.title.localeCompare(right.title);
+  });
+}
+
+function sortRecurringTemplates(templates: FinanceRecurringTemplate[]) {
+  return [...templates].sort((left, right) => {
+    const recurrenceWeight = (value: FinanceRecurringTemplate["recurrence"]) => (value === "Monthly" ? 0 : 1);
+    const recurrenceComparison = recurrenceWeight(left.recurrence) - recurrenceWeight(right.recurrence);
+    if (recurrenceComparison !== 0) {
+      return recurrenceComparison;
+    }
+
+    return left.title.localeCompare(right.title);
+  });
+}
+
+function sortCategories(categories: FinanceCategory[]) {
+  return [...categories].sort((left, right) => {
+    if (left.isDefault !== right.isDefault) {
+      return left.isDefault ? -1 : 1;
+    }
+
+    if (left.isDefault && right.isDefault) {
+      return left.sortOrder - right.sortOrder;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
+}
+
+function sortAssetValuations(valuations: AssetValuation[]) {
+  return [...valuations].sort((left, right) => {
+    if (left.referenceYear !== right.referenceYear) {
+      return right.referenceYear - left.referenceYear;
+    }
+
+    return right.id.localeCompare(left.id);
+  });
+}
+
+function sortCreditCardAccounts(accounts: CreditCardAccount[]) {
+  return [...accounts].sort((left, right) => {
+    if (left.isActive !== right.isActive) {
+      return left.isActive ? -1 : 1;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
+}
+
+function sortCreditCardTransactions(transactions: CreditCardTransaction[]) {
+  return [...transactions].sort((left, right) => {
+    const dateComparison = right.purchasedOn.localeCompare(left.purchasedOn);
+    if (dateComparison !== 0) {
+      return dateComparison;
+    }
+
+    return right.id.localeCompare(left.id);
+  });
+}
+
+function sortCreditCardStatements(statements: CreditCardStatement[]) {
+  return [...statements].sort((left, right) => {
+    const dateComparison = right.dueDate.localeCompare(left.dueDate);
+    if (dateComparison !== 0) {
+      return dateComparison;
+    }
+
+    return right.id.localeCompare(left.id);
+  });
+}
+
+function buildFinancePeriodSummary(entries: FinanceEntry[], cardTransactions: CreditCardTransaction[]) {
+  const totalIncome = entries
+    .filter((entry) => entry.type === "Entrada")
+    .reduce((total, entry) => total + entry.amount, 0);
+  const totalExpense = entries
+    .filter((entry) => entry.type === "Saida")
+    .reduce((total, entry) => total + entry.amount, 0);
+
+  return {
+    totalIncome,
+    totalExpense,
+    cashBalance: totalIncome - totalExpense,
+    analyticalExpenseTotal: summarizeAnalyticalExpenses(entries, cardTransactions),
+    verifiedEntries: entries.filter((entry) => entry.verified).length,
+    pendingVerificationEntries: entries.filter((entry) => !entry.verified).length,
+    cardPurchaseCount: cardTransactions.length,
+  };
+}
+
+function normalizePeriodDetail(detail: FinancePeriodDetail) {
+  const entries = sortFinanceEntries(detail.entries);
+  const cardTransactions = sortCreditCardTransactions(detail.cardTransactions);
+  const statements = sortCreditCardStatements(detail.statements);
+
+  return {
+    ...detail,
+    entries,
+    cardTransactions,
+    statements,
+    summary: buildFinancePeriodSummary(entries, cardTransactions),
+  };
+}
+
+function upsertFinancePeriodFromDetail(periods: FinancePeriodListItem[], detail: FinancePeriodDetail) {
+  if (!detail.id) {
+    return periods;
+  }
+
+  const nextItem: FinancePeriodListItem = {
+    id: detail.id,
+    year: detail.year,
+    month: detail.month,
+    totalIncome: detail.summary.totalIncome,
+    totalExpense: detail.summary.totalExpense,
+    cashBalance: detail.summary.cashBalance,
+    entryCount: detail.entries.length,
+  };
+
+  const hasExisting = periods.some((period) => period.id === detail.id || (period.year === detail.year && period.month === detail.month));
+  return sortFinancePeriods(
+    hasExisting
+      ? periods.map((period) =>
+          period.id === detail.id || (period.year === detail.year && period.month === detail.month) ? nextItem : period,
+        )
+      : [...periods, nextItem],
+  );
+}
+
+function summarizeOpenCardTransactions(transactions: CreditCardTransaction[]) {
+  const openTransactions = transactions.filter((transaction) => !transaction.creditCardStatementId);
+  return {
+    openTransactionCount: openTransactions.length,
+    openTransactionTotal: openTransactions.reduce((total, transaction) => total + transaction.amount, 0),
+  };
+}
+
 export function useFinanceDashboard() {
   const currentPeriod = getCurrentPeriodParts();
   const [session, setSession] = useState<AuthResponse | null>(null);
@@ -171,8 +344,10 @@ export function useFinanceDashboard() {
   const [theme, setThemeState] = useState<WorkspaceTheme>(defaultAppTheme);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncCounts, setSyncCounts] = useState(initialSyncCounts);
   const sessionUserIdRef = useRef<string | null>(null);
   const activeHouseholdIdRef = useRef("");
+  const selectedCreditCardIdRef = useRef("");
 
   const resetWorkspaceState = useCallback(() => {
     setMembers([]);
@@ -194,6 +369,7 @@ export function useFinanceDashboard() {
     setEditingHousehold(null);
     setLoading(false);
     setError(null);
+    setSyncCounts(initialSyncCounts);
   }, []);
 
   const syncSession = useCallback(
@@ -270,6 +446,10 @@ export function useFinanceDashboard() {
   }, [activeHouseholdId]);
 
   useEffect(() => {
+    selectedCreditCardIdRef.current = selectedCreditCardId;
+  }, [selectedCreditCardId]);
+
+  useEffect(() => {
     const userId = session?.user.id;
     if (!userId) {
       return;
@@ -302,6 +482,50 @@ export function useFinanceDashboard() {
     throw new Error(message);
   }, []);
 
+  const reportReconcileError = useCallback((exception: unknown, fallback: string) => {
+    const message = getErrorMessage(exception, fallback);
+    setError(message);
+    toast.error(message);
+  }, []);
+
+  const beginSync = useCallback((...sections: FinanceSyncSection[]) => {
+    setSyncCounts((current) => {
+      const next = { ...current };
+      for (const section of sections) {
+        next[section] += 1;
+      }
+
+      return next;
+    });
+  }, []);
+
+  const endSync = useCallback((...sections: FinanceSyncSection[]) => {
+    setSyncCounts((current) => {
+      const next = { ...current };
+      for (const section of sections) {
+        next[section] = Math.max(0, next[section] - 1);
+      }
+
+      return next;
+    });
+  }, []);
+
+  const syncingSections = useMemo(
+    () => ({
+      cash: syncCounts.cash > 0,
+      categories: syncCounts.categories > 0,
+      recurringTemplates: syncCounts.recurringTemplates > 0,
+      cardTransactions: syncCounts.cardTransactions > 0,
+      cardStatements: syncCounts.cardStatements > 0,
+      assetValuations: syncCounts.assetValuations > 0,
+    }),
+    [syncCounts],
+  );
+
+  const syncPeriodListWithDetail = useCallback((detail: FinancePeriodDetail) => {
+    setFinancePeriods((current) => upsertFinancePeriodFromDetail(current, detail));
+  }, []);
+
   const loadCardDetails = useCallback(
     async (cardId: string, token = session?.accessToken, householdId = activeHouseholdId) => {
       if (!cardId || !token || !householdId) {
@@ -316,8 +540,10 @@ export function useFinanceDashboard() {
           apiFetch<CreditCardTransaction[]>(`/api/finance/credit-cards/${cardId}/transactions`, { token, householdId }),
           apiFetch<CreditCardStatement[]>(`/api/finance/credit-cards/${cardId}/statements`, { token, householdId }),
         ]);
-        setCreditCardTransactions(transactions);
-        setCreditCardStatements(statements);
+        startTransition(() => {
+          setCreditCardTransactions(sortCreditCardTransactions(transactions));
+          setCreditCardStatements(sortCreditCardStatements(statements));
+        });
       } catch (exception) {
         setError(getErrorMessage(exception, "Falha ao carregar os detalhes do cartão."));
       } finally {
@@ -333,7 +559,7 @@ export function useFinanceDashboard() {
       householdId = activeHouseholdId,
       year = activeYear,
       month = activeMonth,
-      preferredCardId = selectedCreditCardId,
+      preferredCardId = selectedCreditCardIdRef.current,
     ) => {
       if (!token || !householdId) {
         return;
@@ -356,25 +582,31 @@ export function useFinanceDashboard() {
             apiFetch<CreditCardAccount[]>("/api/finance/credit-cards", { token, householdId }),
           ]);
 
-        setMembers(nextMembers);
-        setUniverses(nextUniverses);
-        setProjects(nextProjects);
-        setCategories(nextCategories);
-        setFinancePeriods(nextPeriods);
-        setPeriodDetail(nextPeriodDetail);
-        setRecurringTemplates(nextTemplates);
-        setAssets(nextAssets);
-        setCreditCardAccounts(nextCards);
+        startTransition(() => {
+          setMembers(nextMembers);
+          setUniverses(nextUniverses);
+          setProjects(nextProjects);
+          setCategories(sortCategories(nextCategories));
+          setFinancePeriods(sortFinancePeriods(nextPeriods));
+          setPeriodDetail(normalizePeriodDetail(nextPeriodDetail));
+          setRecurringTemplates(sortRecurringTemplates(nextTemplates));
+          setAssets(nextAssets);
+          setCreditCardAccounts(sortCreditCardAccounts(nextCards));
+        });
 
         const nextSelectedCardId =
           nextCards.find((card) => card.id === preferredCardId)?.id ?? nextCards[0]?.id ?? "";
-        setSelectedCreditCardIdState(nextSelectedCardId);
+        startTransition(() => {
+          setSelectedCreditCardIdState(nextSelectedCardId);
+        });
 
         if (nextSelectedCardId) {
           await loadCardDetails(nextSelectedCardId, token, householdId);
         } else {
-          setCreditCardTransactions([]);
-          setCreditCardStatements([]);
+          startTransition(() => {
+            setCreditCardTransactions([]);
+            setCreditCardStatements([]);
+          });
         }
       } catch (exception) {
         setError(getErrorMessage(exception, "Falha ao carregar o módulo financeiro."));
@@ -382,7 +614,7 @@ export function useFinanceDashboard() {
         setLoading(false);
       }
     },
-    [activeHouseholdId, activeMonth, activeYear, loadCardDetails, selectedCreditCardId, session?.accessToken],
+    [activeHouseholdId, activeMonth, activeYear, loadCardDetails, session?.accessToken],
   );
 
   useEffect(() => {
@@ -391,11 +623,11 @@ export function useFinanceDashboard() {
     }
 
     const timer = window.setTimeout(() => {
-      void loadWorkspace(session.accessToken, activeHouseholdId, activeYear, activeMonth, selectedCreditCardId);
+      void loadWorkspace(session.accessToken, activeHouseholdId, activeYear, activeMonth);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeHouseholdId, activeMonth, activeYear, loadWorkspace, selectedCreditCardId, session]);
+  }, [activeHouseholdId, activeMonth, activeYear, loadWorkspace, session]);
 
   const setSelectedCreditCardId = useCallback(
     (cardId: string) => {
@@ -404,7 +636,78 @@ export function useFinanceDashboard() {
         void loadCardDetails(cardId, session.accessToken, activeHouseholdId);
       }
     },
-    [activeHouseholdId, loadCardDetails, session?.accessToken],
+    [activeHouseholdId, loadCardDetails, session],
+  );
+
+  const reconcileActivePeriod = useCallback(
+    async (token = session?.accessToken, householdId = activeHouseholdId, year = activeYear, month = activeMonth) => {
+      if (!token || !householdId) {
+        return;
+      }
+
+      const [nextPeriods, nextDetail] = await Promise.all([
+        apiFetch<FinancePeriodListItem[]>("/api/finance/periods", { token, householdId }),
+        apiFetch<FinancePeriodDetail>(`/api/finance/periods/${year}/${month}`, { token, householdId }),
+      ]);
+
+      startTransition(() => {
+        setFinancePeriods(sortFinancePeriods(nextPeriods));
+        setPeriodDetail(normalizePeriodDetail(nextDetail));
+      });
+    },
+    [activeHouseholdId, activeMonth, activeYear, session?.accessToken],
+  );
+
+  const reconcileSelectedCard = useCallback(
+    async (preferredCardId = selectedCreditCardIdRef.current, token = session?.accessToken, householdId = activeHouseholdId) => {
+      if (!token || !householdId) {
+        return;
+      }
+
+      const nextCards = sortCreditCardAccounts(
+        await apiFetch<CreditCardAccount[]>("/api/finance/credit-cards", {
+          token,
+          householdId,
+        }),
+      );
+      const nextSelectedCardId = nextCards.find((card) => card.id === preferredCardId)?.id ?? nextCards[0]?.id ?? "";
+
+      if (!nextSelectedCardId) {
+        startTransition(() => {
+          setCreditCardAccounts(nextCards);
+          setSelectedCreditCardIdState("");
+          setCreditCardTransactions([]);
+          setCreditCardStatements([]);
+        });
+        return;
+      }
+
+      const [nextTransactions, nextStatements] = await Promise.all([
+        apiFetch<CreditCardTransaction[]>(`/api/finance/credit-cards/${nextSelectedCardId}/transactions`, { token, householdId }),
+        apiFetch<CreditCardStatement[]>(`/api/finance/credit-cards/${nextSelectedCardId}/statements`, { token, householdId }),
+      ]);
+
+      startTransition(() => {
+        setCreditCardAccounts(nextCards);
+        setSelectedCreditCardIdState(nextSelectedCardId);
+        setCreditCardTransactions(sortCreditCardTransactions(nextTransactions));
+        setCreditCardStatements(sortCreditCardStatements(nextStatements));
+      });
+    },
+    [activeHouseholdId, session?.accessToken],
+  );
+
+  const reconcileCardFinanceSections = useCallback(
+    async (...sections: FinanceSyncSection[]) => {
+      try {
+        await Promise.all([reconcileActivePeriod(), reconcileSelectedCard()]);
+      } catch (exception) {
+        reportReconcileError(exception, "Os dados foram salvos, mas não foi possível sincronizar a seção financeira.");
+      } finally {
+        endSync(...sections);
+      }
+    },
+    [endSync, reconcileActivePeriod, reconcileSelectedCard, reportReconcileError],
   );
 
   const handleAuthenticated = useCallback((auth: AuthResponse) => {
@@ -538,6 +841,33 @@ export function useFinanceDashboard() {
     await loadWorkspace();
   }, [loadWorkspace]);
 
+  const getCategoryName = useCallback(
+    (categoryId?: string | null) => categories.find((category) => category.id === categoryId)?.name ?? null,
+    [categories],
+  );
+
+  const resolveClassification = useCallback(
+    (universeId?: string | null, projectId?: string | null) => {
+      const project = projectId ? projects.find((item) => item.id === projectId) ?? null : null;
+      const resolvedUniverseId = project?.universeId ?? universeId ?? null;
+      const universe = resolvedUniverseId ? universes.find((item) => item.id === resolvedUniverseId) ?? null : null;
+
+      return {
+        universeId: resolvedUniverseId,
+        universeName: project?.universeName ?? universe?.name ?? null,
+        projectId: project?.id ?? projectId ?? null,
+        projectName: project?.name ?? null,
+      };
+    },
+    [projects, universes],
+  );
+
+  function notifyMutationSuccess(message: string, options?: FinanceMutationOptions) {
+    if (!options?.silentSuccess) {
+      toast.success(message);
+    }
+  }
+
   async function createHousehold(name: string) {
     if (!session) {
       return;
@@ -669,21 +999,38 @@ export function useFinanceDashboard() {
       return;
     }
 
+    beginSync("cash");
     try {
-      const detail = await apiFetch<FinancePeriodDetail>(`/api/finance/periods/${activeYear}/${activeMonth}/generate`, {
-        method: "POST",
-        token: session.accessToken,
-        householdId: activeHouseholdId,
-        body: JSON.stringify({ mode }),
+      const detail = normalizePeriodDetail(
+        await apiFetch<FinancePeriodDetail>(`/api/finance/periods/${activeYear}/${activeMonth}/generate`, {
+          method: "POST",
+          token: session.accessToken,
+          householdId: activeHouseholdId,
+          body: JSON.stringify({ mode }),
+        }),
+      );
+      startTransition(() => {
+        setPeriodDetail(detail);
+        syncPeriodListWithDetail(detail);
       });
-      setPeriodDetail(detail);
-      const periods = await apiFetch<FinancePeriodListItem[]>("/api/finance/periods", {
-        token: session.accessToken,
-        householdId: activeHouseholdId,
-      });
-      setFinancePeriods(periods);
+      void (async () => {
+        try {
+          const periods = await apiFetch<FinancePeriodListItem[]>("/api/finance/periods", {
+            token: session.accessToken,
+            householdId: activeHouseholdId,
+          });
+          startTransition(() => {
+            setFinancePeriods(sortFinancePeriods(periods));
+          });
+        } catch (exception) {
+          reportReconcileError(exception, "Os lançamentos foram inseridos, mas não foi possível sincronizar o resumo do mês.");
+        } finally {
+          endSync("cash");
+        }
+      })();
       toast.success(mode === "missingOnly" ? "Lançamentos inseridos com itens faltantes." : "Recorrências duplicadas no mês.");
     } catch (exception) {
+      endSync("cash");
       reportError(exception, "Não foi possível inserir os lançamentos do mês.");
     }
   }
@@ -707,21 +1054,97 @@ export function useFinanceDashboard() {
     }
   }
 
-  async function updateEntry(entryId: string, input: FinanceEntryFormInput) {
+  async function updateEntry(entryId: string, input: FinanceEntryFormInput, options?: FinanceMutationOptions) {
     if (!session || !activeHouseholdId) {
       return;
     }
 
+    const previousPeriodDetail = periodDetail;
+    const previousPeriods = financePeriods;
+    const currentEntry = previousPeriodDetail?.entries.find((entry) => entry.id === entryId) ?? null;
+    const affectsActivePeriod = Boolean(
+      previousPeriodDetail &&
+        currentEntry &&
+        previousPeriodDetail.year === input.year &&
+        previousPeriodDetail.month === input.month &&
+        currentEntry.year === previousPeriodDetail.year &&
+        currentEntry.month === previousPeriodDetail.month,
+    );
+    const classification = resolveClassification(input.universeId, input.projectId);
+    const optimisticEntry = currentEntry
+      ? {
+          ...currentEntry,
+          title: input.title,
+          notes: input.notes?.trim() ? input.notes.trim() : null,
+          amount: input.amount,
+          type: input.type,
+          verified: input.verified,
+          referenceDate: input.referenceDate,
+          recurringTemplateId: input.recurringTemplateId ?? null,
+          categoryId: input.categoryId ?? null,
+          categoryName: getCategoryName(input.categoryId),
+          origin: input.recurringTemplateId ? "RecurringTemplate" : "Manual",
+          ...classification,
+        }
+      : null;
+    const optimisticDetail =
+      affectsActivePeriod && previousPeriodDetail && optimisticEntry
+        ? normalizePeriodDetail({
+            ...previousPeriodDetail,
+            exists: true,
+            entries: previousPeriodDetail.entries.map((entry) => (entry.id === entryId ? optimisticEntry : entry)),
+          })
+        : null;
+
+    beginSync("cash");
     try {
-      await apiFetch<FinanceEntry>(`/api/finance/entries/${entryId}`, {
+      if (optimisticDetail) {
+        startTransition(() => {
+          setPeriodDetail(optimisticDetail);
+          setFinancePeriods(upsertFinancePeriodFromDetail(previousPeriods, optimisticDetail));
+        });
+      }
+
+      const updatedEntry = await apiFetch<FinanceEntry>(`/api/finance/entries/${entryId}`, {
         method: "PUT",
         token: session.accessToken,
         householdId: activeHouseholdId,
         body: JSON.stringify(input),
       });
-      await refreshWorkspace();
-      toast.success("Lançamento atualizado.");
+
+      if (!previousPeriodDetail || !affectsActivePeriod) {
+        void (async () => {
+          try {
+            await reconcileActivePeriod();
+          } catch (reconcileException) {
+            reportReconcileError(reconcileException, "O lançamento foi salvo, mas não foi possível sincronizar o período ativo.");
+          } finally {
+            endSync("cash");
+          }
+        })();
+      } else {
+        const nextDetail = normalizePeriodDetail({
+          ...(optimisticDetail ?? previousPeriodDetail),
+          id: previousPeriodDetail.id ?? updatedEntry.periodId,
+          exists: true,
+          entries: (optimisticDetail ?? previousPeriodDetail).entries.map((entry) => (entry.id === entryId ? updatedEntry : entry)),
+        });
+        startTransition(() => {
+          setPeriodDetail(nextDetail);
+          setFinancePeriods((current) => upsertFinancePeriodFromDetail(current, nextDetail));
+        });
+        endSync("cash");
+      }
+
+      notifyMutationSuccess("Lançamento atualizado.", options);
     } catch (exception) {
+      if (optimisticDetail) {
+        startTransition(() => {
+          setPeriodDetail(previousPeriodDetail);
+          setFinancePeriods(previousPeriods);
+        });
+      }
+      endSync("cash");
       reportError(exception, "Não foi possível atualizar o lançamento.");
     }
   }
@@ -741,10 +1164,12 @@ export function useFinanceDashboard() {
       verified: !entry.verified,
       referenceDate: entry.referenceDate,
       recurringTemplateId: entry.recurringTemplateId ?? null,
-      categoryId: entry.categoryId ?? null,
-      universeId: entry.universeId ?? null,
-      projectId: entry.projectId ?? null,
-    });
+        categoryId: entry.categoryId ?? null,
+        universeId: entry.universeId ?? null,
+        projectId: entry.projectId ?? null,
+      },
+      { silentSuccess: true },
+    );
   }
 
   async function createCategory(input: FinanceCategoryFormInput) {
@@ -766,21 +1191,98 @@ export function useFinanceDashboard() {
     }
   }
 
-  async function updateCategory(categoryId: string, input: FinanceCategoryFormInput) {
+  async function updateCategory(categoryId: string, input: FinanceCategoryFormInput, options?: FinanceMutationOptions) {
     if (!session || !activeHouseholdId) {
       return;
     }
 
+    const previousCategories = categories;
+    const previousPeriodDetail = periodDetail;
+    const previousRecurringTemplates = recurringTemplates;
+    const previousCreditCardTransactions = creditCardTransactions;
+    const trimmedName = input.name.trim();
+    const optimisticCategories = sortCategories(
+      categories.map((category) =>
+        category.id === categoryId
+          ? {
+              ...category,
+              name: trimmedName,
+            }
+          : category,
+      ),
+    );
+    const optimisticRecurringTemplates = sortRecurringTemplates(
+      recurringTemplates.map((template) =>
+        template.categoryId === categoryId
+          ? {
+              ...template,
+              categoryName: trimmedName,
+            }
+          : template,
+      ),
+    );
+    const optimisticPeriodDetail = previousPeriodDetail
+      ? normalizePeriodDetail({
+          ...previousPeriodDetail,
+          entries: previousPeriodDetail.entries.map((entry) =>
+            entry.categoryId === categoryId
+              ? {
+                  ...entry,
+                  categoryName: trimmedName,
+                }
+              : entry,
+          ),
+          cardTransactions: previousPeriodDetail.cardTransactions.map((transaction) =>
+            transaction.categoryId === categoryId
+              ? {
+                  ...transaction,
+                  categoryName: trimmedName,
+                }
+              : transaction,
+          ),
+        })
+      : null;
+    const optimisticCreditCardTransactions = sortCreditCardTransactions(
+      creditCardTransactions.map((transaction) =>
+        transaction.categoryId === categoryId
+          ? {
+              ...transaction,
+              categoryName: trimmedName,
+            }
+          : transaction,
+      ),
+    );
+
+    beginSync("categories");
     try {
-      await apiFetch<FinanceCategory>(`/api/finance/categories/${categoryId}`, {
+      startTransition(() => {
+        setCategories(optimisticCategories);
+        setRecurringTemplates(optimisticRecurringTemplates);
+        setPeriodDetail(optimisticPeriodDetail);
+        setCreditCardTransactions(optimisticCreditCardTransactions);
+      });
+
+      const updatedCategory = await apiFetch<FinanceCategory>(`/api/finance/categories/${categoryId}`, {
         method: "PUT",
         token: session.accessToken,
         householdId: activeHouseholdId,
         body: JSON.stringify(input),
       });
-      await refreshWorkspace();
-      toast.success("Categoria atualizada.");
+      startTransition(() => {
+        setCategories((current) =>
+          sortCategories(current.map((category) => (category.id === categoryId ? updatedCategory : category))),
+        );
+      });
+      endSync("categories");
+      notifyMutationSuccess("Categoria atualizada.", options);
     } catch (exception) {
+      startTransition(() => {
+        setCategories(previousCategories);
+        setRecurringTemplates(previousRecurringTemplates);
+        setPeriodDetail(previousPeriodDetail);
+        setCreditCardTransactions(previousCreditCardTransactions);
+      });
+      endSync("categories");
       reportError(exception, "Não foi possível atualizar a categoria.");
     }
   }
@@ -840,21 +1342,58 @@ export function useFinanceDashboard() {
     }
   }
 
-  async function updateRecurringTemplate(templateId: string, input: FinanceRecurringTemplateFormInput) {
+  async function updateRecurringTemplate(templateId: string, input: FinanceRecurringTemplateFormInput, options?: FinanceMutationOptions) {
     if (!session || !activeHouseholdId) {
       return;
     }
 
+    const previousTemplates = recurringTemplates;
+    const classification = resolveClassification(input.universeId, input.projectId);
+    const optimisticTemplates = sortRecurringTemplates(
+      recurringTemplates.map((template) =>
+        template.id === templateId
+          ? {
+              ...template,
+              title: input.title,
+              notes: input.notes?.trim() ? input.notes.trim() : null,
+              type: input.type,
+              defaultAmount: input.defaultAmount,
+              recurrence: input.recurrence,
+              dayOfMonth: input.dayOfMonth ?? null,
+              monthOfYear: input.monthOfYear ?? null,
+              isActive: input.isActive,
+              categoryId: input.categoryId ?? null,
+              categoryName: getCategoryName(input.categoryId),
+              ...classification,
+            }
+          : template,
+      ),
+    );
+
+    beginSync("recurringTemplates");
     try {
-      await apiFetch<FinanceRecurringTemplate>(`/api/finance/recurring-templates/${templateId}`, {
+      startTransition(() => {
+        setRecurringTemplates(optimisticTemplates);
+      });
+
+      const updatedTemplate = await apiFetch<FinanceRecurringTemplate>(`/api/finance/recurring-templates/${templateId}`, {
         method: "PUT",
         token: session.accessToken,
         householdId: activeHouseholdId,
         body: JSON.stringify(input),
       });
-      await refreshWorkspace();
-      toast.success("Recorrência atualizada.");
+      startTransition(() => {
+        setRecurringTemplates((current) =>
+          sortRecurringTemplates(current.map((template) => (template.id === templateId ? updatedTemplate : template))),
+        );
+      });
+      endSync("recurringTemplates");
+      notifyMutationSuccess("Recorrência atualizada.", options);
     } catch (exception) {
+      startTransition(() => {
+        setRecurringTemplates(previousTemplates);
+      });
+      endSync("recurringTemplates");
       reportError(exception, "Não foi possível atualizar a recorrência.");
     }
   }
@@ -946,7 +1485,7 @@ export function useFinanceDashboard() {
       });
       setAssetValuations((current) => ({
         ...current,
-        [assetId]: valuations,
+        [assetId]: sortAssetValuations(valuations),
       }));
     } catch (exception) {
       reportError(exception, "Não foi possível carregar as referências anuais.");
@@ -974,21 +1513,59 @@ export function useFinanceDashboard() {
     }
   }
 
-  async function updateAssetValuation(assetId: string, valuationId: string, input: AssetValuationFormInput) {
+  async function updateAssetValuation(assetId: string, valuationId: string, input: AssetValuationFormInput, options?: FinanceMutationOptions) {
     if (!session || !activeHouseholdId) {
       return;
     }
 
+    const previousValuations = assetValuations[assetId] ?? [];
+    const optimisticValuations = sortAssetValuations(
+      previousValuations.map((valuation) =>
+        valuation.id === valuationId
+          ? {
+              ...valuation,
+              referenceYear: input.referenceYear,
+              label: input.label.trim(),
+              amount: input.amount,
+              notes: input.notes?.trim() ? input.notes.trim() : null,
+            }
+          : valuation,
+      ),
+    );
+
+    beginSync("assetValuations");
     try {
-      await apiFetch<AssetValuation>(`/api/finance/assets/${assetId}/valuations/${valuationId}`, {
+      startTransition(() => {
+        setAssetValuations((current) => ({
+          ...current,
+          [assetId]: optimisticValuations,
+        }));
+      });
+
+      const updatedValuation = await apiFetch<AssetValuation>(`/api/finance/assets/${assetId}/valuations/${valuationId}`, {
         method: "PUT",
         token: session.accessToken,
         householdId: activeHouseholdId,
         body: JSON.stringify(input),
       });
-      await loadAssetValuations(assetId);
-      toast.success("Referência anual atualizada.");
+      startTransition(() => {
+        setAssetValuations((current) => ({
+          ...current,
+          [assetId]: sortAssetValuations(
+            (current[assetId] ?? []).map((valuation) => (valuation.id === valuationId ? updatedValuation : valuation)),
+          ),
+        }));
+      });
+      endSync("assetValuations");
+      notifyMutationSuccess("Referência anual atualizada.", options);
     } catch (exception) {
+      startTransition(() => {
+        setAssetValuations((current) => ({
+          ...current,
+          [assetId]: previousValuations,
+        }));
+      });
+      endSync("assetValuations");
       reportError(exception, "Não foi possível atualizar a referência anual.");
     }
   }
@@ -1086,13 +1663,131 @@ export function useFinanceDashboard() {
     }
   }
 
-  async function updateCreditCardTransaction(transactionId: string, input: CreditCardTransactionFormInput) {
+  async function updateCreditCardTransaction(transactionId: string, input: CreditCardTransactionFormInput, options?: FinanceMutationOptions) {
     if (!session || !activeHouseholdId || !selectedCreditCardId) {
       return;
     }
 
+    const previousPeriodDetail = periodDetail;
+    const previousPeriods = financePeriods;
+    const previousTransactions = creditCardTransactions;
+    const previousStatements = creditCardStatements;
+    const previousAccounts = creditCardAccounts;
+    const previousTransaction =
+      creditCardTransactions.find((transaction) => transaction.id === transactionId) ??
+      previousPeriodDetail?.cardTransactions.find((transaction) => transaction.id === transactionId) ??
+      null;
+    const classification = resolveClassification(input.universeId, input.projectId);
+    const optimisticTransaction = previousTransaction
+      ? {
+          ...previousTransaction,
+          title: input.title,
+          merchant: input.merchant?.trim() ? input.merchant.trim() : null,
+          amount: input.amount,
+          purchasedOn: input.purchasedOn,
+          notes: input.notes?.trim() ? input.notes.trim() : null,
+          categoryId: input.categoryId ?? null,
+          categoryName: getCategoryName(input.categoryId),
+          externalSource: input.externalSource?.trim() ? input.externalSource.trim() : null,
+          externalReference: input.externalReference?.trim() ? input.externalReference.trim() : null,
+          ...classification,
+        }
+      : null;
+    const amountDelta = optimisticTransaction && previousTransaction ? optimisticTransaction.amount - previousTransaction.amount : 0;
+    const wasVisibleInActivePeriod = Boolean(
+      previousTransaction &&
+        previousPeriodDetail &&
+        previousTransaction.purchasedOn.startsWith(`${previousPeriodDetail.year}-${String(previousPeriodDetail.month).padStart(2, "0")}-`),
+    );
+    const isVisibleInActivePeriod = Boolean(
+      optimisticTransaction &&
+        previousPeriodDetail &&
+        optimisticTransaction.purchasedOn.startsWith(`${previousPeriodDetail.year}-${String(previousPeriodDetail.month).padStart(2, "0")}-`),
+    );
+
+    beginSync("cash", "cardTransactions", "cardStatements");
     try {
-      await apiFetch<CreditCardTransaction>(
+      if (optimisticTransaction) {
+        const optimisticTransactions = sortCreditCardTransactions(
+          previousTransactions.map((transaction) => (transaction.id === transactionId ? optimisticTransaction : transaction)),
+        );
+        const optimisticStatements =
+          amountDelta !== 0 && previousTransaction?.creditCardStatementId
+            ? sortCreditCardStatements(
+                previousStatements.map((statement) =>
+                  statement.id === previousTransaction.creditCardStatementId
+                    ? {
+                        ...statement,
+                        totalAmount: statement.totalAmount + amountDelta,
+                      }
+                    : statement,
+                ),
+              )
+            : previousStatements;
+        const optimisticDetail = previousPeriodDetail
+          ? normalizePeriodDetail({
+              ...previousPeriodDetail,
+              entries:
+                amountDelta !== 0 && previousTransaction?.creditCardStatementId
+                  ? previousPeriodDetail.entries.map((entry) =>
+                      optimisticStatements.some(
+                        (statement) => statement.id === previousTransaction.creditCardStatementId && statement.financeEntryId === entry.id,
+                      )
+                        ? {
+                            ...entry,
+                            amount: entry.amount + amountDelta,
+                          }
+                        : entry,
+                    )
+                  : previousPeriodDetail.entries,
+              cardTransactions:
+                wasVisibleInActivePeriod || isVisibleInActivePeriod
+                  ? previousPeriodDetail.cardTransactions
+                      .filter((transaction) => transaction.id !== transactionId || isVisibleInActivePeriod)
+                      .map((transaction) => (transaction.id === transactionId ? optimisticTransaction : transaction))
+                      .concat(
+                        !wasVisibleInActivePeriod && isVisibleInActivePeriod ? [optimisticTransaction] : [],
+                      )
+                  : previousPeriodDetail.cardTransactions,
+              statements:
+                amountDelta !== 0 && previousTransaction?.creditCardStatementId
+                  ? previousPeriodDetail.statements.map((statement) =>
+                      statement.id === previousTransaction.creditCardStatementId
+                        ? {
+                            ...statement,
+                            totalAmount: statement.totalAmount + amountDelta,
+                          }
+                        : statement,
+                    )
+                  : previousPeriodDetail.statements,
+            })
+          : null;
+        const nextAccounts =
+          optimisticTransaction.creditCardStatementId == null
+            ? sortCreditCardAccounts(
+                previousAccounts.map((account) =>
+                  account.id === selectedCreditCardId
+                    ? {
+                        ...account,
+                        ...summarizeOpenCardTransactions(optimisticTransactions),
+                      }
+                    : account,
+                ),
+              )
+            : previousAccounts;
+
+        startTransition(() => {
+          setCreditCardTransactions(optimisticTransactions);
+          setCreditCardStatements(optimisticStatements);
+          setCreditCardAccounts(nextAccounts);
+          if (optimisticDetail) {
+            setPeriodDetail(optimisticDetail);
+            setFinancePeriods(upsertFinancePeriodFromDetail(previousPeriods, optimisticDetail));
+          }
+        });
+      }
+
+      const updatedTransaction = await apiFetch<CreditCardTransaction>(
         `/api/finance/credit-cards/${selectedCreditCardId}/transactions/${transactionId}`,
         {
           method: "PUT",
@@ -1101,9 +1796,41 @@ export function useFinanceDashboard() {
           body: JSON.stringify(input),
         },
       );
-      await refreshWorkspace();
-      toast.success("Compra no cartão atualizada.");
+
+      if (optimisticTransaction) {
+        const nextTransactions = sortCreditCardTransactions(
+          previousTransactions.map((transaction) => (transaction.id === transactionId ? updatedTransaction : transaction)),
+        );
+        startTransition(() => {
+          setCreditCardTransactions(nextTransactions);
+          if (updatedTransaction.creditCardStatementId == null) {
+            setCreditCardAccounts((current) =>
+              sortCreditCardAccounts(
+                current.map((account) =>
+                  account.id === selectedCreditCardId
+                    ? {
+                        ...account,
+                        ...summarizeOpenCardTransactions(nextTransactions),
+                      }
+                    : account,
+                ),
+              ),
+            );
+          }
+        });
+      }
+
+      void reconcileCardFinanceSections("cash", "cardTransactions", "cardStatements");
+      notifyMutationSuccess("Compra no cartão atualizada.", options);
     } catch (exception) {
+      startTransition(() => {
+        setPeriodDetail(previousPeriodDetail);
+        setFinancePeriods(previousPeriods);
+        setCreditCardTransactions(previousTransactions);
+        setCreditCardStatements(previousStatements);
+        setCreditCardAccounts(previousAccounts);
+      });
+      endSync("cash", "cardTransactions", "cardStatements");
       reportError(exception, "Não foi possível atualizar a compra no cartão.");
     }
   }
@@ -1145,21 +1872,83 @@ export function useFinanceDashboard() {
     }
   }
 
-  async function updateCreditCardStatement(statementId: string, input: CreditCardStatementFormInput) {
+  async function updateCreditCardStatement(statementId: string, input: CreditCardStatementFormInput, options?: FinanceMutationOptions) {
     if (!session || !activeHouseholdId || !selectedCreditCardId) {
       return;
     }
 
+    const previousPeriodDetail = periodDetail;
+    const previousPeriods = financePeriods;
+    const previousStatements = creditCardStatements;
+    const previousStatement = creditCardStatements.find((statement) => statement.id === statementId) ?? null;
+    const optimisticStatement = previousStatement
+      ? {
+          ...previousStatement,
+          closingDate: input.closingDate,
+          dueDate: input.dueDate,
+          notes: input.notes?.trim() ? input.notes.trim() : null,
+          transactionCount: input.transactionIds.length,
+          externalSource: input.externalSource?.trim() ? input.externalSource.trim() : null,
+          externalReference: input.externalReference?.trim() ? input.externalReference.trim() : null,
+        }
+      : null;
+    const optimisticStatements = optimisticStatement
+      ? sortCreditCardStatements(
+          previousStatements.map((statement) => (statement.id === statementId ? optimisticStatement : statement)),
+        )
+      : previousStatements;
+    const optimisticPeriodDetail =
+      previousPeriodDetail && optimisticStatement
+        ? normalizePeriodDetail({
+            ...previousPeriodDetail,
+            entries: previousStatement?.financeEntryId
+              ? previousPeriodDetail.entries.map((entry) =>
+                  entry.id === previousStatement.financeEntryId
+                    ? {
+                        ...entry,
+                        title: `Fatura ${optimisticStatement.creditCardAccountName} - ${optimisticStatement.dueDate.slice(5, 7)}/${optimisticStatement.dueDate.slice(0, 4)}`,
+                        notes: optimisticStatement.notes ?? null,
+                        referenceDate: optimisticStatement.dueDate,
+                      }
+                    : entry,
+                )
+              : previousPeriodDetail.entries,
+            statements: previousPeriodDetail.statements.map((statement) =>
+              statement.id === statementId ? optimisticStatement : statement,
+            ),
+          })
+        : null;
+
+    beginSync("cash", "cardTransactions", "cardStatements");
     try {
-      await apiFetch<CreditCardStatement>(`/api/finance/credit-cards/${selectedCreditCardId}/statements/${statementId}`, {
+      startTransition(() => {
+        setCreditCardStatements(optimisticStatements);
+        if (optimisticPeriodDetail) {
+          setPeriodDetail(optimisticPeriodDetail);
+          setFinancePeriods(upsertFinancePeriodFromDetail(previousPeriods, optimisticPeriodDetail));
+        }
+      });
+
+      const updatedStatement = await apiFetch<CreditCardStatement>(`/api/finance/credit-cards/${selectedCreditCardId}/statements/${statementId}`, {
         method: "PUT",
         token: session.accessToken,
         householdId: activeHouseholdId,
         body: JSON.stringify(input),
       });
-      await refreshWorkspace();
-      toast.success("Fatura atualizada.");
+      startTransition(() => {
+        setCreditCardStatements((current) =>
+          sortCreditCardStatements(current.map((statement) => (statement.id === statementId ? updatedStatement : statement))),
+        );
+      });
+      void reconcileCardFinanceSections("cash", "cardTransactions", "cardStatements");
+      notifyMutationSuccess("Fatura atualizada.", options);
     } catch (exception) {
+      startTransition(() => {
+        setPeriodDetail(previousPeriodDetail);
+        setFinancePeriods(previousPeriods);
+        setCreditCardStatements(previousStatements);
+      });
+      endSync("cash", "cardTransactions", "cardStatements");
       reportError(exception, "Não foi possível atualizar a fatura.");
     }
   }
@@ -1210,6 +1999,7 @@ export function useFinanceDashboard() {
     theme,
     loading,
     error,
+    syncingSections,
     subtitle: "Fluxo mensal, recorrências, cartões e patrimônio da casa",
     canShareHousehold,
     canManageHousehold,

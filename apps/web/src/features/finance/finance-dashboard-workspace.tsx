@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeDollarSign,
   Building2,
@@ -99,6 +99,403 @@ const defaultFilters: FinanceEntryFilters = {
 };
 
 type EntryDialogState = { mode: "create" | "edit"; entryType: FinanceEntryType; entry?: FinanceEntry | null };
+type InlineCellMode = "idle" | "editing" | "saving" | "syncing";
+type InlineSelectOption = { value: string; label: string; disabled?: boolean };
+
+function InlineSyncLabel({ syncing, label = "Sincronizando..." }: { syncing: boolean; label?: string }) {
+  if (!syncing) {
+    return null;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+      <RefreshCw className="size-3 animate-spin" />
+      {label}
+    </span>
+  );
+}
+
+function InlineCellStatus({ mode }: { mode: InlineCellMode }) {
+  if (mode === "saving") {
+    return <RefreshCw className="size-3 animate-spin text-muted-foreground" aria-hidden />;
+  }
+
+  if (mode === "syncing") {
+    return <RefreshCw className="size-3 animate-spin text-primary" aria-hidden />;
+  }
+
+  return null;
+}
+
+function InlineInputCell<T>({
+  value,
+  displayValue,
+  ariaLabel,
+  canEdit,
+  rowBusy,
+  isSyncing,
+  inputType = "text",
+  placeholder,
+  displayClassName,
+  toDraft,
+  fromDraft,
+  onSave,
+}: {
+  value: T;
+  displayValue: string;
+  ariaLabel: string;
+  canEdit: boolean;
+  rowBusy: boolean;
+  isSyncing: boolean;
+  inputType?: "date" | "number" | "text";
+  placeholder?: string;
+  displayClassName?: string;
+  toDraft: (value: T) => string;
+  fromDraft: (draft: string) => { value: T; error?: string };
+  onSave: (value: T) => Promise<void>;
+}) {
+  const [mode, setMode] = useState<InlineCellMode>("idle");
+  const [draft, setDraft] = useState(() => toDraft(value));
+  const [error, setError] = useState<string | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const committingRef = useRef(false);
+
+  useEffect(() => {
+    if (mode === "idle" || mode === "syncing") {
+      setDraft(toDraft(value));
+    }
+  }, [mode, toDraft, value]);
+
+  useEffect(() => {
+    if (mode === "editing") {
+      window.requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        if (inputType !== "date") {
+          inputRef.current?.select();
+        }
+      });
+    }
+  }, [inputType, mode]);
+
+  useEffect(() => {
+    if (mode === "syncing" && !isSyncing) {
+      setMode("idle");
+      setError(null);
+      buttonRef.current?.focus();
+    }
+  }, [isSyncing, mode]);
+
+  function resetToIdle() {
+    setDraft(toDraft(value));
+    setError(null);
+    setMode("idle");
+    buttonRef.current?.focus();
+  }
+
+  async function commit(nextDraft = draft) {
+    if (!canEdit || rowBusy || committingRef.current) {
+      return;
+    }
+
+    const parsed = fromDraft(nextDraft);
+    if (parsed.error) {
+      setError(parsed.error);
+      setMode("editing");
+      window.requestAnimationFrame(() => inputRef.current?.focus());
+      return;
+    }
+
+    if (Object.is(parsed.value, value)) {
+      resetToIdle();
+      return;
+    }
+
+    committingRef.current = true;
+    setMode("saving");
+    setError(null);
+
+    try {
+      await onSave(parsed.value);
+      setMode("syncing");
+    } catch (exception) {
+      setMode("editing");
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar.");
+      window.requestAnimationFrame(() => inputRef.current?.focus());
+    } finally {
+      committingRef.current = false;
+    }
+  }
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void commit();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      resetToIdle();
+    }
+  }
+
+  if (mode === "editing" || mode === "saving") {
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-2 rounded-md border border-border/70 bg-surface px-2 py-1">
+          <Input
+            ref={inputRef}
+            type={inputType}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={() => {
+              if (!committingRef.current) {
+                void commit();
+              }
+            }}
+            onKeyDown={handleKeyDown}
+            disabled={mode === "saving"}
+            placeholder={placeholder}
+            aria-label={ariaLabel}
+            className="h-8 border-0 px-0 shadow-none focus-visible:ring-0"
+          />
+          <InlineCellStatus mode={mode} />
+        </div>
+        {error ? <p className="text-xs text-danger">{error}</p> : null}
+      </div>
+    );
+  }
+
+  return canEdit ? (
+    <button
+      ref={buttonRef}
+      type="button"
+      onClick={() => {
+        if (!rowBusy) {
+          setError(null);
+          setMode("editing");
+        }
+      }}
+      disabled={rowBusy}
+      className="inline-flex w-full items-center gap-2 rounded-md border border-transparent px-2 py-1 text-left text-sm transition hover:border-border/70 hover:bg-surface-muted/60 disabled:cursor-not-allowed disabled:opacity-60"
+      aria-label={ariaLabel}
+    >
+      <span className={displayValue ? `truncate ${displayClassName ?? "text-foreground"}` : "truncate text-muted-foreground"}>
+        {displayValue || placeholder || "Não informado"}
+      </span>
+      <InlineCellStatus mode={mode} />
+    </button>
+  ) : (
+    <span className={displayValue ? displayClassName ?? "text-foreground" : "text-muted-foreground"}>
+      {displayValue || placeholder || "Não informado"}
+    </span>
+  );
+}
+
+function InlineSelectCell({
+  value,
+  displayValue,
+  ariaLabel,
+  canEdit,
+  rowBusy,
+  isSyncing,
+  options,
+  onSave,
+}: {
+  value: string;
+  displayValue: string;
+  ariaLabel: string;
+  canEdit: boolean;
+  rowBusy: boolean;
+  isSyncing: boolean;
+  options: InlineSelectOption[];
+  onSave: (value: string) => Promise<void>;
+}) {
+  const [mode, setMode] = useState<InlineCellMode>("idle");
+  const [draft, setDraft] = useState(value);
+  const [error, setError] = useState<string | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const selectRef = useRef<HTMLSelectElement | null>(null);
+  const committingRef = useRef(false);
+
+  useEffect(() => {
+    if (mode === "idle" || mode === "syncing") {
+      setDraft(value);
+    }
+  }, [mode, value]);
+
+  useEffect(() => {
+    if (mode === "editing") {
+      window.requestAnimationFrame(() => selectRef.current?.focus());
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode === "syncing" && !isSyncing) {
+      setMode("idle");
+      setError(null);
+      buttonRef.current?.focus();
+    }
+  }, [isSyncing, mode]);
+
+  function resetToIdle() {
+    setDraft(value);
+    setError(null);
+    setMode("idle");
+    buttonRef.current?.focus();
+  }
+
+  async function commit(nextValue: string) {
+    if (!canEdit || rowBusy || committingRef.current) {
+      return;
+    }
+
+    if (nextValue === value) {
+      resetToIdle();
+      return;
+    }
+
+    committingRef.current = true;
+    setMode("saving");
+    setError(null);
+
+    try {
+      await onSave(nextValue);
+      setMode("syncing");
+    } catch (exception) {
+      setMode("editing");
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar.");
+      window.requestAnimationFrame(() => selectRef.current?.focus());
+    } finally {
+      committingRef.current = false;
+    }
+  }
+
+  if (mode === "editing" || mode === "saving") {
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-2 rounded-md border border-border/70 bg-surface px-2 py-1">
+          <Select
+            ref={selectRef}
+            value={draft}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              void commit(event.target.value);
+            }}
+            onBlur={() => {
+              if (!committingRef.current) {
+                resetToIdle();
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                resetToIdle();
+              }
+            }}
+            disabled={mode === "saving"}
+            aria-label={ariaLabel}
+            className="h-8 border-0 px-0 shadow-none focus-visible:ring-0"
+          >
+            {options.map((option) => (
+              <option key={option.value} value={option.value} disabled={option.disabled}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          <InlineCellStatus mode={mode} />
+        </div>
+        {error ? <p className="text-xs text-danger">{error}</p> : null}
+      </div>
+    );
+  }
+
+  return canEdit ? (
+    <button
+      ref={buttonRef}
+      type="button"
+      onClick={() => {
+        if (!rowBusy) {
+          setError(null);
+          setMode("editing");
+        }
+      }}
+      disabled={rowBusy}
+      className="inline-flex w-full items-center gap-2 rounded-md border border-transparent px-2 py-1 text-left text-sm transition hover:border-border/70 hover:bg-surface-muted/60 disabled:cursor-not-allowed disabled:opacity-60"
+      aria-label={ariaLabel}
+    >
+      <span className={displayValue ? "truncate text-foreground" : "truncate text-muted-foreground"}>{displayValue || "Não informado"}</span>
+      <InlineCellStatus mode={mode} />
+    </button>
+  ) : (
+    <span className={displayValue ? "text-foreground" : "text-muted-foreground"}>{displayValue || "Não informado"}</span>
+  );
+}
+
+function InlineCheckboxCell({
+  checked,
+  checkedLabel,
+  uncheckedLabel,
+  ariaLabel,
+  canEdit,
+  rowBusy,
+  isSyncing,
+  onSave,
+}: {
+  checked: boolean;
+  checkedLabel: string;
+  uncheckedLabel: string;
+  ariaLabel: string;
+  canEdit: boolean;
+  rowBusy: boolean;
+  isSyncing: boolean;
+  onSave: (checked: boolean) => Promise<void>;
+}) {
+  const [mode, setMode] = useState<InlineCellMode>("idle");
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (mode === "syncing" && !isSyncing) {
+      setMode("idle");
+      buttonRef.current?.focus();
+    }
+  }, [isSyncing, mode]);
+
+  async function handleToggle() {
+    if (!canEdit || rowBusy || mode === "saving") {
+      return;
+    }
+
+    setMode("saving");
+    try {
+      await onSave(!checked);
+      setMode("syncing");
+    } catch {
+      setMode("idle");
+    }
+  }
+
+  return canEdit ? (
+    <button
+      ref={buttonRef}
+      type="button"
+      onClick={() => void handleToggle()}
+      disabled={rowBusy || mode === "saving"}
+      className="inline-flex items-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm transition hover:border-border/70 hover:bg-surface-muted/60 disabled:cursor-not-allowed disabled:opacity-60"
+      aria-label={ariaLabel}
+    >
+      <input type="checkbox" checked={checked} readOnly tabIndex={-1} className="pointer-events-none" />
+      <span>{checked ? checkedLabel : uncheckedLabel}</span>
+      <InlineCellStatus mode={mode} />
+    </button>
+  ) : (
+    <label className="inline-flex items-center gap-2 text-sm">
+      <input type="checkbox" checked={checked} readOnly tabIndex={-1} />
+      {checked ? checkedLabel : uncheckedLabel}
+    </label>
+  );
+}
 
 export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDashboardController }) {
   const [filters, setFilters] = useState<FinanceEntryFilters>(defaultFilters);
@@ -124,6 +521,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
     | { kind: "statement"; id: string; name: string }
     | null
   >(null);
+  const [savingRows, setSavingRows] = useState<Record<string, boolean>>({});
 
   const entries = dashboard.periodDetail?.entries ?? [];
   const filteredEntries = useMemo(() => filterFinanceEntries(entries, filters), [entries, filters]);
@@ -152,6 +550,122 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       !transaction.creditCardStatementId ||
       transaction.creditCardStatementId === (typeof statementDialog === "object" ? statementDialog?.id : null),
   );
+
+  function setRowSaving(rowKey: string, saving: boolean) {
+    setSavingRows((current) => {
+      if (saving) {
+        return { ...current, [rowKey]: true };
+      }
+
+      if (!current[rowKey]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[rowKey];
+      return next;
+    });
+  }
+
+  async function runRowSave(rowKey: string, action: () => Promise<void>) {
+    setRowSaving(rowKey, true);
+    try {
+      await action();
+    } finally {
+      setRowSaving(rowKey, false);
+    }
+  }
+
+  function isRowSaving(rowKey: string) {
+    return Boolean(savingRows[rowKey]);
+  }
+
+  function buildEntryInput(entry: FinanceEntry, overrides: Partial<FinanceEntryFormInput> = {}): FinanceEntryFormInput {
+    return {
+      year: entry.year,
+      month: entry.month,
+      title: entry.title,
+      notes: entry.notes ?? "",
+      amount: entry.amount,
+      type: entry.type,
+      verified: entry.verified,
+      referenceDate: entry.referenceDate,
+      recurringTemplateId: entry.recurringTemplateId ?? null,
+      categoryId: entry.categoryId ?? null,
+      universeId: entry.universeId ?? null,
+      projectId: entry.projectId ?? null,
+      ...overrides,
+    };
+  }
+
+  function buildRecurringTemplateInput(
+    template: FinanceRecurringTemplate,
+    overrides: Partial<FinanceRecurringTemplateFormInput> = {},
+  ): FinanceRecurringTemplateFormInput {
+    return {
+      title: template.title,
+      notes: template.notes ?? "",
+      type: template.type,
+      defaultAmount: template.defaultAmount,
+      recurrence: template.recurrence,
+      dayOfMonth: template.dayOfMonth ?? null,
+      monthOfYear: template.monthOfYear ?? null,
+      isActive: template.isActive,
+      categoryId: template.categoryId ?? null,
+      universeId: template.universeId ?? null,
+      projectId: template.projectId ?? null,
+      ...overrides,
+    };
+  }
+
+  function buildTransactionInput(
+    transaction: CreditCardTransaction,
+    overrides: Partial<CreditCardTransactionFormInput> = {},
+  ): CreditCardTransactionFormInput {
+    return {
+      title: transaction.title,
+      merchant: transaction.merchant ?? "",
+      amount: transaction.amount,
+      purchasedOn: transaction.purchasedOn,
+      notes: transaction.notes ?? "",
+      categoryId: transaction.categoryId ?? null,
+      universeId: transaction.universeId ?? null,
+      projectId: transaction.projectId ?? null,
+      externalSource: transaction.externalSource ?? "",
+      externalReference: transaction.externalReference ?? "",
+      ...overrides,
+    };
+  }
+
+  function buildStatementInput(
+    statement: CreditCardStatement,
+    overrides: Partial<CreditCardStatementFormInput> = {},
+  ): CreditCardStatementFormInput {
+    return {
+      closingDate: statement.closingDate,
+      dueDate: statement.dueDate,
+      notes: statement.notes ?? "",
+      transactionIds: dashboard.creditCardTransactions
+        .filter((transaction) => transaction.creditCardStatementId === statement.id)
+        .map((transaction) => transaction.id),
+      externalSource: statement.externalSource ?? "",
+      externalReference: statement.externalReference ?? "",
+      ...overrides,
+    };
+  }
+
+  function buildAssetValuationInput(
+    valuation: AssetValuation,
+    overrides: Partial<AssetValuationFormInput> = {},
+  ): AssetValuationFormInput {
+    return {
+      referenceYear: valuation.referenceYear,
+      label: valuation.label,
+      amount: valuation.amount,
+      notes: valuation.notes ?? "",
+      ...overrides,
+    };
+  }
 
   function handleGenerateClick() {
     if (dashboard.periodDetail?.exists) {
@@ -329,7 +843,10 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
             <Card>
               <CardHeader className="border-b border-border/60 pb-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <CardTitle className="text-lg">Caixa</CardTitle>
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg">Caixa</CardTitle>
+                    <InlineSyncLabel syncing={dashboard.syncingSections.cash} label="Sincronizando caixa..." />
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" onClick={() => setEntryDialog({ mode: "create", entryType: "Entrada" })}>
                       <Plus />
@@ -423,57 +940,152 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {group.entries.map((entry) => (
-                                  <TableRow key={entry.id}>
-                                    <TableCell>
-                                      <div className="space-y-1">
-                                        <p className="font-medium text-foreground">{entry.title}</p>
-                                        {entry.notes ? <p className="text-sm text-muted-foreground">{entry.notes}</p> : null}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell>{entry.type === "Entrada" ? "Entrada" : "Saída"}</TableCell>
-                                    <TableCell>{formatOrigin(entry.origin)}</TableCell>
-                                    <TableCell>{entry.categoryName ?? "Sem categoria"}</TableCell>
-                                    <TableCell>{formatDateOnlyPtBr(entry.referenceDate)}</TableCell>
-                                    <TableCell>{entry.projectName ?? entry.universeName ?? "Sem classificação"}</TableCell>
-                                    <TableCell className={`font-medium ${entry.type === "Entrada" ? "text-success" : "text-danger"}`}>
-                                      {formatCurrency(entry.amount)}
-                                    </TableCell>
-                                    <TableCell>
-                                      <label className="inline-flex items-center gap-2 text-sm">
-                                        <input
-                                          type="checkbox"
-                                          checked={entry.verified}
-                                          disabled={!entry.canEdit}
-                                          onChange={() => void dashboard.toggleEntryVerified(entry)}
+                                {group.entries.map((entry) => {
+                                  const rowKey = `entry:${entry.id}`;
+                                  const rowBusy = isRowSaving(rowKey);
+                                  const canInlineEdit = entry.canEdit && entry.origin !== "CreditCardStatement";
+
+                                  return (
+                                    <TableRow key={entry.id}>
+                                      <TableCell>
+                                        <div className="space-y-1">
+                                          <InlineInputCell
+                                            value={entry.title}
+                                            displayValue={entry.title}
+                                            ariaLabel={`Editar título do lançamento ${entry.title}`}
+                                            canEdit={canInlineEdit}
+                                            rowBusy={rowBusy}
+                                            isSyncing={dashboard.syncingSections.cash}
+                                            placeholder="Sem título"
+                                            toDraft={(current) => current}
+                                            fromDraft={(draft) => {
+                                              const trimmed = draft.trim();
+                                              return trimmed ? { value: trimmed } : { value: draft, error: "Informe o título do lançamento." };
+                                            }}
+                                            onSave={(title) =>
+                                              runRowSave(rowKey, async () => {
+                                                await dashboard.updateEntry(entry.id, buildEntryInput(entry, { title }), { silentSuccess: true });
+                                              })
+                                            }
+                                          />
+                                          {entry.notes ? <p className="px-2 text-sm text-muted-foreground">{entry.notes}</p> : null}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>{entry.type === "Entrada" ? "Entrada" : "Saída"}</TableCell>
+                                      <TableCell>{formatOrigin(entry.origin)}</TableCell>
+                                      <TableCell>
+                                        <InlineSelectCell
+                                          value={entry.categoryId ?? "none"}
+                                          displayValue={entry.categoryName ?? "Sem categoria"}
+                                          ariaLabel={`Editar categoria do lançamento ${entry.title}`}
+                                          canEdit={canInlineEdit}
+                                          rowBusy={rowBusy}
+                                          isSyncing={dashboard.syncingSections.cash}
+                                          options={[
+                                            { value: "none", label: "Sem categoria" },
+                                            ...dashboard.categories.map((category) => ({ value: category.id, label: category.name })),
+                                          ]}
+                                          onSave={(categoryId) =>
+                                            runRowSave(rowKey, async () => {
+                                              await dashboard.updateEntry(
+                                                entry.id,
+                                                buildEntryInput(entry, { categoryId: categoryId === "none" ? null : categoryId }),
+                                                { silentSuccess: true },
+                                              );
+                                            })
+                                          }
                                         />
-                                        {entry.verified ? "Sim" : "Não"}
-                                      </label>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      <div className="flex flex-wrap justify-end gap-2">
-                                        <Button
-                                          variant="secondary"
-                                          size="sm"
-                                          onClick={() => setEntryDialog({ mode: "edit", entryType: entry.type, entry })}
-                                          disabled={!entry.canEdit}
-                                        >
-                                          <Pencil />
-                                          Editar
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => setDeleteTarget({ kind: "entry", id: entry.id, name: entry.title })}
-                                          disabled={!entry.canDelete}
-                                        >
-                                          <Trash2 />
-                                          Excluir
-                                        </Button>
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
+                                      </TableCell>
+                                      <TableCell>
+                                        <InlineInputCell
+                                          value={entry.referenceDate}
+                                          displayValue={formatDateOnlyPtBr(entry.referenceDate)}
+                                          ariaLabel={`Editar data do lançamento ${entry.title}`}
+                                          canEdit={canInlineEdit}
+                                          rowBusy={rowBusy}
+                                          isSyncing={dashboard.syncingSections.cash}
+                                          inputType="date"
+                                          toDraft={(current) => current}
+                                          fromDraft={(draft) =>
+                                            draft.startsWith(`${entry.year}-${String(entry.month).padStart(2, "0")}-`)
+                                              ? { value: draft }
+                                              : { value: draft, error: "A data deve permanecer dentro do período atual." }
+                                          }
+                                          onSave={(referenceDate) =>
+                                            runRowSave(rowKey, async () => {
+                                              await dashboard.updateEntry(entry.id, buildEntryInput(entry, { referenceDate }), { silentSuccess: true });
+                                            })
+                                          }
+                                        />
+                                      </TableCell>
+                                      <TableCell>{entry.projectName ?? entry.universeName ?? "Sem classificação"}</TableCell>
+                                      <TableCell className={`font-medium ${entry.type === "Entrada" ? "text-success" : "text-danger"}`}>
+                                        <InlineInputCell
+                                          value={entry.amount}
+                                          displayValue={formatCurrency(entry.amount)}
+                                          ariaLabel={`Editar valor do lançamento ${entry.title}`}
+                                          canEdit={canInlineEdit}
+                                          rowBusy={rowBusy}
+                                          isSyncing={dashboard.syncingSections.cash}
+                                          placeholder="R$ 0,00"
+                                          displayClassName={entry.type === "Entrada" ? "text-success" : "text-danger"}
+                                          toDraft={(current) => formatCurrency(current)}
+                                          fromDraft={(draft) => {
+                                            const parsed = parseCurrencyInput(draft);
+                                            if (parsed == null || parsed < 0) {
+                                              return { value: entry.amount, error: "Informe um valor válido para o lançamento." };
+                                            }
+
+                                            return { value: parsed };
+                                          }}
+                                          onSave={(amount) =>
+                                            runRowSave(rowKey, async () => {
+                                              await dashboard.updateEntry(entry.id, buildEntryInput(entry, { amount }), { silentSuccess: true });
+                                            })
+                                          }
+                                        />
+                                      </TableCell>
+                                      <TableCell>
+                                        <InlineCheckboxCell
+                                          checked={entry.verified}
+                                          checkedLabel="Sim"
+                                          uncheckedLabel="Não"
+                                          ariaLabel={`Alternar verificação do lançamento ${entry.title}`}
+                                          canEdit={canInlineEdit}
+                                          rowBusy={rowBusy}
+                                          isSyncing={dashboard.syncingSections.cash}
+                                          onSave={(verified) =>
+                                            runRowSave(rowKey, async () => {
+                                              await dashboard.updateEntry(entry.id, buildEntryInput(entry, { verified }), { silentSuccess: true });
+                                            })
+                                          }
+                                        />
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <div className="flex flex-wrap justify-end gap-2">
+                                          <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => setEntryDialog({ mode: "edit", entryType: entry.type, entry })}
+                                            disabled={!entry.canEdit || rowBusy}
+                                          >
+                                            <Pencil />
+                                            Editar
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setDeleteTarget({ kind: "entry", id: entry.id, name: entry.title })}
+                                            disabled={!entry.canDelete || rowBusy}
+                                          >
+                                            <Trash2 />
+                                            Excluir
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
                               </TableBody>
                             </Table>
                           </div>
@@ -488,7 +1100,13 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
             <Card>
               <CardHeader className="border-b border-border/60 pb-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <CardTitle className="text-lg">Cartões</CardTitle>
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg">Cartões</CardTitle>
+                    <InlineSyncLabel
+                      syncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
+                      label="Sincronizando cartões..."
+                    />
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" onClick={() => setCardDialog("create")}>
                       <Plus />
@@ -575,7 +1193,10 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
 
                       <Card>
                         <CardHeader className="border-b border-border/60 pb-3">
-                          <CardTitle className="text-base">Compras</CardTitle>
+                          <div className="space-y-1">
+                            <CardTitle className="text-base">Compras</CardTitle>
+                            <InlineSyncLabel syncing={dashboard.syncingSections.cardTransactions} label="Sincronizando compras..." />
+                          </div>
                         </CardHeader>
                         <CardContent className="p-0">
                           {dashboard.cardDetailsLoading ? (
@@ -597,45 +1218,142 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                  {dashboard.creditCardTransactions.length === 0 ? (
-                                    <TableRow>
-                                      <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                                        Nenhuma compra registrada neste cartão.
-                                      </TableCell>
-                                    </TableRow>
-                                  ) : (
-                                    dashboard.creditCardTransactions.map((transaction) => (
-                                      <TableRow key={transaction.id}>
-                                        <TableCell>
-                                          <div className="space-y-1">
-                                            <p className="font-medium text-foreground">{transaction.title}</p>
-                                            {transaction.merchant ? <p className="text-sm text-muted-foreground">{transaction.merchant}</p> : null}
-                                          </div>
-                                        </TableCell>
-                                        <TableCell>{formatDateOnlyPtBr(transaction.purchasedOn)}</TableCell>
-                                        <TableCell>{transaction.categoryName ?? "Sem categoria"}</TableCell>
-                                        <TableCell>{transaction.projectName ?? transaction.universeName ?? "Sem classificação"}</TableCell>
-                                        <TableCell>{transaction.creditCardStatementId ? "Fechada" : "Em aberto"}</TableCell>
-                                        <TableCell className="font-medium text-foreground">{formatCurrency(transaction.amount)}</TableCell>
-                                        <TableCell className="text-right">
-                                          <div className="flex flex-wrap justify-end gap-2">
-                                            <Button variant="secondary" size="sm" onClick={() => setTransactionDialog(transaction)} disabled={!transaction.canEdit}>
-                                              <Pencil />
-                                              Editar
-                                            </Button>
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() => setDeleteTarget({ kind: "transaction", id: transaction.id, name: transaction.title })}
-                                              disabled={!transaction.canDelete}
-                                            >
-                                              <Trash2 />
-                                              Excluir
-                                            </Button>
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                    ))
+                                {dashboard.creditCardTransactions.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                                      Nenhuma compra registrada neste cartão.
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                    dashboard.creditCardTransactions.map((transaction) => {
+                                      const rowKey = `transaction:${transaction.id}`;
+                                      const rowBusy = isRowSaving(rowKey);
+
+                                      return (
+                                        <TableRow key={transaction.id}>
+                                          <TableCell>
+                                            <div className="space-y-1">
+                                              <InlineInputCell
+                                                value={transaction.title}
+                                                displayValue={transaction.title}
+                                                ariaLabel={`Editar título da compra ${transaction.title}`}
+                                                canEdit={transaction.canEdit}
+                                                rowBusy={rowBusy}
+                                                isSyncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
+                                                toDraft={(current) => current}
+                                                fromDraft={(draft) => {
+                                                  const trimmed = draft.trim();
+                                                  return trimmed ? { value: trimmed } : { value: draft, error: "Informe o título da compra." };
+                                                }}
+                                                onSave={(title) =>
+                                                  runRowSave(rowKey, async () => {
+                                                    await dashboard.updateCreditCardTransaction(
+                                                      transaction.id,
+                                                      buildTransactionInput(transaction, { title }),
+                                                      { silentSuccess: true },
+                                                    );
+                                                  })
+                                                }
+                                              />
+                                              {transaction.merchant ? <p className="px-2 text-sm text-muted-foreground">{transaction.merchant}</p> : null}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <InlineInputCell
+                                              value={transaction.purchasedOn}
+                                              displayValue={formatDateOnlyPtBr(transaction.purchasedOn)}
+                                              ariaLabel={`Editar data da compra ${transaction.title}`}
+                                              canEdit={transaction.canEdit}
+                                              rowBusy={rowBusy}
+                                              isSyncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
+                                              inputType="date"
+                                              toDraft={(current) => current}
+                                              fromDraft={(draft) => (draft ? { value: draft } : { value: draft, error: "Informe a data da compra." })}
+                                              onSave={(purchasedOn) =>
+                                                runRowSave(rowKey, async () => {
+                                                  await dashboard.updateCreditCardTransaction(
+                                                    transaction.id,
+                                                    buildTransactionInput(transaction, { purchasedOn }),
+                                                    { silentSuccess: true },
+                                                  );
+                                                })
+                                              }
+                                            />
+                                          </TableCell>
+                                          <TableCell>
+                                            <InlineSelectCell
+                                              value={transaction.categoryId ?? "none"}
+                                              displayValue={transaction.categoryName ?? "Sem categoria"}
+                                              ariaLabel={`Editar categoria da compra ${transaction.title}`}
+                                              canEdit={transaction.canEdit}
+                                              rowBusy={rowBusy}
+                                              isSyncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
+                                              options={[
+                                                { value: "none", label: "Sem categoria" },
+                                                ...dashboard.categories.map((category) => ({ value: category.id, label: category.name })),
+                                              ]}
+                                              onSave={(categoryId) =>
+                                                runRowSave(rowKey, async () => {
+                                                  await dashboard.updateCreditCardTransaction(
+                                                    transaction.id,
+                                                    buildTransactionInput(transaction, { categoryId: categoryId === "none" ? null : categoryId }),
+                                                    { silentSuccess: true },
+                                                  );
+                                                })
+                                              }
+                                            />
+                                          </TableCell>
+                                          <TableCell>{transaction.projectName ?? transaction.universeName ?? "Sem classificação"}</TableCell>
+                                          <TableCell>{transaction.creditCardStatementId ? "Fechada" : "Em aberto"}</TableCell>
+                                          <TableCell className="font-medium text-foreground">
+                                            <InlineInputCell
+                                              value={transaction.amount}
+                                              displayValue={formatCurrency(transaction.amount)}
+                                              ariaLabel={`Editar valor da compra ${transaction.title}`}
+                                              canEdit={transaction.canEdit}
+                                              rowBusy={rowBusy}
+                                              isSyncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
+                                              placeholder="R$ 0,00"
+                                              toDraft={(current) => formatCurrency(current)}
+                                              fromDraft={(draft) => {
+                                                const parsed = parseCurrencyInput(draft);
+                                                if (parsed == null || parsed <= 0) {
+                                                  return { value: transaction.amount, error: "Informe um valor positivo para a compra." };
+                                                }
+
+                                                return { value: parsed };
+                                              }}
+                                              onSave={(amount) =>
+                                                runRowSave(rowKey, async () => {
+                                                  await dashboard.updateCreditCardTransaction(
+                                                    transaction.id,
+                                                    buildTransactionInput(transaction, { amount }),
+                                                    { silentSuccess: true },
+                                                  );
+                                                })
+                                              }
+                                            />
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            <div className="flex flex-wrap justify-end gap-2">
+                                              <Button variant="secondary" size="sm" onClick={() => setTransactionDialog(transaction)} disabled={!transaction.canEdit || rowBusy}>
+                                                <Pencil />
+                                                Editar
+                                              </Button>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setDeleteTarget({ kind: "transaction", id: transaction.id, name: transaction.title })}
+                                                disabled={!transaction.canDelete || rowBusy}
+                                              >
+                                                <Trash2 />
+                                                Excluir
+                                              </Button>
+                                            </div>
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })
                                   )}
                                 </TableBody>
                               </Table>
@@ -646,7 +1364,10 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
 
                       <Card>
                         <CardHeader className="border-b border-border/60 pb-3">
-                          <CardTitle className="text-base">Faturas</CardTitle>
+                          <div className="space-y-1">
+                            <CardTitle className="text-base">Faturas</CardTitle>
+                            <InlineSyncLabel syncing={dashboard.syncingSections.cardStatements} label="Sincronizando faturas..." />
+                          </div>
                         </CardHeader>
                         <CardContent className="p-0">
                           <div className="overflow-x-auto">
@@ -668,31 +1389,78 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                     </TableCell>
                                   </TableRow>
                                 ) : (
-                                  dashboard.creditCardStatements.map((statement) => (
-                                    <TableRow key={statement.id}>
-                                      <TableCell>{formatDateOnlyPtBr(statement.closingDate)}</TableCell>
-                                      <TableCell>{formatDateOnlyPtBr(statement.dueDate)}</TableCell>
-                                      <TableCell>{statement.transactionCount}</TableCell>
-                                      <TableCell className="font-medium text-foreground">{formatCurrency(statement.totalAmount)}</TableCell>
-                                      <TableCell className="text-right">
-                                        <div className="flex flex-wrap justify-end gap-2">
-                                          <Button variant="secondary" size="sm" onClick={() => setStatementDialog(statement)} disabled={!statement.canEdit}>
-                                            <Pencil />
-                                            Editar
-                                          </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setDeleteTarget({ kind: "statement", id: statement.id, name: `fatura ${formatDateOnlyPtBr(statement.dueDate)}` })}
-                                            disabled={!statement.canDelete}
-                                          >
-                                            <Trash2 />
-                                            Excluir
-                                          </Button>
-                                        </div>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))
+                                  dashboard.creditCardStatements.map((statement) => {
+                                    const rowKey = `statement:${statement.id}`;
+                                    const rowBusy = isRowSaving(rowKey);
+
+                                    return (
+                                      <TableRow key={statement.id}>
+                                        <TableCell>
+                                          <InlineInputCell
+                                            value={statement.closingDate}
+                                            displayValue={formatDateOnlyPtBr(statement.closingDate)}
+                                            ariaLabel={`Editar fechamento da fatura ${formatDateOnlyPtBr(statement.dueDate)}`}
+                                            canEdit={statement.canEdit}
+                                            rowBusy={rowBusy}
+                                            isSyncing={dashboard.syncingSections.cardStatements}
+                                            inputType="date"
+                                            toDraft={(current) => current}
+                                            fromDraft={(draft) => (draft ? { value: draft } : { value: draft, error: "Informe a data de fechamento." })}
+                                            onSave={(closingDate) =>
+                                              runRowSave(rowKey, async () => {
+                                                await dashboard.updateCreditCardStatement(
+                                                  statement.id,
+                                                  buildStatementInput(statement, { closingDate }),
+                                                  { silentSuccess: true },
+                                                );
+                                              })
+                                            }
+                                          />
+                                        </TableCell>
+                                        <TableCell>
+                                          <InlineInputCell
+                                            value={statement.dueDate}
+                                            displayValue={formatDateOnlyPtBr(statement.dueDate)}
+                                            ariaLabel={`Editar vencimento da fatura ${formatDateOnlyPtBr(statement.dueDate)}`}
+                                            canEdit={statement.canEdit}
+                                            rowBusy={rowBusy}
+                                            isSyncing={dashboard.syncingSections.cardStatements}
+                                            inputType="date"
+                                            toDraft={(current) => current}
+                                            fromDraft={(draft) => (draft ? { value: draft } : { value: draft, error: "Informe a data de vencimento." })}
+                                            onSave={(dueDate) =>
+                                              runRowSave(rowKey, async () => {
+                                                await dashboard.updateCreditCardStatement(
+                                                  statement.id,
+                                                  buildStatementInput(statement, { dueDate }),
+                                                  { silentSuccess: true },
+                                                );
+                                              })
+                                            }
+                                          />
+                                        </TableCell>
+                                        <TableCell>{statement.transactionCount}</TableCell>
+                                        <TableCell className="font-medium text-foreground">{formatCurrency(statement.totalAmount)}</TableCell>
+                                        <TableCell className="text-right">
+                                          <div className="flex flex-wrap justify-end gap-2">
+                                            <Button variant="secondary" size="sm" onClick={() => setStatementDialog(statement)} disabled={!statement.canEdit || rowBusy}>
+                                              <Pencil />
+                                              Editar
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => setDeleteTarget({ kind: "statement", id: statement.id, name: `fatura ${formatDateOnlyPtBr(statement.dueDate)}` })}
+                                              disabled={!statement.canDelete || rowBusy}
+                                            >
+                                              <Trash2 />
+                                              Excluir
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })
                                 )}
                               </TableBody>
                             </Table>
@@ -854,6 +1622,8 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         valuation={valuationDialog?.valuation ?? null}
         valuations={valuationDialog?.asset ? dashboard.assetValuations[valuationDialog.asset.id] ?? [] : []}
         loading={valuationDialog?.asset ? dashboard.assetValuationsLoadingFor === valuationDialog.asset.id : false}
+        syncing={dashboard.syncingSections.assetValuations}
+        isRowSaving={isRowSaving}
         onOpenChange={(open) => !open && setValuationDialog(null)}
         onCreate={async (input) => {
           if (!valuationDialog?.asset) {
@@ -885,6 +1655,20 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
           }
 
           setValuationDialog(null);
+        }}
+        onInlineSave={async (valuation, overrides) => {
+          if (!valuationDialog?.asset) {
+            return;
+          }
+
+          await runRowSave(`valuation:${valuation.id}`, async () => {
+            await dashboard.updateAssetValuation(
+              valuationDialog.asset.id,
+              valuation.id,
+              buildAssetValuationInput(valuation, overrides),
+              { silentSuccess: true },
+            );
+          });
         }}
         onDelete={(valuation) => {
           if (!valuationDialog?.asset) {
@@ -949,6 +1733,9 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       <RecurringTemplatesDialog
         open={recurringTemplatesDialogOpen}
         templates={dashboard.recurringTemplates}
+        categories={dashboard.categories}
+        syncing={dashboard.syncingSections.recurringTemplates}
+        isRowSaving={isRowSaving}
         onOpenChange={(open) => {
           setRecurringTemplatesDialogOpen(open);
           if (!open) {
@@ -962,11 +1749,18 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
           setTemplateDialog(template);
         }}
         onDeleteTemplate={(template) => setDeleteTarget({ kind: "template", id: template.id, name: template.title })}
+        onInlineSaveTemplate={async (template, overrides) => {
+          await runRowSave(`template:${template.id}`, async () => {
+            await dashboard.updateRecurringTemplate(template.id, buildRecurringTemplateInput(template, overrides), { silentSuccess: true });
+          });
+        }}
       />
 
       <CategoriesDialog
         open={categoriesDialogOpen}
         categories={dashboard.categories}
+        syncing={dashboard.syncingSections.categories}
+        isRowSaving={isRowSaving}
         onOpenChange={(open) => {
           setCategoriesDialogOpen(open);
           if (!open) {
@@ -980,6 +1774,11 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
           setCategoryDialog(category);
         }}
         onDeleteCategory={(category) => setDeleteTarget({ kind: "category", id: category.id, name: category.name })}
+        onInlineSaveCategory={async (category, name) => {
+          await runRowSave(`category:${category.id}`, async () => {
+            await dashboard.updateCategory(category.id, { name }, { silentSuccess: true });
+          });
+        }}
       />
 
       <GeneratePeriodDialog
@@ -1104,17 +1903,23 @@ function CategoryDialog({
 function CategoriesDialog({
   open,
   categories,
+  syncing,
+  isRowSaving,
   onOpenChange,
   onCreateNew,
   onEditCategory,
   onDeleteCategory,
+  onInlineSaveCategory,
 }: {
   open: boolean;
   categories: FinanceCategory[];
+  syncing: boolean;
+  isRowSaving: (rowKey: string) => boolean;
   onOpenChange: (open: boolean) => void;
   onCreateNew: () => void;
   onEditCategory: (category: FinanceCategory) => void;
   onDeleteCategory: (category: FinanceCategory) => void;
+  onInlineSaveCategory: (category: FinanceCategory, name: string) => Promise<void>;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1123,6 +1928,7 @@ function CategoriesDialog({
           <DialogHeader className="space-y-2">
             <DialogTitle>Categorias</DialogTitle>
             <DialogDescription>Gerencie as categorias padrão e personalizadas usadas no caixa, nas recorrências e nas compras de cartão.</DialogDescription>
+            <InlineSyncLabel syncing={syncing} label="Sincronizando categorias..." />
           </DialogHeader>
           <Button onClick={onCreateNew}>
             <Plus />
@@ -1148,27 +1954,45 @@ function CategoriesDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {categories.map((category) => (
-                    <TableRow key={category.id}>
-                      <TableCell>
-                        <p className="font-medium text-foreground">{category.name}</p>
-                      </TableCell>
-                      <TableCell>{category.isDefault ? "Padrão" : "Personalizada"}</TableCell>
-                      <TableCell>{category.usageCount === 1 ? "1 uso no financeiro" : `${category.usageCount} usos no financeiro`}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button variant="secondary" size="sm" onClick={() => onEditCategory(category)} disabled={!category.canEdit}>
-                            <Pencil />
-                            Editar
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => onDeleteCategory(category)} disabled={!category.canDelete}>
-                            <Trash2 />
-                            Excluir
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {categories.map((category) => {
+                    const rowKey = `category:${category.id}`;
+                    const rowBusy = isRowSaving(rowKey);
+
+                    return (
+                      <TableRow key={category.id}>
+                        <TableCell>
+                          <InlineInputCell
+                            value={category.name}
+                            displayValue={category.name}
+                            ariaLabel={`Editar nome da categoria ${category.name}`}
+                            canEdit={category.canEdit}
+                            rowBusy={rowBusy}
+                            isSyncing={syncing}
+                            toDraft={(current) => current}
+                            fromDraft={(draft) => {
+                              const trimmed = draft.trim();
+                              return trimmed ? { value: trimmed } : { value: draft, error: "Informe o nome da categoria." };
+                            }}
+                            onSave={(name) => onInlineSaveCategory(category, name)}
+                          />
+                        </TableCell>
+                        <TableCell>{category.isDefault ? "Padrão" : "Personalizada"}</TableCell>
+                        <TableCell>{category.usageCount === 1 ? "1 uso no financeiro" : `${category.usageCount} usos no financeiro`}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button variant="secondary" size="sm" onClick={() => onEditCategory(category)} disabled={!category.canEdit || rowBusy}>
+                              <Pencil />
+                              Editar
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => onDeleteCategory(category)} disabled={!category.canDelete || rowBusy}>
+                              <Trash2 />
+                              Excluir
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -1834,22 +2658,28 @@ function AssetValuationDialog({
   valuation,
   valuations,
   loading,
+  syncing,
+  isRowSaving,
   onOpenChange,
   onCreate,
   onEdit,
   onSave,
   onDelete,
+  onInlineSave,
 }: {
   open: boolean;
   asset: Asset | null;
   valuation: AssetValuation | null;
   valuations: AssetValuation[];
   loading: boolean;
+  syncing: boolean;
+  isRowSaving: (rowKey: string) => boolean;
   onOpenChange: (open: boolean) => void;
   onCreate: (input: AssetValuationFormInput) => Promise<void>;
   onEdit: (valuation: AssetValuation) => void;
   onSave: (input: AssetValuationFormInput) => Promise<void>;
   onDelete: (valuation: AssetValuation) => void;
+  onInlineSave: (valuation: AssetValuation, overrides: Partial<AssetValuationFormInput>) => Promise<void>;
 }) {
   const [referenceYear, setReferenceYear] = useState(valuation?.referenceYear ?? new Date().getUTCFullYear());
   const [label, setLabel] = useState(valuation?.label ?? "");
@@ -1907,30 +2737,110 @@ function AssetValuationDialog({
         <DialogHeader>
           <DialogTitle>Referências anuais</DialogTitle>
           <DialogDescription>{asset ? `Registre FIPE, avaliação ou outro valor anual para ${asset.title}.` : "Registre referências anuais."}</DialogDescription>
+          <InlineSyncLabel syncing={syncing} label="Sincronizando referências anuais..." />
         </DialogHeader>
         <div className="space-y-4">
           {loading ? <Notice tone="warning">Carregando referências anuais...</Notice> : null}
-          <div className="space-y-2">
-            {valuations.map((item) => (
-              <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-border/60 px-4 py-3">
-                <div>
-                  <p className="font-medium text-foreground">{item.label}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {item.referenceYear} • {formatCurrency(item.amount)}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => onEdit(item)} disabled={!item.canEdit}>
-                    <Pencil />
-                    Editar
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => onDelete(item)} disabled={!item.canDelete}>
-                    <Trash2 />
-                    Excluir
-                  </Button>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
+                  <TableHead>Ano</TableHead>
+                  <TableHead>Rótulo</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead className="min-w-[220px] text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {valuations.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
+                      Nenhuma referência anual registrada para este bem.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  valuations.map((item) => {
+                    const rowKey = `valuation:${item.id}`;
+                    const rowBusy = isRowSaving(rowKey);
+
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <InlineInputCell
+                            value={item.referenceYear}
+                            displayValue={String(item.referenceYear)}
+                            ariaLabel={`Editar ano da referência ${item.label}`}
+                            canEdit={item.canEdit}
+                            rowBusy={rowBusy}
+                            isSyncing={syncing}
+                            inputType="number"
+                            toDraft={(current) => String(current)}
+                            fromDraft={(draft) => {
+                              const parsed = Number(draft);
+                              if (!Number.isInteger(parsed) || parsed < 2000 || parsed > 9999) {
+                                return { value: item.referenceYear, error: "Informe um ano válido." };
+                              }
+
+                              return { value: parsed };
+                            }}
+                            onSave={(referenceYear) => onInlineSave(item, { referenceYear })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <InlineInputCell
+                            value={item.label}
+                            displayValue={item.label}
+                            ariaLabel={`Editar rótulo da referência ${item.label}`}
+                            canEdit={item.canEdit}
+                            rowBusy={rowBusy}
+                            isSyncing={syncing}
+                            toDraft={(current) => current}
+                            fromDraft={(draft) => {
+                              const trimmed = draft.trim();
+                              return trimmed ? { value: trimmed } : { value: draft, error: "Informe o rótulo da referência." };
+                            }}
+                            onSave={(label) => onInlineSave(item, { label })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <InlineInputCell
+                            value={item.amount}
+                            displayValue={formatCurrency(item.amount)}
+                            ariaLabel={`Editar valor da referência ${item.label}`}
+                            canEdit={item.canEdit}
+                            rowBusy={rowBusy}
+                            isSyncing={syncing}
+                            placeholder="R$ 0,00"
+                            toDraft={(current) => formatCurrency(current)}
+                            fromDraft={(draft) => {
+                              const parsed = parseCurrencyInput(draft);
+                              if (parsed == null || parsed <= 0) {
+                                return { value: item.amount, error: "Informe um valor positivo para a referência anual." };
+                              }
+
+                              return { value: parsed };
+                            }}
+                            onSave={(amount) => onInlineSave(item, { amount })}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button variant="secondary" size="sm" onClick={() => onEdit(item)} disabled={!item.canEdit || rowBusy}>
+                              <Pencil />
+                              Editar
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => onDelete(item)} disabled={!item.canDelete || rowBusy}>
+                              <Trash2 />
+                              Excluir
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
           <form className="space-y-4 rounded-[18px] border border-border/70 p-4" onSubmit={handleSubmit}>
             {error ? <Notice tone="danger">{error}</Notice> : null}
@@ -2369,17 +3279,28 @@ function CreditCardStatementDialog({
 function RecurringTemplatesDialog({
   open,
   templates,
+  categories,
+  syncing,
+  isRowSaving,
   onOpenChange,
   onCreateNew,
   onEditTemplate,
   onDeleteTemplate,
+  onInlineSaveTemplate,
 }: {
   open: boolean;
   templates: FinanceRecurringTemplate[];
+  categories: FinanceCategory[];
+  syncing: boolean;
+  isRowSaving: (rowKey: string) => boolean;
   onOpenChange: (open: boolean) => void;
   onCreateNew: () => void;
   onEditTemplate: (template: FinanceRecurringTemplate) => void;
   onDeleteTemplate: (template: FinanceRecurringTemplate) => void;
+  onInlineSaveTemplate: (
+    template: FinanceRecurringTemplate,
+    overrides: Partial<FinanceRecurringTemplateFormInput>,
+  ) => Promise<void>;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2388,6 +3309,7 @@ function RecurringTemplatesDialog({
           <DialogHeader className="space-y-2">
             <DialogTitle>Recorrências</DialogTitle>
             <DialogDescription>Gerencie as recorrências mensais e anuais em uma janela dedicada quase em tela cheia.</DialogDescription>
+            <InlineSyncLabel syncing={syncing} label="Sincronizando recorrências..." />
           </DialogHeader>
           <Button onClick={onCreateNew}>
             <Plus />
@@ -2417,34 +3339,99 @@ function RecurringTemplatesDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {templates.map((template) => (
-                    <TableRow key={template.id}>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <p className="font-medium text-foreground">{template.title}</p>
-                          {template.notes ? <p className="text-sm text-muted-foreground">{template.notes}</p> : null}
-                        </div>
-                      </TableCell>
-                      <TableCell>{template.type === "Entrada" ? "Entrada" : "Saída"}</TableCell>
-                      <TableCell>{formatRecurrence(template.recurrence, template.dayOfMonth, template.monthOfYear)}</TableCell>
-                      <TableCell>{formatCurrency(template.defaultAmount)}</TableCell>
-                      <TableCell>{template.categoryName ?? "Sem categoria"}</TableCell>
-                      <TableCell>{template.projectName ?? template.universeName ?? "Sem classificação"}</TableCell>
-                      <TableCell>{template.isActive ? "Ativa" : "Inativa"}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button variant="secondary" size="sm" onClick={() => onEditTemplate(template)} disabled={!template.canEdit}>
-                            <Pencil />
-                            Editar
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => onDeleteTemplate(template)} disabled={!template.canDelete}>
-                            <Trash2 />
-                            Excluir
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {templates.map((template) => {
+                    const rowKey = `template:${template.id}`;
+                    const rowBusy = isRowSaving(rowKey);
+
+                    return (
+                      <TableRow key={template.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <InlineInputCell
+                              value={template.title}
+                              displayValue={template.title}
+                              ariaLabel={`Editar título da recorrência ${template.title}`}
+                              canEdit={template.canEdit}
+                              rowBusy={rowBusy}
+                              isSyncing={syncing}
+                              toDraft={(current) => current}
+                              fromDraft={(draft) => {
+                                const trimmed = draft.trim();
+                                return trimmed ? { value: trimmed } : { value: draft, error: "Informe o título da recorrência." };
+                              }}
+                              onSave={(title) => onInlineSaveTemplate(template, { title })}
+                            />
+                            {template.notes ? <p className="px-2 text-sm text-muted-foreground">{template.notes}</p> : null}
+                          </div>
+                        </TableCell>
+                        <TableCell>{template.type === "Entrada" ? "Entrada" : "Saída"}</TableCell>
+                        <TableCell>{formatRecurrence(template.recurrence, template.dayOfMonth, template.monthOfYear)}</TableCell>
+                        <TableCell>
+                          <InlineInputCell
+                            value={template.defaultAmount}
+                            displayValue={formatCurrency(template.defaultAmount)}
+                            ariaLabel={`Editar valor padrão da recorrência ${template.title}`}
+                            canEdit={template.canEdit}
+                            rowBusy={rowBusy}
+                            isSyncing={syncing}
+                            placeholder="R$ 0,00"
+                            toDraft={(current) => formatCurrency(current)}
+                            fromDraft={(draft) => {
+                              const parsed = parseCurrencyInput(draft);
+                              if (parsed == null || parsed < 0) {
+                                return { value: template.defaultAmount, error: "Informe um valor válido para a recorrência." };
+                              }
+
+                              return { value: parsed };
+                            }}
+                            onSave={(defaultAmount) => onInlineSaveTemplate(template, { defaultAmount })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <InlineSelectCell
+                            value={template.categoryId ?? "none"}
+                            displayValue={template.categoryName ?? "Sem categoria"}
+                            ariaLabel={`Editar categoria da recorrência ${template.title}`}
+                            canEdit={template.canEdit}
+                            rowBusy={rowBusy}
+                            isSyncing={syncing}
+                            options={[
+                              { value: "none", label: "Sem categoria" },
+                              ...categories.map((category) => ({ value: category.id, label: category.name })),
+                            ]}
+                            onSave={(categoryId) =>
+                              onInlineSaveTemplate(template, { categoryId: categoryId === "none" ? null : categoryId })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>{template.projectName ?? template.universeName ?? "Sem classificação"}</TableCell>
+                        <TableCell>
+                          <InlineCheckboxCell
+                            checked={template.isActive}
+                            checkedLabel="Ativa"
+                            uncheckedLabel="Inativa"
+                            ariaLabel={`Alternar status da recorrência ${template.title}`}
+                            canEdit={template.canEdit}
+                            rowBusy={rowBusy}
+                            isSyncing={syncing}
+                            onSave={(isActive) => onInlineSaveTemplate(template, { isActive })}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button variant="secondary" size="sm" onClick={() => onEditTemplate(template)} disabled={!template.canEdit || rowBusy}>
+                              <Pencil />
+                              Editar
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => onDeleteTemplate(template)} disabled={!template.canDelete || rowBusy}>
+                              <Trash2 />
+                              Excluir
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

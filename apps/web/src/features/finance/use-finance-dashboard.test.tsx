@@ -40,6 +40,17 @@ const mockedReadSession = vi.mocked(api.readSession);
 const mockedSubscribeToSessionChanges = vi.mocked(api.subscribeToSessionChanges);
 const mockedToast = vi.mocked(toast);
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return { promise, resolve, reject };
+}
+
 async function flushDashboardEffects() {
   await act(async () => {
     await Promise.resolve();
@@ -120,7 +131,7 @@ function buildPeriodDetail(overrides: Partial<FinancePeriodDetail> = {}): Financ
   };
 }
 
-function buildCard(): CreditCardAccount {
+function buildCard(overrides: Partial<CreditCardAccount> = {}): CreditCardAccount {
   return {
     id: "card-1",
     name: "Nubank",
@@ -137,6 +148,7 @@ function buildCard(): CreditCardAccount {
     updatedAt: "2026-07-01T12:00:00.000Z",
     canEdit: true,
     canDelete: true,
+    ...overrides,
   };
 }
 
@@ -385,6 +397,229 @@ describe("useFinanceDashboard", () => {
       expect.objectContaining({ id: "statement-1", totalAmount: 220.9 }),
     ]);
     expect(mockedToast.success).toHaveBeenCalledWith("Fatura criada.");
+
+    unmount();
+  });
+
+  it("applies optimistic entry updates immediately and rolls them back on request failure", async () => {
+    const session = buildSession();
+    mockedReadSession.mockReturnValue(session);
+    mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
+
+    const updateDeferred = createDeferred<FinanceEntry>();
+
+    mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { householdId?: string }) => {
+      if (path === "/api/households/members" || path === "/api/universes" || path === "/api/projects") {
+        return [];
+      }
+
+      if (path === "/api/finance/categories") {
+        return buildCategories();
+      }
+
+      if (path === "/api/finance/periods") {
+        return [{ id: "period-1", year: 2026, month: 7, totalIncome: 5000, totalExpense: 700, cashBalance: 4300, entryCount: 1 }];
+      }
+
+      if (path === "/api/finance/periods/2026/7") {
+        return buildPeriodDetail();
+      }
+
+      if (path === "/api/finance/recurring-templates" || path === "/api/finance/assets" || path === "/api/finance/credit-cards") {
+        return [];
+      }
+
+      if (path === "/api/finance/entries/entry-1" && options?.method === "PUT") {
+        return await updateDeferred.promise;
+      }
+
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const { result, unmount } = renderHook(() => useFinanceDashboard());
+
+    await flushDashboardEffects();
+    await flushDashboardEffects();
+
+    let updatePromise: Promise<void> | undefined;
+    await act(async () => {
+      updatePromise = result.current.updateEntry(
+        "entry-1",
+        {
+          year: 2026,
+          month: 7,
+          title: "Condominio atualizado",
+          notes: "",
+          amount: 850,
+          type: "Saida",
+          verified: false,
+          referenceDate: "2026-07-06",
+          recurringTemplateId: null,
+          categoryId: null,
+          universeId: null,
+          projectId: null,
+        },
+        { silentSuccess: true },
+      );
+      await Promise.resolve();
+    });
+
+    expect(result.current.periodDetail?.entries).toEqual([
+      expect.objectContaining({
+        id: "entry-1",
+        title: "Condominio atualizado",
+        amount: 850,
+        verified: false,
+      }),
+    ]);
+    expect(result.current.periodDetail?.summary.totalExpense).toBe(850);
+    expect(result.current.periodDetail?.summary.cashBalance).toBe(-850);
+    expect(result.current.periodDetail?.summary.pendingVerificationEntries).toBe(1);
+
+    await act(async () => {
+      updateDeferred.reject(new Error("Falha simulada"));
+      await expect(updatePromise).rejects.toThrow("Falha simulada");
+    });
+
+    expect(result.current.periodDetail?.entries).toEqual([
+      expect.objectContaining({
+        id: "entry-1",
+        title: "Condominio",
+        amount: 700,
+        verified: true,
+      }),
+    ]);
+    expect(result.current.periodDetail?.summary.totalExpense).toBe(700);
+    expect(result.current.periodDetail?.summary.cashBalance).toBe(-700);
+    expect(mockedToast.error).toHaveBeenCalledWith("Falha simulada");
+
+    unmount();
+  });
+
+  it("updates card transactions optimistically and reconciles the card section in background", async () => {
+    const session = buildSession();
+    mockedReadSession.mockReturnValue(session);
+    mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
+
+    const updateDeferred = createDeferred<CreditCardTransaction>();
+    let transactionUpdated = false;
+
+    mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { householdId?: string }) => {
+      if (path === "/api/households/members" || path === "/api/universes" || path === "/api/projects") {
+        return [];
+      }
+
+      if (path === "/api/finance/categories") {
+        return buildCategories();
+      }
+
+      if (path === "/api/finance/periods") {
+        return [{ id: "period-1", year: 2026, month: 7, totalIncome: 5000, totalExpense: 700, cashBalance: 4300, entryCount: 1 }];
+      }
+
+      if (path === "/api/finance/periods/2026/7") {
+        return buildPeriodDetail(
+          transactionUpdated
+            ? {
+                summary: {
+                  totalIncome: 5000,
+                  totalExpense: 700,
+                  cashBalance: 4300,
+                  analyticalExpenseTotal: 1000,
+                  verifiedEntries: 1,
+                  pendingVerificationEntries: 0,
+                  cardPurchaseCount: 1,
+                },
+                cardTransactions: [buildTransaction({ amount: 300, title: "Mercado do bairro" })],
+              }
+            : {
+                summary: {
+                  totalIncome: 5000,
+                  totalExpense: 700,
+                  cashBalance: 4300,
+                  analyticalExpenseTotal: 920.9,
+                  verifiedEntries: 1,
+                  pendingVerificationEntries: 0,
+                  cardPurchaseCount: 1,
+                },
+                cardTransactions: [buildTransaction()],
+              },
+        );
+      }
+
+      if (path === "/api/finance/recurring-templates" || path === "/api/finance/assets") {
+        return [];
+      }
+
+      if (path === "/api/finance/credit-cards") {
+        return [buildCard({ openTransactionTotal: transactionUpdated ? 300 : 220.9 })];
+      }
+
+      if (path === "/api/finance/credit-cards/card-1/transactions/tx-1" && options?.method === "PUT") {
+        return await updateDeferred.promise;
+      }
+
+      if (path === "/api/finance/credit-cards/card-1/transactions") {
+        return transactionUpdated ? [buildTransaction({ amount: 300, title: "Mercado do bairro" })] : [buildTransaction()];
+      }
+
+      if (path === "/api/finance/credit-cards/card-1/statements") {
+        return [];
+      }
+
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const { result, unmount } = renderHook(() => useFinanceDashboard());
+
+    await flushDashboardEffects();
+    await flushDashboardEffects();
+
+    let updatePromise: Promise<void> | undefined;
+    await act(async () => {
+      updatePromise = result.current.updateCreditCardTransaction(
+        "tx-1",
+        {
+          title: "Mercado do bairro",
+          merchant: "Mercado",
+          amount: 300,
+          purchasedOn: "2026-07-06",
+          notes: "",
+          categoryId: "category-1",
+          universeId: "universe-1",
+          projectId: "project-1",
+          externalSource: "SMS",
+          externalReference: "sms-1",
+        },
+        { silentSuccess: true },
+      );
+      await Promise.resolve();
+    });
+
+    expect(result.current.creditCardTransactions).toEqual([
+      expect.objectContaining({ id: "tx-1", amount: 300, title: "Mercado do bairro" }),
+    ]);
+    expect(result.current.creditCardAccounts).toEqual([
+      expect.objectContaining({ id: "card-1", openTransactionTotal: 300 }),
+    ]);
+    expect(result.current.periodDetail?.summary.analyticalExpenseTotal).toBe(1000);
+    expect(result.current.syncingSections.cardTransactions).toBe(true);
+
+    await act(async () => {
+      transactionUpdated = true;
+      updateDeferred.resolve(buildTransaction({ amount: 300, title: "Mercado do bairro" }));
+      await updatePromise;
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.creditCardTransactions).toEqual([
+      expect.objectContaining({ id: "tx-1", amount: 300, title: "Mercado do bairro" }),
+    ]);
+    expect(result.current.creditCardAccounts).toEqual([
+      expect.objectContaining({ id: "card-1", openTransactionTotal: 300 }),
+    ]);
+    expect(result.current.syncingSections.cardTransactions).toBe(false);
 
     unmount();
   });
