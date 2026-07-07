@@ -4,6 +4,13 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.7.1] - 2026-07-07
+
+### Changed
+- O topo do financeiro passou a oferecer `Inserir Recorrências` como ação principal e um atalho dedicado para a gestão de recorrências.
+- A gestão de recorrências saiu da página principal e passou a viver em uma modal quase tela cheia, mantendo a lista e as ações de edição em um espaço dedicado.
+- A copy do módulo financeiro foi revisada para pt-BR com acentuação correta em botões, títulos, mensagens e textos de apoio.
+
 ## [1.7.0] - 2026-07-06
 
 ### Added

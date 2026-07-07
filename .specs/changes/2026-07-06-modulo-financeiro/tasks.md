@@ -9,3 +9,4 @@
 - [x] Criar tipos frontend, controller `use-finance-dashboard` e workspace visual.
 - [x] Cobrir comportamentos centrais com testes backend e frontend.
 - [x] Atualizar changelog, versao e memoria relevante.
+- [x] Refatorar a barra do financeiro para a modal dedicada de recorrências e revisar a copy em pt-BR com acentuação correta.

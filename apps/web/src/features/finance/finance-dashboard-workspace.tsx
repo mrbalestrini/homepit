@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Repeat2,
+  Wrench,
   Trash2,
   Wallet,
 } from "lucide-react";
@@ -73,7 +74,7 @@ import {
 const monthOptions = [
   { value: 1, label: "Janeiro" },
   { value: 2, label: "Fevereiro" },
-  { value: 3, label: "Marco" },
+  { value: 3, label: "Março" },
   { value: 4, label: "Abril" },
   { value: 5, label: "Maio" },
   { value: 6, label: "Junho" },
@@ -101,6 +102,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
   const [filters, setFilters] = useState<FinanceEntryFilters>(defaultFilters);
   const [entryDialog, setEntryDialog] = useState<EntryDialogState | null>(null);
   const [templateDialog, setTemplateDialog] = useState<FinanceRecurringTemplate | null | "create">(null);
+  const [recurringTemplatesDialogOpen, setRecurringTemplatesDialogOpen] = useState(false);
   const [assetDialog, setAssetDialog] = useState<Asset | null | "create">(null);
   const [valuationDialog, setValuationDialog] = useState<{ asset: Asset; valuation?: AssetValuation | null } | null>(null);
   const [cardDialog, setCardDialog] = useState<CreditCardAccount | null | "create">(null);
@@ -124,9 +126,9 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
 
   const periodSummary = dashboard.periodDetail?.summary;
   const headerStats = [
-    { label: "Lancamentos", value: entries.length },
-    { label: "Recorrencias", value: dashboard.recurringTemplates.length },
-    { label: "Cartoes", value: dashboard.creditCardAccounts.length },
+    { label: "Lançamentos", value: entries.length },
+    { label: "Recorrências", value: dashboard.recurringTemplates.length },
+    { label: "Cartões", value: dashboard.creditCardAccounts.length },
     { label: "Bens", value: dashboard.assets.length },
   ];
 
@@ -216,16 +218,16 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         activeModule="finance"
         subtitle={dashboard.subtitle}
         visibleCount={entries.length}
-        visibleLabel="lancamentos"
+        visibleLabel="lançamentos"
         headerStats={headerStats}
       >
         <Card>
           <CardContent className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Financeiro</p>
-              <h1 className="mt-2 text-2xl font-semibold text-foreground">Operacao financeira da casa</h1>
+              <h1 className="mt-2 text-2xl font-semibold text-foreground">Operação financeira da casa</h1>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Controle o caixa do mes, mantenha recorrencias, acompanhe cartoes e preserve o patrimonio em um unico lugar.
+                Controle o caixa do mês, mantenha recorrências, acompanhe cartões e preserve o patrimônio em um único lugar.
               </p>
             </div>
 
@@ -233,7 +235,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
               <Select
                 value={String(dashboard.activeYear)}
                 onChange={(event) => dashboard.setActivePeriod(Number(event.target.value), dashboard.activeMonth)}
-                aria-label="Ano do periodo"
+                aria-label="Ano do período"
               >
                 {selectableYears.map((year) => (
                   <option key={year} value={year}>
@@ -244,7 +246,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
               <Select
                 value={String(dashboard.activeMonth)}
                 onChange={(event) => dashboard.setActivePeriod(dashboard.activeYear, Number(event.target.value))}
-                aria-label="Mes do periodo"
+                aria-label="Mês do período"
               >
                 {monthOptions.map((month) => (
                   <option key={month.value} value={month.value}>
@@ -258,7 +260,11 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
               </Button>
               <Button onClick={handleGenerateClick}>
                 <CalendarRange />
-                Gerar mes
+                Inserir Recorrências
+              </Button>
+              <Button variant="secondary" onClick={() => setRecurringTemplatesDialogOpen(true)}>
+                <Wrench />
+                Recorrências
               </Button>
             </div>
           </CardContent>
@@ -267,16 +273,25 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         {dashboard.loading && !dashboard.periodDetail ? (
           <LoadingState
             title="Carregando financeiro"
-            description="Estamos reunindo o periodo mensal, recorrencias, cartoes e patrimonio da casa."
+            description="Estamos reunindo o período mensal, recorrências, cartões e patrimônio da casa."
             icon={<Wallet className="size-5 animate-pulse" />}
           />
         ) : (
           <>
             <div className="grid gap-4 xl:grid-cols-4">
-              <MetricCard label="Periodo" value={formatMonthLabel(dashboard.activeYear, dashboard.activeMonth)} helper={dashboard.periodDetail?.exists ? "Periodo existente" : "Periodo ainda nao gerado"} />
-              <MetricCard label="Entradas" value={formatCurrency(periodSummary?.totalIncome ?? 0, "R$ 0,00")} helper="Fluxo de caixa do mes" />
-              <MetricCard label="Saidas" value={formatCurrency(periodSummary?.totalExpense ?? 0, "R$ 0,00")} helper="Inclui a fatura consolidada" />
-              <MetricCard label="Saldo" value={formatCurrency(periodSummary?.cashBalance ?? 0, "R$ 0,00")} helper={`${periodSummary?.pendingVerificationEntries ?? 0} pendentes de verificacao`} accent={(periodSummary?.cashBalance ?? 0) < 0 ? "danger" : "success"} />
+              <MetricCard
+                label="Período"
+                value={formatMonthLabel(dashboard.activeYear, dashboard.activeMonth)}
+                helper={dashboard.periodDetail?.exists ? "Período existente" : "Período ainda não gerado"}
+              />
+              <MetricCard label="Entradas" value={formatCurrency(periodSummary?.totalIncome ?? 0, "R$ 0,00")} helper="Fluxo de caixa do mês" />
+              <MetricCard label="Saídas" value={formatCurrency(periodSummary?.totalExpense ?? 0, "R$ 0,00")} helper="Inclui a fatura consolidada" />
+              <MetricCard
+                label="Saldo"
+                value={formatCurrency(periodSummary?.cashBalance ?? 0, "R$ 0,00")}
+                helper={`${periodSummary?.pendingVerificationEntries ?? 0} pendentes de verificação`}
+                accent={(periodSummary?.cashBalance ?? 0) < 0 ? "danger" : "success"}
+              />
             </div>
 
             <Card>
@@ -284,9 +299,17 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                 <CardTitle className="text-lg">Resumo</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 p-4 lg:grid-cols-3">
-                <InfoBlock label="Gasto analitico do mes" value={formatCurrency(periodSummary?.analyticalExpenseTotal ?? 0, "R$ 0,00")} helper="Caixa sem fatura consolidada + compras de cartao do mes" />
-                <InfoBlock label="Compras em cartao" value={String(periodSummary?.cardPurchaseCount ?? 0)} helper="Quantidade de compras no periodo analitico" />
-                <InfoBlock label="Verificados" value={`${periodSummary?.verifiedEntries ?? 0}/${entries.length}`} helper="Lancamentos revisados no caixa mensal" />
+                <InfoBlock
+                  label="Gasto analítico do mês"
+                  value={formatCurrency(periodSummary?.analyticalExpenseTotal ?? 0, "R$ 0,00")}
+                  helper="Caixa sem fatura consolidada + compras de cartão do mês"
+                />
+                <InfoBlock
+                  label="Compras em cartão"
+                  value={String(periodSummary?.cardPurchaseCount ?? 0)}
+                  helper="Quantidade de compras no período analítico"
+                />
+                <InfoBlock label="Verificados" value={`${periodSummary?.verifiedEntries ?? 0}/${entries.length}`} helper="Lançamentos revisados no caixa mensal" />
               </CardContent>
             </Card>
 
@@ -301,7 +324,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                     </Button>
                     <Button onClick={() => setEntryDialog({ mode: "create", entryType: "Saida" })}>
                       <Plus />
-                      Nova saida
+                      Nova saída
                     </Button>
                   </div>
                 </div>
@@ -311,12 +334,12 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                   <Input
                     value={filters.search}
                     onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-                    placeholder="Buscar lancamento"
+                    placeholder="Buscar lançamento"
                   />
                   <Select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value as FinanceEntryFilters["type"] }))}>
                     <option value="all">Todos os tipos</option>
                     <option value="Entrada">Entradas</option>
-                    <option value="Saida">Saidas</option>
+                    <option value="Saida">Saídas</option>
                   </Select>
                   <Select value={filters.verified} onChange={(event) => setFilters((current) => ({ ...current, verified: event.target.value as FinanceEntryFilters["verified"] }))}>
                     <option value="all">Todos</option>
@@ -326,7 +349,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                   <Select value={filters.origin} onChange={(event) => setFilters((current) => ({ ...current, origin: event.target.value as FinanceEntryOrigin | "all" }))}>
                     <option value="all">Todas as origens</option>
                     <option value="Manual">Manual</option>
-                    <option value="RecurringTemplate">Recorrencia</option>
+                    <option value="RecurringTemplate">Recorrência</option>
                     <option value="CreditCardStatement">Fatura</option>
                   </Select>
                   <Select value={filters.universeId} onChange={(event) => setFilters((current) => ({ ...current, universeId: event.target.value }))}>
@@ -360,8 +383,8 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                 {groupedEntries.length === 0 ? (
                   <EmptyState
                     icon={<BadgeDollarSign className="size-5" />}
-                    title="Nenhum lancamento encontrado"
-                    description="Ajuste os filtros ou gere o periodo para começar a operar o caixa."
+                    title="Nenhum lançamento encontrado"
+                    description="Ajuste os filtros ou insira o período para começar a operar o caixa."
                   />
                 ) : (
                   <div className="space-y-4">
@@ -382,7 +405,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                   <TableHead>Projeto</TableHead>
                                   <TableHead>Valor</TableHead>
                                   <TableHead>Verificado</TableHead>
-                                  <TableHead className="min-w-[220px] text-right">Acoes</TableHead>
+                                  <TableHead className="min-w-[220px] text-right">Ações</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -394,10 +417,10 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                         {entry.notes ? <p className="text-sm text-muted-foreground">{entry.notes}</p> : null}
                                       </div>
                                     </TableCell>
-                                    <TableCell>{entry.type === "Entrada" ? "Entrada" : "Saida"}</TableCell>
+                                    <TableCell>{entry.type === "Entrada" ? "Entrada" : "Saída"}</TableCell>
                                     <TableCell>{formatOrigin(entry.origin)}</TableCell>
                                     <TableCell>{formatDateOnlyPtBr(entry.referenceDate)}</TableCell>
-                                    <TableCell>{entry.projectName ?? entry.universeName ?? "Sem classificacao"}</TableCell>
+                                    <TableCell>{entry.projectName ?? entry.universeName ?? "Sem classificação"}</TableCell>
                                     <TableCell className={`font-medium ${entry.type === "Entrada" ? "text-success" : "text-danger"}`}>
                                       {formatCurrency(entry.amount)}
                                     </TableCell>
@@ -409,7 +432,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                           disabled={!entry.canEdit}
                                           onChange={() => void dashboard.toggleEntryVerified(entry)}
                                         />
-                                        {entry.verified ? "Sim" : "Nao"}
+                                        {entry.verified ? "Sim" : "Não"}
                                       </label>
                                     </TableCell>
                                     <TableCell className="text-right">
@@ -450,84 +473,11 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
             <Card>
               <CardHeader className="border-b border-border/60 pb-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <CardTitle className="text-lg">Recorrencias</CardTitle>
-                  <Button onClick={() => setTemplateDialog("create")}>
-                    <Plus />
-                    Nova recorrencia
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {dashboard.recurringTemplates.length === 0 ? (
-                  <div className="p-4">
-                    <EmptyState
-                      icon={<Repeat2 className="size-5" />}
-                      title="Nenhuma recorrencia configurada"
-                      description="Cadastre recorrencias mensais ou anuais para acelerar a geracao do caixa."
-                    />
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
-                          <TableHead className="min-w-[180px]">Titulo</TableHead>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead>Recorrencia</TableHead>
-                          <TableHead>Valor padrao</TableHead>
-                          <TableHead>Classificacao</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="min-w-[220px] text-right">Acoes</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {dashboard.recurringTemplates.map((template) => (
-                          <TableRow key={template.id}>
-                            <TableCell>
-                              <div className="space-y-1">
-                                <p className="font-medium text-foreground">{template.title}</p>
-                                {template.notes ? <p className="text-sm text-muted-foreground">{template.notes}</p> : null}
-                              </div>
-                            </TableCell>
-                            <TableCell>{template.type === "Entrada" ? "Entrada" : "Saida"}</TableCell>
-                            <TableCell>{formatRecurrence(template.recurrence, template.dayOfMonth, template.monthOfYear)}</TableCell>
-                            <TableCell>{formatCurrency(template.defaultAmount)}</TableCell>
-                            <TableCell>{template.projectName ?? template.universeName ?? "Sem classificacao"}</TableCell>
-                            <TableCell>{template.isActive ? "Ativa" : "Inativa"}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex flex-wrap justify-end gap-2">
-                                <Button variant="secondary" size="sm" onClick={() => setTemplateDialog(template)} disabled={!template.canEdit}>
-                                  <Pencil />
-                                  Editar
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setDeleteTarget({ kind: "template", id: template.id, name: template.title })}
-                                  disabled={!template.canDelete}
-                                >
-                                  <Trash2 />
-                                  Excluir
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="border-b border-border/60 pb-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <CardTitle className="text-lg">Cartoes</CardTitle>
+                  <CardTitle className="text-lg">Cartões</CardTitle>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" onClick={() => setCardDialog("create")}>
                       <Plus />
-                      Novo cartao
+                      Novo cartão
                     </Button>
                     <Button onClick={() => setTransactionDialog("create")} disabled={!selectedCard}>
                       <Plus />
@@ -545,8 +495,8 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                   {dashboard.creditCardAccounts.length === 0 ? (
                     <EmptyState
                       icon={<CreditCard className="size-5" />}
-                      title="Nenhum cartao cadastrado"
-                      description="Crie o primeiro cartao para registrar compras e fechar faturas."
+                      title="Nenhum cartão cadastrado"
+                      description="Crie o primeiro cartão para registrar compras e fechar faturas."
                     />
                   ) : (
                     dashboard.creditCardAccounts.map((card) => (
@@ -560,7 +510,8 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                           <div>
                             <p className="font-semibold">{card.name}</p>
                             <p className="text-sm opacity-80">
-                              {card.brand ?? "Sem bandeira"}{card.lastFourDigits ? ` • ${card.lastFourDigits}` : ""}
+                              {card.brand ?? "Sem bandeira"}
+                              {card.lastFourDigits ? ` • ${card.lastFourDigits}` : ""}
                             </p>
                           </div>
                           <div className="text-right text-sm">
@@ -614,7 +565,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                         <CardContent className="p-0">
                           {dashboard.cardDetailsLoading ? (
                             <div className="p-4">
-                              <LoadingState title="Carregando compras" description="Buscando as compras e as faturas do cartao selecionado." icon={<CreditCard className="size-5 animate-pulse" />} />
+                              <LoadingState title="Carregando compras" description="Buscando as compras e as faturas do cartão selecionado." icon={<CreditCard className="size-5 animate-pulse" />} />
                             </div>
                           ) : (
                             <div className="overflow-x-auto">
@@ -623,17 +574,17 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                   <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
                                     <TableHead className="min-w-[180px]">Compra</TableHead>
                                     <TableHead>Data</TableHead>
-                                    <TableHead>Classificacao</TableHead>
+                                    <TableHead>Classificação</TableHead>
                                     <TableHead>Fatura</TableHead>
                                     <TableHead>Valor</TableHead>
-                                    <TableHead className="min-w-[200px] text-right">Acoes</TableHead>
+                                    <TableHead className="min-w-[200px] text-right">Ações</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                   {dashboard.creditCardTransactions.length === 0 ? (
                                     <TableRow>
                                       <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                                        Nenhuma compra registrada neste cartao.
+                                        Nenhuma compra registrada neste cartão.
                                       </TableCell>
                                     </TableRow>
                                   ) : (
@@ -646,7 +597,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                           </div>
                                         </TableCell>
                                         <TableCell>{formatDateOnlyPtBr(transaction.purchasedOn)}</TableCell>
-                                        <TableCell>{transaction.projectName ?? transaction.universeName ?? "Sem classificacao"}</TableCell>
+                                        <TableCell>{transaction.projectName ?? transaction.universeName ?? "Sem classificação"}</TableCell>
                                         <TableCell>{transaction.creditCardStatementId ? "Fechada" : "Em aberto"}</TableCell>
                                         <TableCell className="font-medium text-foreground">{formatCurrency(transaction.amount)}</TableCell>
                                         <TableCell className="text-right">
@@ -689,14 +640,14 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                   <TableHead>Vencimento</TableHead>
                                   <TableHead>Compras</TableHead>
                                   <TableHead>Valor</TableHead>
-                                  <TableHead className="min-w-[200px] text-right">Acoes</TableHead>
+                                  <TableHead className="min-w-[200px] text-right">Ações</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {dashboard.creditCardStatements.length === 0 ? (
                                   <TableRow>
                                     <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                                      Nenhuma fatura fechada neste cartao.
+                                      Nenhuma fatura fechada neste cartão.
                                     </TableCell>
                                   </TableRow>
                                 ) : (
@@ -735,8 +686,8 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                   ) : (
                     <EmptyState
                       icon={<CreditCard className="size-5" />}
-                      title="Selecione um cartao"
-                      description="Escolha um cartao para ver compras abertas, faturas e a integracao com o caixa mensal."
+                      title="Selecione um cartão"
+                      description="Escolha um cartão para ver compras abertas, faturas e a integração com o caixa mensal."
                     />
                   )}
                 </div>
@@ -746,7 +697,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
             <Card>
               <CardHeader className="border-b border-border/60 pb-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <CardTitle className="text-lg">Patrimonio</CardTitle>
+                  <CardTitle className="text-lg">Patrimônio</CardTitle>
                   <Button onClick={() => setAssetDialog("create")}>
                     <Plus />
                     Novo bem
@@ -759,7 +710,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                     <EmptyState
                       icon={<Landmark className="size-5" />}
                       title="Nenhum bem cadastrado"
-                      description="Registre casa, carro e outros bens de alto valor para manter contexto patrimonial da household."
+                      description="Registre casa, carro e outros bens de alto valor para manter o contexto patrimonial da household."
                     />
                   </div>
                 ) : (
@@ -779,14 +730,14 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                         <InfoBlock label="Divida restante" value={formatCurrency(asset.remainingDebt)} />
                         {asset.type === "Property" && asset.propertyDetails ? (
                           <InfoBlock
-                            label="Imovel"
+                            label="Imóvel"
                             value={asset.propertyDetails.propertyInscription ?? asset.propertyDetails.registryNumber ?? "Sem detalhes"}
                             helper={asset.propertyDetails.privateAreaSquareMeters ? `${asset.propertyDetails.privateAreaSquareMeters} m²` : undefined}
                           />
                         ) : null}
                         {asset.type === "Vehicle" && asset.vehicleDetails ? (
                           <InfoBlock
-                            label="Veiculo"
+                            label="Veículo"
                             value={[asset.vehicleDetails.brand, asset.vehicleDetails.model].filter(Boolean).join(" ") || "Sem detalhes"}
                             helper={asset.vehicleDetails.yearModel ?? asset.vehicleDetails.renavam ?? undefined}
                           />
@@ -806,7 +757,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                             }}
                           >
                             <Building2 />
-                            Referencias anuais
+                            Referências anuais
                           </Button>
                           <Button
                             variant="ghost"
@@ -975,6 +926,21 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         }}
       />
 
+      <RecurringTemplatesDialog
+        open={recurringTemplatesDialogOpen}
+        templates={dashboard.recurringTemplates}
+        onOpenChange={setRecurringTemplatesDialogOpen}
+        onCreateNew={() => {
+          setRecurringTemplatesDialogOpen(false);
+          setTemplateDialog("create");
+        }}
+        onEditTemplate={(template) => {
+          setRecurringTemplatesDialogOpen(false);
+          setTemplateDialog(template);
+        }}
+        onDeleteTemplate={(template) => setDeleteTarget({ kind: "template", id: template.id, name: template.title })}
+      />
+
       <GeneratePeriodDialog
         open={generateDialogOpen}
         periodLabel={formatMonthLabel(dashboard.activeYear, dashboard.activeMonth)}
@@ -1042,7 +1008,7 @@ function formatOrigin(origin: FinanceEntryOrigin) {
   }
 
   if (origin === "RecurringTemplate") {
-    return "Recorrencia";
+    return "Recorrência";
   }
 
   return "Fatura";
@@ -1053,17 +1019,17 @@ function formatRecurrence(recurrence: FinanceRecurrence, dayOfMonth?: number | n
     return dayOfMonth ? `Mensal • dia ${dayOfMonth}` : "Mensal";
   }
 
-  const monthLabel = monthOfYear ? monthOptions.find((item) => item.value === monthOfYear)?.label ?? monthOfYear : "mes indefinido";
+  const monthLabel = monthOfYear ? monthOptions.find((item) => item.value === monthOfYear)?.label ?? monthOfYear : "mês indefinido";
   return dayOfMonth ? `Anual • ${monthLabel} • dia ${dayOfMonth}` : `Anual • ${monthLabel}`;
 }
 
 function formatAssetType(type: AssetType) {
   if (type === "Property") {
-    return "Imovel";
+    return "Imóvel";
   }
 
   if (type === "Vehicle") {
-    return "Veiculo";
+    return "Veículo";
   }
 
   return "Outro bem";
@@ -1132,22 +1098,22 @@ function EntryDialog({
 
     const parsedAmount = parseCurrencyInput(amount);
     if (!title.trim()) {
-      setError("Informe o titulo do lancamento.");
+      setError("Informe o título do lançamento.");
       return;
     }
 
     if (parsedAmount == null || parsedAmount < 0) {
-      setError("Informe um valor valido para o lancamento.");
+      setError("Informe um valor válido para o lançamento.");
       return;
     }
 
     if (!referenceDate) {
-      setError("Informe a data de referencia.");
+      setError("Informe a data de referência.");
       return;
     }
 
     if (!referenceDate.startsWith(`${year}-${String(month).padStart(2, "0")}-`)) {
-      setError("A data de referencia deve pertencer ao periodo selecionado.");
+      setError("A data de referência deve pertencer ao período selecionado.");
       return;
     }
 
@@ -1169,7 +1135,7 @@ function EntryDialog({
         projectId: projectId === "none" ? null : projectId,
       });
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Nao foi possivel salvar o lancamento.");
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar o lançamento.");
     } finally {
       setSaving(false);
     }
@@ -1179,8 +1145,8 @@ function EntryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{entry ? "Editar lancamento" : "Novo lancamento"}</DialogTitle>
-          <DialogDescription>Registre entradas e saidas do caixa mensal com classificacao opcional por universo e projeto.</DialogDescription>
+          <DialogTitle>{entry ? "Editar lançamento" : "Novo lançamento"}</DialogTitle>
+          <DialogDescription>Registre entradas e saídas do caixa mensal com classificação opcional por universo e projeto.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
@@ -1188,7 +1154,7 @@ function EntryDialog({
             <Field label="Ano">
               <Input type="number" min={2000} max={9999} value={year} onChange={(event) => setYear(Number(event.target.value))} />
             </Field>
-            <Field label="Mes">
+            <Field label="Mês">
               <Select value={String(month)} onChange={(event) => setMonth(Number(event.target.value))}>
                 {monthOptions.map((monthOption) => (
                   <option key={monthOption.value} value={monthOption.value}>
@@ -1199,13 +1165,13 @@ function EntryDialog({
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Titulo">
+            <Field label="Título">
               <Input value={title} onChange={(event) => setTitle(event.target.value)} />
             </Field>
             <Field label="Tipo">
               <Select value={type} onChange={(event) => setType(event.target.value as FinanceEntryType)}>
                 <option value="Entrada">Entrada</option>
-                <option value="Saida">Saida</option>
+                <option value="Saida">Saída</option>
               </Select>
             </Field>
           </div>
@@ -1213,14 +1179,14 @@ function EntryDialog({
             <Field label="Valor">
               <Input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="R$ 0,00" />
             </Field>
-            <Field label="Data de referencia">
+            <Field label="Data de referência">
               <Input type="date" value={referenceDate} onChange={(event) => setReferenceDate(event.target.value)} />
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Recorrencia">
+            <Field label="Recorrência">
               <Select value={recurringTemplateId} onChange={(event) => setRecurringTemplateId(event.target.value)}>
-                <option value="none">Sem recorrencia</option>
+                <option value="none">Sem recorrência</option>
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
                     {template.title}
@@ -1249,7 +1215,7 @@ function EntryDialog({
               </Select>
             </Field>
           </div>
-          <Field label="Observacoes">
+          <Field label="Observações">
             <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} />
           </Field>
           <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
@@ -1261,7 +1227,7 @@ function EntryDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={saving}>
-              Salvar lancamento
+              Salvar lançamento
             </Button>
           </DialogFooter>
         </form>
@@ -1325,7 +1291,7 @@ function RecurringTemplateDialog({
     const parsedMonth = recurrence === "Annual" && monthOfYear.trim() ? Number(monthOfYear) : null;
 
     if (!title.trim()) {
-      setError("Informe o titulo da recorrencia.");
+      setError("Informe o título da recorrência.");
       return;
     }
 
@@ -1350,7 +1316,7 @@ function RecurringTemplateDialog({
         projectId: projectId === "none" ? null : projectId,
       });
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Nao foi possivel salvar a recorrencia.");
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar a recorrência.");
     } finally {
       setSaving(false);
     }
@@ -1360,27 +1326,27 @@ function RecurringTemplateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{template ? "Editar recorrencia" : "Nova recorrencia"}</DialogTitle>
-          <DialogDescription>Configure itens mensais e anuais para acelerar a geracao do caixa mensal.</DialogDescription>
+          <DialogTitle>{template ? "Editar recorrência" : "Nova recorrência"}</DialogTitle>
+          <DialogDescription>Configure itens mensais e anuais para acelerar a geração do caixa mensal.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Titulo">
+            <Field label="Título">
               <Input value={title} onChange={(event) => setTitle(event.target.value)} />
             </Field>
             <Field label="Tipo">
               <Select value={type} onChange={(event) => setType(event.target.value as FinanceEntryType)}>
                 <option value="Entrada">Entrada</option>
-                <option value="Saida">Saida</option>
+                <option value="Saida">Saída</option>
               </Select>
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Valor padrao">
+            <Field label="Valor padrão">
               <Input value={defaultAmount} onChange={(event) => setDefaultAmount(event.target.value)} />
             </Field>
-            <Field label="Recorrencia">
+            <Field label="Recorrência">
               <Select value={recurrence} onChange={(event) => setRecurrence(event.target.value as FinanceRecurrence)}>
                 <option value="Monthly">Mensal</option>
                 <option value="Annual">Anual</option>
@@ -1388,12 +1354,12 @@ function RecurringTemplateDialog({
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Dia de referencia">
+            <Field label="Dia de referência">
               <Input type="number" min={1} max={31} value={dayOfMonth} onChange={(event) => setDayOfMonth(event.target.value)} />
             </Field>
-            <Field label="Mes anual">
+            <Field label="Mês anual">
               <Select value={monthOfYear || "none"} onChange={(event) => setMonthOfYear(event.target.value === "none" ? "" : event.target.value)} disabled={recurrence !== "Annual"}>
-                <option value="none">Nao se aplica</option>
+                <option value="none">Não se aplica</option>
                 {monthOptions.map((month) => (
                   <option key={month.value} value={month.value}>
                     {month.label}
@@ -1424,19 +1390,19 @@ function RecurringTemplateDialog({
               </Select>
             </Field>
           </div>
-          <Field label="Observacoes">
+          <Field label="Observações">
             <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
           </Field>
           <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
             <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-            Recorrencia ativa
+            Recorrência ativa
           </label>
           <DialogFooter>
             <Button variant="secondary" type="button" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancelar
             </Button>
             <Button type="submit" disabled={saving}>
-              Salvar recorrencia
+              Salvar recorrência
             </Button>
           </DialogFooter>
         </form>
@@ -1498,7 +1464,7 @@ function AssetDialog({
     const parsedRemainingDebt = parseCurrencyInput(remainingDebt);
 
     if (!title.trim()) {
-      setError("Informe o titulo do bem.");
+      setError("Informe o título do bem.");
       return;
     }
 
@@ -1532,7 +1498,7 @@ function AssetDialog({
             : null,
       });
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Nao foi possivel salvar o bem.");
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar o bem.");
     } finally {
       setSaving(false);
     }
@@ -1543,19 +1509,19 @@ function AssetDialog({
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{asset ? "Editar bem" : "Novo bem"}</DialogTitle>
-          <DialogDescription>Cadastre patrimonio da casa com detalhes tipados para imovel e veiculo.</DialogDescription>
+          <DialogDescription>Cadastre o patrimônio da casa com detalhes tipados para imóvel e veículo.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Titulo">
+            <Field label="Título">
               <Input value={title} onChange={(event) => setTitle(event.target.value)} />
             </Field>
             <Field label="Tipo">
               <Select value={type} onChange={(event) => setType(event.target.value as AssetType)}>
                 <option value="Other">Outro bem</option>
-                <option value="Property">Imovel</option>
-                <option value="Vehicle">Veiculo</option>
+                <option value="Property">Imóvel</option>
+                <option value="Vehicle">Veículo</option>
               </Select>
             </Field>
           </div>
@@ -1567,7 +1533,7 @@ function AssetDialog({
               <Input value={remainingDebt} onChange={(event) => setRemainingDebt(event.target.value)} placeholder="R$ 0,00" />
             </Field>
           </div>
-          <Field label="Observacoes">
+          <Field label="Observações">
             <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} />
           </Field>
           <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
@@ -1577,16 +1543,16 @@ function AssetDialog({
 
           {type === "Property" ? (
             <div className="grid gap-4 rounded-[18px] border border-border/70 p-4 sm:grid-cols-2">
-              <Field label="Matricula">
+              <Field label="Matrícula">
                 <Input value={registryNumber} onChange={(event) => setRegistryNumber(event.target.value)} />
               </Field>
-              <Field label="Inscricao">
+              <Field label="Inscrição">
                 <Input value={propertyInscription} onChange={(event) => setPropertyInscription(event.target.value)} />
               </Field>
-              <Field label="Area privativa (m²)">
+              <Field label="Área privativa (m²)">
                 <Input value={privateAreaSquareMeters} onChange={(event) => setPrivateAreaSquareMeters(event.target.value)} />
               </Field>
-              <Field label="Pesquisa debito">
+              <Field label="Pesquisa débito">
                 <Input type="date" value={debtCheckOn} onChange={(event) => setDebtCheckOn(event.target.value)} />
               </Field>
             </div>
@@ -1666,12 +1632,12 @@ function AssetValuationDialog({
     event.preventDefault();
     const parsedAmount = parseCurrencyInput(amount);
     if (!label.trim()) {
-      setError("Informe o rotulo da referencia anual.");
+      setError("Informe o rótulo da referência anual.");
       return;
     }
 
     if (parsedAmount == null || parsedAmount <= 0) {
-      setError("Informe um valor positivo para a referencia anual.");
+      setError("Informe um valor positivo para a referência anual.");
       return;
     }
 
@@ -1690,7 +1656,7 @@ function AssetValuationDialog({
         await onCreate(input);
       }
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Nao foi possivel salvar a referencia anual.");
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar a referência anual.");
     } finally {
       setSaving(false);
     }
@@ -1700,11 +1666,11 @@ function AssetValuationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Referencias anuais</DialogTitle>
-          <DialogDescription>{asset ? `Registre FIPE, avaliacao ou outro valor anual para ${asset.title}.` : "Registre referencias anuais."}</DialogDescription>
+          <DialogTitle>Referências anuais</DialogTitle>
+          <DialogDescription>{asset ? `Registre FIPE, avaliação ou outro valor anual para ${asset.title}.` : "Registre referências anuais."}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          {loading ? <Notice tone="warning">Carregando referencias anuais...</Notice> : null}
+          {loading ? <Notice tone="warning">Carregando referências anuais...</Notice> : null}
           <div className="space-y-2">
             {valuations.map((item) => (
               <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-border/60 px-4 py-3">
@@ -1733,14 +1699,14 @@ function AssetValuationDialog({
               <Field label="Ano">
                 <Input type="number" min={2000} max={9999} value={referenceYear} onChange={(event) => setReferenceYear(Number(event.target.value))} />
               </Field>
-              <Field label="Rotulo">
-                <Input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="FIPE, Avaliacao, etc." />
+              <Field label="Rótulo">
+                <Input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="FIPE, avaliação, etc." />
               </Field>
             </div>
             <Field label="Valor">
               <Input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="R$ 0,00" />
             </Field>
-            <Field label="Observacoes">
+            <Field label="Observações">
               <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
             </Field>
             <DialogFooter>
@@ -1748,7 +1714,7 @@ function AssetValuationDialog({
                 Fechar
               </Button>
               <Button type="submit" disabled={saving}>
-                {valuation ? "Salvar referencia" : "Adicionar referencia"}
+                {valuation ? "Salvar referência" : "Adicionar referência"}
               </Button>
             </DialogFooter>
           </form>
@@ -1794,7 +1760,7 @@ function CreditCardAccountDialog({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim()) {
-      setError("Informe o nome do cartao.");
+      setError("Informe o nome do cartão.");
       return;
     }
 
@@ -1811,7 +1777,7 @@ function CreditCardAccountDialog({
         isActive,
       });
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Nao foi possivel salvar o cartao.");
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar o cartão.");
     } finally {
       setSaving(false);
     }
@@ -1821,8 +1787,8 @@ function CreditCardAccountDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{card ? "Editar cartao" : "Novo cartao"}</DialogTitle>
-          <DialogDescription>Cadastre cartoes da casa para registrar compras e fechar faturas no periodo correto.</DialogDescription>
+          <DialogTitle>{card ? "Editar cartão" : "Novo cartão"}</DialogTitle>
+          <DialogDescription>Cadastre cartões da casa para registrar compras e fechar faturas no período correto.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
@@ -1835,7 +1801,7 @@ function CreditCardAccountDialog({
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Ultimos 4 digitos">
+            <Field label="Últimos 4 dígitos">
               <Input value={lastFourDigits} onChange={(event) => setLastFourDigits(event.target.value)} maxLength={4} />
             </Field>
             <Field label="Dia de fechamento">
@@ -1845,19 +1811,19 @@ function CreditCardAccountDialog({
               <Input type="number" min={1} max={31} value={dueDay} onChange={(event) => setDueDay(Number(event.target.value))} />
             </Field>
           </div>
-          <Field label="Observacoes">
+          <Field label="Observações">
             <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
           </Field>
           <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
             <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-            Cartao ativo
+            Cartão ativo
           </label>
           <DialogFooter>
             <Button variant="secondary" type="button" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancelar
             </Button>
             <Button type="submit" disabled={saving}>
-              Salvar cartao
+              Salvar cartão
             </Button>
           </DialogFooter>
         </form>
@@ -1916,7 +1882,7 @@ function CreditCardTransactionDialog({
     event.preventDefault();
     const parsedAmount = parseCurrencyInput(amount);
     if (!title.trim()) {
-      setError("Informe o titulo da compra.");
+      setError("Informe o título da compra.");
       return;
     }
 
@@ -1940,7 +1906,7 @@ function CreditCardTransactionDialog({
         externalReference: externalReference.trim(),
       });
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Nao foi possivel salvar a compra.");
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar a compra.");
     } finally {
       setSaving(false);
     }
@@ -1951,12 +1917,12 @@ function CreditCardTransactionDialog({
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{transaction ? "Editar compra" : "Nova compra"}</DialogTitle>
-          <DialogDescription>Registre compras do cartao antes de fechar a fatura do periodo correspondente.</DialogDescription>
+          <DialogDescription>Registre compras do cartão antes de fechar a fatura do período correspondente.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Titulo">
+            <Field label="Título">
               <Input value={title} onChange={(event) => setTitle(event.target.value)} />
             </Field>
             <Field label="Loja/merchant">
@@ -1993,14 +1959,14 @@ function CreditCardTransactionDialog({
               </Select>
             </Field>
           </div>
-          <Field label="Observacoes">
+          <Field label="Observações">
             <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Origem externa">
               <Input value={externalSource} onChange={(event) => setExternalSource(event.target.value)} placeholder="SMS, XLS, etc." />
             </Field>
-            <Field label="Referencia externa">
+            <Field label="Referência externa">
               <Input value={externalReference} onChange={(event) => setExternalReference(event.target.value)} />
             </Field>
           </div>
@@ -2064,7 +2030,7 @@ function CreditCardStatementDialog({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!closingDate || !dueDate) {
-      setError("Informe fechamento e vencimento da fatura.");
+      setError("Informe o fechamento e o vencimento da fatura.");
       return;
     }
 
@@ -2080,7 +2046,7 @@ function CreditCardStatementDialog({
         externalReference: externalReference.trim(),
       });
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Nao foi possivel salvar a fatura.");
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar a fatura.");
     } finally {
       setSaving(false);
     }
@@ -2091,7 +2057,7 @@ function CreditCardStatementDialog({
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{statement ? "Editar fatura" : "Fechar fatura"}</DialogTitle>
-          <DialogDescription>Selecione as compras que entram na fatura e gere a despesa consolidada no caixa do mes do vencimento.</DialogDescription>
+          <DialogDescription>Selecione as compras que entram na fatura e gere a despesa consolidada no caixa do mês do vencimento.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
@@ -2103,21 +2069,21 @@ function CreditCardStatementDialog({
               <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
             </Field>
           </div>
-          <Field label="Observacoes">
+          <Field label="Observações">
             <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Origem externa">
               <Input value={externalSource} onChange={(event) => setExternalSource(event.target.value)} />
             </Field>
-            <Field label="Referencia externa">
+            <Field label="Referência externa">
               <Input value={externalReference} onChange={(event) => setExternalReference(event.target.value)} />
             </Field>
           </div>
           <div className="space-y-2 rounded-[18px] border border-border/70 p-4">
             <p className="text-sm font-semibold text-foreground">Compras da fatura</p>
             {availableTransactions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nao ha compras disponiveis para esta fatura.</p>
+              <p className="text-sm text-muted-foreground">Não há compras disponíveis para esta fatura.</p>
             ) : (
               availableTransactions.map((transaction) => (
                 <label key={transaction.id} className="flex items-center justify-between gap-3 rounded-[14px] border border-border/60 px-3 py-2 text-sm">
@@ -2146,6 +2112,93 @@ function CreditCardStatementDialog({
   );
 }
 
+function RecurringTemplatesDialog({
+  open,
+  templates,
+  onOpenChange,
+  onCreateNew,
+  onEditTemplate,
+  onDeleteTemplate,
+}: {
+  open: boolean;
+  templates: FinanceRecurringTemplate[];
+  onOpenChange: (open: boolean) => void;
+  onCreateNew: () => void;
+  onEditTemplate: (template: FinanceRecurringTemplate) => void;
+  onDeleteTemplate: (template: FinanceRecurringTemplate) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[92vh] w-[min(96vw,80rem)] max-w-none flex-col overflow-hidden p-0">
+        <div className="flex flex-col gap-4 border-b border-border/60 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+          <DialogHeader className="space-y-2">
+            <DialogTitle>Recorrências</DialogTitle>
+            <DialogDescription>Gerencie as recorrências mensais e anuais em uma janela dedicada quase em tela cheia.</DialogDescription>
+          </DialogHeader>
+          <Button onClick={onCreateNew}>
+            <Plus />
+            Nova recorrência
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+          {templates.length === 0 ? (
+            <EmptyState
+              icon={<Repeat2 className="size-5" />}
+              title="Nenhuma recorrência configurada"
+              description="Cadastre recorrências mensais ou anuais para acelerar a geração do caixa."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
+                    <TableHead className="min-w-[180px]">Título</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Recorrência</TableHead>
+                    <TableHead>Valor padrão</TableHead>
+                    <TableHead>Classificação</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="min-w-[220px] text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {templates.map((template) => (
+                    <TableRow key={template.id}>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <p className="font-medium text-foreground">{template.title}</p>
+                          {template.notes ? <p className="text-sm text-muted-foreground">{template.notes}</p> : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>{template.type === "Entrada" ? "Entrada" : "Saída"}</TableCell>
+                      <TableCell>{formatRecurrence(template.recurrence, template.dayOfMonth, template.monthOfYear)}</TableCell>
+                      <TableCell>{formatCurrency(template.defaultAmount)}</TableCell>
+                      <TableCell>{template.projectName ?? template.universeName ?? "Sem classificação"}</TableCell>
+                      <TableCell>{template.isActive ? "Ativa" : "Inativa"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => onEditTemplate(template)} disabled={!template.canEdit}>
+                            <Pencil />
+                            Editar
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => onDeleteTemplate(template)} disabled={!template.canDelete}>
+                            <Trash2 />
+                            Excluir
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function GeneratePeriodDialog({
   open,
   periodLabel,
@@ -2165,8 +2218,10 @@ function GeneratePeriodDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Gerar lancamentos de {periodLabel}</DialogTitle>
-          <DialogDescription>Este periodo ja existe. Escolha se deseja adicionar apenas recorrencias faltantes ou duplicar novamente todas as recorrencias aplicaveis.</DialogDescription>
+          <DialogTitle>Inserir recorrências de {periodLabel}</DialogTitle>
+          <DialogDescription>
+            Este período já existe. Escolha se deseja adicionar apenas recorrências faltantes ou duplicar novamente todas as recorrências aplicáveis.
+          </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="secondary" type="button" onClick={() => onOpenChange(false)} disabled={saving !== null}>

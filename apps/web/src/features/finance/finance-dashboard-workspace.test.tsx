@@ -58,7 +58,7 @@ function buildPeriodDetail(overrides: Partial<FinancePeriodDetail> = {}): Financ
     entries: [
       buildEntry({
         id: "entry-1",
-        title: "Condominio",
+        title: "Condomínio",
         amount: 700,
         verified: true,
         universeId: "universe-1",
@@ -108,7 +108,7 @@ function buildPeriodDetail(overrides: Partial<FinancePeriodDetail> = {}): Financ
         closingDate: "2026-07-20",
         dueDate: "2026-07-25",
         totalAmount: 220.9,
-        notes: "Fatura do mes",
+        notes: "Fatura do mês",
         transactionCount: 1,
         financeEntryId: "entry-2",
         externalSource: "XLS",
@@ -192,7 +192,7 @@ function createDashboard(overrides: Partial<FinanceDashboardController> = {}): F
     theme: "earthy",
     loading: false,
     error: null,
-    subtitle: "Fluxo mensal, recorrencias, cartoes e patrimonio da casa",
+    subtitle: "Fluxo mensal, recorrências, cartões e patrimônio da casa",
     canShareHousehold: true,
     canManageHousehold: true,
     setError: () => undefined,
@@ -252,7 +252,7 @@ describe("FinanceDashboardWorkspace", () => {
 
     render(<FinanceDashboardWorkspace dashboard={dashboard} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Gerar mes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Inserir Recorrências" }));
     fireEvent.click(await screen.findByRole("button", { name: "Adicionar faltantes" }));
 
     expect(dashboard.generatePeriod).toHaveBeenCalledWith("missingOnly");
@@ -263,7 +263,7 @@ describe("FinanceDashboardWorkspace", () => {
 
     render(<FinanceDashboardWorkspace dashboard={dashboard} />);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Gerar mes" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Inserir Recorrências" })[0]!);
     fireEvent.click(await screen.findByRole("button", { name: "Duplicar todos" }));
 
     await waitFor(() => {
@@ -271,17 +271,52 @@ describe("FinanceDashboardWorkspace", () => {
     });
   });
 
+  it("opens the recurring templates modal from the toolbar", async () => {
+    const dashboard = createDashboard({
+      recurringTemplates: [
+        {
+          id: "template-1",
+          title: "Aluguel",
+          notes: "Recorrência mensal",
+          type: "Saida",
+          defaultAmount: 1500,
+          recurrence: "Monthly",
+          dayOfMonth: 5,
+          monthOfYear: null,
+          isActive: true,
+          universeId: null,
+          universeName: null,
+          projectId: null,
+          projectName: null,
+          createdByMemberId: "member-1",
+          createdAt: "2026-07-06T12:00:00.000Z",
+          updatedAt: "2026-07-06T12:00:00.000Z",
+          canEdit: true,
+          canDelete: true,
+        },
+      ],
+    });
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Recorrências" }));
+
+    expect(await screen.findByRole("dialog", { name: "Recorrências" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nova recorrência" })).toBeInTheDocument();
+    expect(screen.getByText("Aluguel")).toBeInTheDocument();
+  });
+
   it("toggles verification and applies filters/grouping in the cash section", async () => {
     const dashboard = createDashboard();
 
     render(<FinanceDashboardWorkspace dashboard={dashboard} />);
 
-    const condominiumRow = screen.getAllByRole("row").find((row) => row.textContent?.includes("Condominio"));
+    const condominiumRow = screen.getAllByRole("row").find((row) => row.textContent?.includes("Condomínio"));
     expect(condominiumRow).not.toBeNull();
     fireEvent.click(within(condominiumRow!).getByRole("checkbox"));
     await waitFor(() => {
       expect(dashboard.toggleEntryVerified).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "entry-1", title: "Condominio" }),
+        expect.objectContaining({ id: "entry-1", title: "Condomínio" }),
       );
     });
 
@@ -289,8 +324,8 @@ describe("FinanceDashboardWorkspace", () => {
     expect(screen.getByText("Moradia", { selector: ".text-base" })).toBeInTheDocument();
     expect(screen.getByText("Viagem", { selector: ".text-base" })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Buscar lancamento"), { target: { value: "nubank" } });
-    expect(screen.queryByText("Condominio")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Buscar lançamento"), { target: { value: "nubank" } });
+    expect(screen.queryByText("Condomínio")).not.toBeInTheDocument();
     expect(screen.getByText("Fatura Nubank")).toBeInTheDocument();
   });
 
@@ -300,23 +335,23 @@ describe("FinanceDashboardWorkspace", () => {
     render(<FinanceDashboardWorkspace dashboard={dashboard} />);
 
     fireEvent.click(screen.getAllByRole("button", { name: "Novo bem" })[0]!);
-    fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "Blue Moon Apto 405" } });
+    fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Blue Moon Apto 405" } });
 
     fireEvent.change(screen.getByLabelText("Tipo"), { target: { value: "Vehicle" } });
     expect(screen.getByLabelText("Marca")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Matricula")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Matrícula")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Tipo"), { target: { value: "Property" } });
-    expect(screen.getByLabelText("Matricula")).toBeInTheDocument();
+    expect(screen.getByLabelText("Matrícula")).toBeInTheDocument();
     expect(screen.queryByLabelText("Marca")).not.toBeInTheDocument();
 
     const currencyInputs = screen.getAllByPlaceholderText("R$ 0,00");
     fireEvent.change(currencyInputs[0]!, { target: { value: "R$ 480.000,00" } });
     fireEvent.change(currencyInputs[1]!, { target: { value: "R$ 55.474,71" } });
-    fireEvent.change(screen.getByLabelText("Matricula"), { target: { value: "282.144" } });
-    fireEvent.change(screen.getByLabelText("Inscricao"), { target: { value: "50760572" } });
-    fireEvent.change(screen.getByLabelText("Area privativa (m²)"), { target: { value: "55.61" } });
-    fireEvent.change(screen.getByLabelText("Pesquisa debito"), { target: { value: "2023-12-29" } });
+    fireEvent.change(screen.getByLabelText("Matrícula"), { target: { value: "282.144" } });
+    fireEvent.change(screen.getByLabelText("Inscrição"), { target: { value: "50760572" } });
+    fireEvent.change(screen.getByLabelText("Área privativa (m²)"), { target: { value: "55.61" } });
+    fireEvent.change(screen.getByLabelText("Pesquisa débito"), { target: { value: "2023-12-29" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar bem" }));
 
     await waitFor(() => {

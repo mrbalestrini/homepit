@@ -12,3 +12,7 @@
    relacionamento estrutural com bens no v1.
 8. Faturas de cartao geram ou atualizam um `FinanceEntry` de origem
    `CreditCardStatement` no mes do vencimento.
+9. O topo do financeiro expõe `Inserir Recorrências` como ação principal e a lista de
+   recorrências vive em uma modal quase tela cheia dedicada.
+10. Textos de UI em português no financeiro devem passar por revisão final de acentuação
+    antes de novas criações ou renomeações serem consideradas concluídas.

@@ -35,7 +35,7 @@ export function getCurrentPeriodParts(referenceDate = new Date()) {
   };
 }
 
-export function formatCurrency(value: number | null | undefined, fallback = "Nao informado") {
+export function formatCurrency(value: number | null | undefined, fallback = "Não informado") {
   if (value == null) {
     return fallback;
   }
@@ -156,7 +156,7 @@ export function filterFinanceEntries(entries: FinanceEntry[], filters: FinanceEn
 
 export function groupFinanceEntries(entries: FinanceEntry[], groupBy: FinanceEntryGroupBy) {
   if (groupBy === "none") {
-    return [{ key: "all", label: "Todos os lancamentos", entries }];
+    return [{ key: "all", label: "Todos os lançamentos", entries }];
   }
 
   const groups = new Map<string, FinanceEntry[]>();
@@ -179,7 +179,7 @@ export function groupFinanceEntries(entries: FinanceEntry[], groupBy: FinanceEnt
       groupBy === "type"
         ? key === "Entrada"
           ? "Entradas"
-          : "Saidas"
+          : "Saídas"
         : groupBy === "universe"
           ? groupEntries[0]?.universeName ?? "Sem universo"
           : groupEntries[0]?.projectName ?? "Sem projeto",

@@ -34,6 +34,8 @@
   endpoints e paginas finos, porque esse e o desenho predominante.
 - Novos componentes visuais devem reutilizar `components/ui` antes de introduzir outro
   conjunto de primitivas.
+- Antes de finalizar telas e mensagens em portugues, revisar acentuacao e diacriticos em
+  rótulos, botões, estados vazios, toasts e dialogs para evitar regressões de copy.
 
 ## NÃO IDENTIFICADO
 

@@ -397,7 +397,7 @@ export function useFinanceDashboard() {
 
   const handleAuthenticated = useCallback((auth: AuthResponse) => {
     storeSession(auth);
-    toast.success("Sessao iniciada com sucesso.");
+    toast.success("Sessão iniciada com sucesso.");
   }, []);
 
   const handleHouseholdChange = useCallback((householdId: string) => {
@@ -421,7 +421,7 @@ export function useFinanceDashboard() {
 
   const handleLogout = useCallback(() => {
     clearSession();
-    toast.success("Sessao encerrada.");
+    toast.success("Sessão encerrada.");
   }, []);
 
   const openCreateHousehold = useCallback(() => {
@@ -542,7 +542,7 @@ export function useFinanceDashboard() {
       );
       toast.success("Casa criada.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel criar a casa.");
+      reportError(exception, "Não foi possível criar a casa.");
     }
   }
 
@@ -566,7 +566,7 @@ export function useFinanceDashboard() {
       );
       toast.success("Casa atualizada.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel salvar a casa.");
+      reportError(exception, "Não foi possível salvar a casa.");
     }
   }
 
@@ -587,7 +587,7 @@ export function useFinanceDashboard() {
       updateSessionHouseholds(nextHouseholds);
       toast.success("Casa excluida.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel excluir a casa.");
+      reportError(exception, "Não foi possível excluir a casa.");
     }
   }
 
@@ -606,7 +606,7 @@ export function useFinanceDashboard() {
       setMembers((current) => [...current, created].sort((a, b) => a.displayName.localeCompare(b.displayName)));
       toast.success("Pessoa adicionada a casa.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel compartilhar a casa.");
+      reportError(exception, "Não foi possível compartilhar a casa.");
     }
   }
 
@@ -645,8 +645,8 @@ export function useFinanceDashboard() {
       reportError(
         exception,
         profileSaved
-          ? "Os dados do perfil foram salvos, mas nao foi possivel concluir o envio da foto."
-          : "Nao foi possivel atualizar o perfil.",
+          ? "Os dados do perfil foram salvos, mas não foi possível concluir o envio da foto."
+          : "Não foi possível atualizar o perfil.",
       );
     }
   }
@@ -669,9 +669,9 @@ export function useFinanceDashboard() {
         householdId: activeHouseholdId,
       });
       setFinancePeriods(periods);
-      toast.success(mode === "missingOnly" ? "Mes gerado com itens faltantes." : "Recorrencias duplicadas no mes.");
+      toast.success(mode === "missingOnly" ? "Lançamentos inseridos com itens faltantes." : "Recorrências duplicadas no mês.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel gerar os lancamentos do mes.");
+      reportError(exception, "Não foi possível inserir os lançamentos do mês.");
     }
   }
 
@@ -688,9 +688,9 @@ export function useFinanceDashboard() {
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
-      toast.success("Lancamento criado.");
+      toast.success("Lançamento criado.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel criar o lancamento.");
+      reportError(exception, "Não foi possível criar o lançamento.");
     }
   }
 
@@ -707,9 +707,9 @@ export function useFinanceDashboard() {
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
-      toast.success("Lancamento atualizado.");
+      toast.success("Lançamento atualizado.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel atualizar o lancamento.");
+      reportError(exception, "Não foi possível atualizar o lançamento.");
     }
   }
 
@@ -745,9 +745,9 @@ export function useFinanceDashboard() {
         householdId: activeHouseholdId,
       });
       await refreshWorkspace();
-      toast.success("Lancamento excluido.");
+      toast.success("Lançamento excluído.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel excluir o lancamento.");
+      reportError(exception, "Não foi possível excluir o lançamento.");
     }
   }
 
@@ -764,9 +764,9 @@ export function useFinanceDashboard() {
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
-      toast.success("Recorrencia criada.");
+      toast.success("Recorrência criada.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel criar a recorrencia.");
+      reportError(exception, "Não foi possível criar a recorrência.");
     }
   }
 
@@ -783,9 +783,9 @@ export function useFinanceDashboard() {
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
-      toast.success("Recorrencia atualizada.");
+      toast.success("Recorrência atualizada.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel atualizar a recorrencia.");
+      reportError(exception, "Não foi possível atualizar a recorrência.");
     }
   }
 
@@ -801,9 +801,9 @@ export function useFinanceDashboard() {
         householdId: activeHouseholdId,
       });
       await refreshWorkspace();
-      toast.success("Recorrencia excluida.");
+      toast.success("Recorrência excluída.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel excluir a recorrencia.");
+      reportError(exception, "Não foi possível excluir a recorrência.");
     }
   }
 
@@ -822,7 +822,7 @@ export function useFinanceDashboard() {
       await refreshWorkspace();
       toast.success("Bem criado.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel criar o bem.");
+      reportError(exception, "Não foi possível criar o bem.");
     }
   }
 
@@ -841,7 +841,7 @@ export function useFinanceDashboard() {
       await refreshWorkspace();
       toast.success("Bem atualizado.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel atualizar o bem.");
+      reportError(exception, "Não foi possível atualizar o bem.");
     }
   }
 
@@ -859,7 +859,7 @@ export function useFinanceDashboard() {
       await refreshWorkspace();
       toast.success("Bem excluido.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel excluir o bem.");
+      reportError(exception, "Não foi possível excluir o bem.");
     }
   }
 
@@ -879,7 +879,7 @@ export function useFinanceDashboard() {
         [assetId]: valuations,
       }));
     } catch (exception) {
-      reportError(exception, "Nao foi possivel carregar as referencias anuais.");
+      reportError(exception, "Não foi possível carregar as referências anuais.");
     } finally {
       setAssetValuationsLoadingFor(null);
     }
@@ -898,9 +898,9 @@ export function useFinanceDashboard() {
         body: JSON.stringify(input),
       });
       await loadAssetValuations(assetId);
-      toast.success("Referencia anual criada.");
+      toast.success("Referência anual criada.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel criar a referencia anual.");
+      reportError(exception, "Não foi possível criar a referência anual.");
     }
   }
 
@@ -917,9 +917,9 @@ export function useFinanceDashboard() {
         body: JSON.stringify(input),
       });
       await loadAssetValuations(assetId);
-      toast.success("Referencia anual atualizada.");
+      toast.success("Referência anual atualizada.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel atualizar a referencia anual.");
+      reportError(exception, "Não foi possível atualizar a referência anual.");
     }
   }
 
@@ -935,9 +935,9 @@ export function useFinanceDashboard() {
         householdId: activeHouseholdId,
       });
       await loadAssetValuations(assetId);
-      toast.success("Referencia anual excluida.");
+      toast.success("Referência anual excluída.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel excluir a referencia anual.");
+      reportError(exception, "Não foi possível excluir a referência anual.");
     }
   }
 
@@ -954,9 +954,9 @@ export function useFinanceDashboard() {
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
-      toast.success("Cartao criado.");
+      toast.success("Cartão criado.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel criar o cartao.");
+      reportError(exception, "Não foi possível criar o cartão.");
     }
   }
 
@@ -973,9 +973,9 @@ export function useFinanceDashboard() {
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
-      toast.success("Cartao atualizado.");
+      toast.success("Cartão atualizado.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel atualizar o cartao.");
+      reportError(exception, "Não foi possível atualizar o cartão.");
     }
   }
 
@@ -991,9 +991,9 @@ export function useFinanceDashboard() {
         householdId: activeHouseholdId,
       });
       await refreshWorkspace();
-      toast.success("Cartao excluido.");
+      toast.success("Cartão excluído.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel excluir o cartao.");
+      reportError(exception, "Não foi possível excluir o cartão.");
     }
   }
 
@@ -1010,9 +1010,9 @@ export function useFinanceDashboard() {
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
-      toast.success("Compra no cartao criada.");
+      toast.success("Compra no cartão criada.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel criar a compra no cartao.");
+      reportError(exception, "Não foi possível criar a compra no cartão.");
     }
   }
 
@@ -1032,9 +1032,9 @@ export function useFinanceDashboard() {
         },
       );
       await refreshWorkspace();
-      toast.success("Compra no cartao atualizada.");
+      toast.success("Compra no cartão atualizada.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel atualizar a compra no cartao.");
+      reportError(exception, "Não foi possível atualizar a compra no cartão.");
     }
   }
 
@@ -1050,9 +1050,9 @@ export function useFinanceDashboard() {
         householdId: activeHouseholdId,
       });
       await refreshWorkspace();
-      toast.success("Compra no cartao excluida.");
+      toast.success("Compra no cartão excluída.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel excluir a compra no cartao.");
+      reportError(exception, "Não foi possível excluir a compra no cartão.");
     }
   }
 
@@ -1071,7 +1071,7 @@ export function useFinanceDashboard() {
       await refreshWorkspace();
       toast.success("Fatura criada.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel criar a fatura.");
+      reportError(exception, "Não foi possível criar a fatura.");
     }
   }
 
@@ -1090,7 +1090,7 @@ export function useFinanceDashboard() {
       await refreshWorkspace();
       toast.success("Fatura atualizada.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel atualizar a fatura.");
+      reportError(exception, "Não foi possível atualizar a fatura.");
     }
   }
 
@@ -1106,9 +1106,9 @@ export function useFinanceDashboard() {
         householdId: activeHouseholdId,
       });
       await refreshWorkspace();
-      toast.success("Fatura excluida.");
+      toast.success("Fatura excluída.");
     } catch (exception) {
-      reportError(exception, "Nao foi possivel excluir a fatura.");
+      reportError(exception, "Não foi possível excluir a fatura.");
     }
   }
 
@@ -1139,7 +1139,7 @@ export function useFinanceDashboard() {
     theme,
     loading,
     error,
-    subtitle: "Fluxo mensal, recorrencias, cartoes e patrimonio da casa",
+    subtitle: "Fluxo mensal, recorrências, cartões e patrimônio da casa",
     canShareHousehold,
     canManageHousehold,
     setError,
