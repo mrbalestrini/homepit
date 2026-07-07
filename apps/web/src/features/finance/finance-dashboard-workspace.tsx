@@ -513,14 +513,18 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
   const [deleteTarget, setDeleteTarget] = useState<
     | { kind: "category"; id: string; name: string }
     | { kind: "entry"; id: string; name: string }
+    | { kind: "entry-bulk"; ids: string[]; count: number }
     | { kind: "template"; id: string; name: string }
     | { kind: "asset"; id: string; name: string }
     | { kind: "valuation"; assetId: string; id: string; name: string }
     | { kind: "card"; id: string; name: string }
     | { kind: "transaction"; id: string; name: string }
+    | { kind: "transaction-bulk"; ids: string[]; count: number }
     | { kind: "statement"; id: string; name: string }
     | null
   >(null);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState<string[]>([]);
   const [savingRows, setSavingRows] = useState<Record<string, boolean>>({});
 
   const entries = dashboard.periodDetail?.entries ?? [];
@@ -550,6 +554,24 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       !transaction.creditCardStatementId ||
       transaction.creditCardStatementId === (typeof statementDialog === "object" ? statementDialog?.id : null),
   );
+  const selectedVisibleEntryIds = filteredEntries.filter((entry) => selectedEntryIds.includes(entry.id)).map((entry) => entry.id);
+  const selectedVisibleTransactionIds = dashboard.creditCardTransactions
+    .filter((transaction) => selectedTransactionIds.includes(transaction.id))
+    .map((transaction) => transaction.id);
+
+  useEffect(() => {
+    setSelectedEntryIds((current) => current.filter((entryId) => entries.some((entry) => entry.id === entryId)));
+  }, [entries]);
+
+  useEffect(() => {
+    setSelectedTransactionIds((current) =>
+      current.filter((transactionId) => dashboard.creditCardTransactions.some((transaction) => transaction.id === transactionId)),
+    );
+  }, [dashboard.creditCardTransactions]);
+
+  useEffect(() => {
+    setSelectedTransactionIds([]);
+  }, [dashboard.selectedCreditCardId]);
 
   function setRowSaving(rowKey: string, saving: boolean) {
     setSavingRows((current) => {
@@ -578,6 +600,40 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
 
   function isRowSaving(rowKey: string) {
     return Boolean(savingRows[rowKey]);
+  }
+
+  function toggleEntrySelection(entryId: string) {
+    setSelectedEntryIds((current) => (current.includes(entryId) ? current.filter((id) => id !== entryId) : [...current, entryId]));
+  }
+
+  function toggleGroupEntries(entryIds: string[]) {
+    if (entryIds.length === 0) {
+      return;
+    }
+
+    setSelectedEntryIds((current) => {
+      const allSelected = entryIds.every((entryId) => current.includes(entryId));
+      return allSelected ? current.filter((id) => !entryIds.includes(id)) : Array.from(new Set([...current, ...entryIds]));
+    });
+  }
+
+  function toggleTransactionSelection(transactionId: string) {
+    setSelectedTransactionIds((current) =>
+      current.includes(transactionId) ? current.filter((id) => id !== transactionId) : [...current, transactionId],
+    );
+  }
+
+  function toggleAllTransactions(transactionIds: string[]) {
+    if (transactionIds.length === 0) {
+      return;
+    }
+
+    setSelectedTransactionIds((current) => {
+      const allSelected = transactionIds.every((transactionId) => current.includes(transactionId));
+      return allSelected
+        ? current.filter((id) => !transactionIds.includes(id))
+        : Array.from(new Set([...current, ...transactionIds]));
+    });
   }
 
   function buildEntryInput(entry: FinanceEntry, overrides: Partial<FinanceEntryFormInput> = {}): FinanceEntryFormInput {
@@ -685,6 +741,9 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       await dashboard.deleteCategory(deleteTarget.id);
     } else if (deleteTarget.kind === "entry") {
       await dashboard.deleteEntry(deleteTarget.id);
+    } else if (deleteTarget.kind === "entry-bulk") {
+      await dashboard.deleteEntries(deleteTarget.ids);
+      setSelectedEntryIds((current) => current.filter((id) => !deleteTarget.ids.includes(id)));
     } else if (deleteTarget.kind === "template") {
       await dashboard.deleteRecurringTemplate(deleteTarget.id);
     } else if (deleteTarget.kind === "asset") {
@@ -695,12 +754,39 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       await dashboard.deleteCreditCardAccount(deleteTarget.id);
     } else if (deleteTarget.kind === "transaction") {
       await dashboard.deleteCreditCardTransaction(deleteTarget.id);
+    } else if (deleteTarget.kind === "transaction-bulk") {
+      await dashboard.deleteCreditCardTransactions(deleteTarget.ids);
+      setSelectedTransactionIds((current) => current.filter((id) => !deleteTarget.ids.includes(id)));
     } else if (deleteTarget.kind === "statement") {
       await dashboard.deleteCreditCardStatement(deleteTarget.id);
     }
 
     setDeleteTarget(null);
   }
+
+  const deleteDialogTitle =
+    deleteTarget?.kind === "category"
+      ? "Excluir categoria"
+      : deleteTarget?.kind === "entry-bulk" || deleteTarget?.kind === "transaction-bulk"
+        ? "Excluir registros"
+        : "Excluir registro";
+  const deleteDialogDescription =
+    deleteTarget?.kind === "category"
+      ? "Essa ação remove a categoria personalizada e desvincula os registros que a utilizavam."
+      : deleteTarget?.kind === "entry-bulk"
+        ? `Essa ação remove ${deleteTarget.count} lançamentos selecionados do caixa.`
+        : deleteTarget?.kind === "transaction-bulk"
+          ? `Essa ação remove ${deleteTarget.count} compras selecionadas do cartão.`
+          : "Essa ação remove o registro selecionado.";
+  const deleteDialogRequiresTyping = deleteTarget?.kind === "category" || deleteTarget?.kind === "card";
+  const deleteDialogImpact =
+    deleteTarget?.kind === "category"
+      ? "A exclusão é permanente e os lançamentos, recorrências e compras vinculados passam a ficar sem categoria."
+      : deleteTarget?.kind === "entry-bulk"
+        ? "A exclusão em lote é permanente e recalcula os totais do caixa do período atual."
+        : deleteTarget?.kind === "transaction-bulk"
+          ? "A exclusão em lote é permanente e atualiza as compras abertas, faturas e totais relacionados."
+          : "A exclusão é permanente e atualiza os totais e relacionamentos do módulo financeiro.";
 
   return (
     <>
@@ -848,6 +934,20 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                     <InlineSyncLabel syncing={dashboard.syncingSections.cash} label="Sincronizando caixa..." />
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        setDeleteTarget({
+                          kind: "entry-bulk",
+                          ids: selectedVisibleEntryIds,
+                          count: selectedVisibleEntryIds.length,
+                        })
+                      }
+                      disabled={selectedVisibleEntryIds.length === 0}
+                    >
+                      <Trash2 />
+                      Excluir selecionados{selectedVisibleEntryIds.length > 0 ? ` (${selectedVisibleEntryIds.length})` : ""}
+                    </Button>
                     <Button variant="secondary" onClick={() => setEntryDialog({ mode: "create", entryType: "Entrada" })}>
                       <Plus />
                       Nova entrada
@@ -928,6 +1028,9 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                             <Table>
                               <TableHeader>
                                 <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
+                                  <TableHead className="w-12">
+                                    <span className="sr-only">Selecionar lançamentos</span>
+                                  </TableHead>
                                   <TableHead className="min-w-[180px]">Item</TableHead>
                                   <TableHead>Tipo</TableHead>
                                   <TableHead>Origem</TableHead>
@@ -947,6 +1050,15 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
 
                                   return (
                                     <TableRow key={entry.id}>
+                                      <TableCell>
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedEntryIds.includes(entry.id)}
+                                          onChange={() => toggleEntrySelection(entry.id)}
+                                          disabled={!entry.canDelete || rowBusy}
+                                          aria-label={`Selecionar lançamento ${entry.title}`}
+                                        />
+                                      </TableCell>
                                       <TableCell>
                                         <div className="space-y-1">
                                           <InlineInputCell
@@ -1090,6 +1202,19 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                             </Table>
                           </div>
                         </CardContent>
+                        <div className="border-t border-border/60 px-4 py-3">
+                          <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                            <input
+                              type="checkbox"
+                              checked={
+                                group.entries.filter((entry) => entry.canDelete).length > 0 &&
+                                group.entries.filter((entry) => entry.canDelete).every((entry) => selectedEntryIds.includes(entry.id))
+                              }
+                              onChange={() => toggleGroupEntries(group.entries.filter((entry) => entry.canDelete).map((entry) => entry.id))}
+                            />
+                            Selecionar todos deste grupo
+                          </label>
+                        </div>
                       </Card>
                     ))}
                   </div>
@@ -1193,9 +1318,26 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
 
                       <Card>
                         <CardHeader className="border-b border-border/60 pb-3">
-                          <div className="space-y-1">
-                            <CardTitle className="text-base">Compras</CardTitle>
-                            <InlineSyncLabel syncing={dashboard.syncingSections.cardTransactions} label="Sincronizando compras..." />
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="space-y-1">
+                              <CardTitle className="text-base">Compras</CardTitle>
+                              <InlineSyncLabel syncing={dashboard.syncingSections.cardTransactions} label="Sincronizando compras..." />
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setDeleteTarget({
+                                  kind: "transaction-bulk",
+                                  ids: selectedVisibleTransactionIds,
+                                  count: selectedVisibleTransactionIds.length,
+                                })
+                              }
+                              disabled={selectedVisibleTransactionIds.length === 0}
+                            >
+                              <Trash2 />
+                              Excluir selecionadas{selectedVisibleTransactionIds.length > 0 ? ` (${selectedVisibleTransactionIds.length})` : ""}
+                            </Button>
                           </div>
                         </CardHeader>
                         <CardContent className="p-0">
@@ -1208,6 +1350,23 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                               <Table>
                                 <TableHeader>
                                   <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
+                                    <TableHead className="w-12">
+                                      <input
+                                        type="checkbox"
+                                        checked={
+                                          dashboard.creditCardTransactions.filter((transaction) => transaction.canDelete).length > 0 &&
+                                          dashboard.creditCardTransactions
+                                            .filter((transaction) => transaction.canDelete)
+                                            .every((transaction) => selectedTransactionIds.includes(transaction.id))
+                                        }
+                                        onChange={() =>
+                                          toggleAllTransactions(
+                                            dashboard.creditCardTransactions.filter((transaction) => transaction.canDelete).map((transaction) => transaction.id),
+                                          )
+                                        }
+                                        aria-label="Selecionar compras do cartão"
+                                      />
+                                    </TableHead>
                                     <TableHead className="min-w-[180px]">Compra</TableHead>
                                     <TableHead>Data</TableHead>
                                     <TableHead>Categoria</TableHead>
@@ -1220,7 +1379,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                 <TableBody>
                                 {dashboard.creditCardTransactions.length === 0 ? (
                                   <TableRow>
-                                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                                    <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
                                       Nenhuma compra registrada neste cartão.
                                     </TableCell>
                                   </TableRow>
@@ -1231,6 +1390,15 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
 
                                       return (
                                         <TableRow key={transaction.id}>
+                                          <TableCell>
+                                            <input
+                                              type="checkbox"
+                                              checked={selectedTransactionIds.includes(transaction.id)}
+                                              onChange={() => toggleTransactionSelection(transaction.id)}
+                                              disabled={!transaction.canDelete || rowBusy}
+                                              aria-label={`Selecionar compra ${transaction.title}`}
+                                            />
+                                          </TableCell>
                                           <TableCell>
                                             <div className="space-y-1">
                                               <InlineInputCell
@@ -1812,20 +1980,12 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
 
       <DeleteConfirmationDialog
         open={Boolean(deleteTarget)}
-        title={deleteTarget?.kind === "category" ? "Excluir categoria" : "Excluir registro"}
-        description={
-          deleteTarget?.kind === "category"
-            ? "Essa ação remove a categoria personalizada e desvincula os registros que a utilizavam."
-            : "Essa acao remove o registro selecionado."
-        }
-        confirmationTarget={deleteTarget?.name}
-        confirmationLabel={`Digite ${deleteTarget?.name ?? ""} para confirmar`}
+        title={deleteDialogTitle}
+        description={deleteDialogDescription}
+        confirmationTarget={deleteDialogRequiresTyping ? deleteTarget?.name : undefined}
+        confirmationLabel={deleteDialogRequiresTyping ? `Digite ${deleteTarget?.name ?? ""} para confirmar` : undefined}
         confirmLabel="Excluir"
-        impactItems={[
-          deleteTarget?.kind === "category"
-            ? "A exclusão é permanente e os lançamentos, recorrências e compras vinculados passam a ficar sem categoria."
-            : "A exclusao e permanente e atualiza os totais e relacionamentos do modulo financeiro.",
-        ]}
+        impactItems={[deleteDialogImpact]}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
       />

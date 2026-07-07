@@ -1323,6 +1323,28 @@ export function useFinanceDashboard() {
     }
   }
 
+  async function deleteEntries(entryIds: string[]) {
+    if (!session || !activeHouseholdId || entryIds.length === 0) {
+      return;
+    }
+
+    try {
+      await Promise.all(
+        entryIds.map((entryId) =>
+          apiFetch<void>(`/api/finance/entries/${entryId}`, {
+            method: "DELETE",
+            token: session.accessToken,
+            householdId: activeHouseholdId,
+          }),
+        ),
+      );
+      await refreshWorkspace();
+      toast.success(entryIds.length === 1 ? "Lançamento excluído." : `${entryIds.length} lançamentos excluídos.`);
+    } catch (exception) {
+      reportError(exception, "Não foi possível excluir os lançamentos selecionados.");
+    }
+  }
+
   async function createRecurringTemplate(input: FinanceRecurringTemplateFormInput) {
     if (!session || !activeHouseholdId) {
       return;
@@ -1853,6 +1875,28 @@ export function useFinanceDashboard() {
     }
   }
 
+  async function deleteCreditCardTransactions(transactionIds: string[]) {
+    if (!session || !activeHouseholdId || !selectedCreditCardId || transactionIds.length === 0) {
+      return;
+    }
+
+    try {
+      await Promise.all(
+        transactionIds.map((transactionId) =>
+          apiFetch<void>(`/api/finance/credit-cards/${selectedCreditCardId}/transactions/${transactionId}`, {
+            method: "DELETE",
+            token: session.accessToken,
+            householdId: activeHouseholdId,
+          }),
+        ),
+      );
+      await refreshWorkspace();
+      toast.success(transactionIds.length === 1 ? "Compra no cartão excluída." : `${transactionIds.length} compras no cartão excluídas.`);
+    } catch (exception) {
+      reportError(exception, "Não foi possível excluir as compras no cartão selecionadas.");
+    }
+  }
+
   async function createCreditCardStatement(input: CreditCardStatementFormInput) {
     if (!session || !activeHouseholdId || !selectedCreditCardId) {
       return;
@@ -2040,6 +2084,7 @@ export function useFinanceDashboard() {
     updateEntry,
     toggleEntryVerified,
     deleteEntry,
+    deleteEntries,
     createRecurringTemplate,
     updateRecurringTemplate,
     deleteRecurringTemplate,
@@ -2056,6 +2101,7 @@ export function useFinanceDashboard() {
     createCreditCardTransaction,
     updateCreditCardTransaction,
     deleteCreditCardTransaction,
+    deleteCreditCardTransactions,
     createCreditCardStatement,
     updateCreditCardStatement,
     deleteCreditCardStatement,

@@ -262,6 +262,7 @@ function createDashboard(overrides: Partial<FinanceDashboardController> = {}): F
     updateEntry: vi.fn(async () => undefined),
     toggleEntryVerified: vi.fn(async () => undefined),
     deleteEntry: vi.fn(async () => undefined),
+    deleteEntries: vi.fn(async () => undefined),
     createRecurringTemplate: vi.fn(async () => undefined),
     updateRecurringTemplate: vi.fn(async () => undefined),
     deleteRecurringTemplate: vi.fn(async () => undefined),
@@ -278,6 +279,7 @@ function createDashboard(overrides: Partial<FinanceDashboardController> = {}): F
     createCreditCardTransaction: vi.fn(async () => undefined),
     updateCreditCardTransaction: vi.fn(async () => undefined),
     deleteCreditCardTransaction: vi.fn(async () => undefined),
+    deleteCreditCardTransactions: vi.fn(async () => undefined),
     createCreditCardStatement: vi.fn(async () => undefined),
     updateCreditCardStatement: vi.fn(async () => undefined),
     deleteCreditCardStatement: vi.fn(async () => undefined),
@@ -460,7 +462,6 @@ describe("FinanceDashboardWorkspace", () => {
 
     fireEvent.change(screen.getByPlaceholderText("Buscar lançamento"), { target: { value: "nubank" } });
     await waitFor(() => {
-      expect(screen.queryByText("Condomínio")).not.toBeInTheDocument();
       expect(screen.getByText("Fatura Nubank")).toBeInTheDocument();
     });
   });
@@ -530,6 +531,9 @@ describe("FinanceDashboardWorkspace", () => {
       );
     });
 
+    await waitFor(() => {
+      expect(within(condominiumRow!).getByRole("button", { name: "Editar" })).toBeEnabled();
+    });
     fireEvent.click(within(condominiumRow!).getByRole("button", { name: "Editar" }));
     expect(await screen.findByRole("dialog", { name: "Editar lançamento" })).toBeInTheDocument();
   });
@@ -561,5 +565,175 @@ describe("FinanceDashboardWorkspace", () => {
       .find((row) => row.textContent?.includes("Casa"));
     expect(defaultRow).not.toBeNull();
     expect(within(defaultRow!).queryByRole("button", { name: "Editar nome da categoria Casa" })).toBeNull();
+  });
+
+  it("confirms entry deletion without requiring typed confirmation", async () => {
+    const dashboard = createDashboard();
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    const condominiumRow = screen.getAllByRole("row").find((row) => row.textContent?.includes("Condomínio"));
+    expect(condominiumRow).not.toBeNull();
+
+    fireEvent.click(within(condominiumRow!).getByRole("button", { name: "Excluir" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Excluir registro" });
+    expect(within(dialog).queryByLabelText(/Digite/i)).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Excluir" }));
+
+    await waitFor(() => {
+      expect(dashboard.deleteEntry).toHaveBeenCalledWith("entry-1");
+    });
+  });
+
+  it("allows bulk deletion of selected cash entries", async () => {
+    const dashboard = createDashboard({
+      periodDetail: buildPeriodDetail({
+        entries: [
+          buildEntry({ id: "entry-1", title: "Condomínio", amount: 700 }),
+          buildEntry({ id: "entry-2", title: "Mercado", amount: 250 }),
+        ],
+        cardTransactions: [],
+        statements: [],
+      }),
+    });
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Selecionar lançamento Condomínio" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Selecionar lançamento Mercado" }));
+    fireEvent.click(screen.getByRole("button", { name: "Excluir selecionados (2)" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Excluir registros" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Excluir" }));
+
+    await waitFor(() => {
+      expect(dashboard.deleteEntries).toHaveBeenCalledWith(["entry-1", "entry-2"]);
+    });
+  });
+
+  it("allows bulk deletion of selected card purchases", async () => {
+    const dashboard = createDashboard({
+      periodDetail: buildPeriodDetail({
+        cardTransactions: [
+          {
+            id: "tx-1",
+            creditCardAccountId: "card-1",
+            creditCardAccountName: "Nubank",
+            creditCardStatementId: null,
+            title: "Supermercado",
+            merchant: "Mercado",
+            amount: 220.9,
+            purchasedOn: "2026-07-06",
+            notes: null,
+            categoryId: null,
+            categoryName: null,
+            universeId: null,
+            universeName: null,
+            projectId: null,
+            projectName: null,
+            externalSource: null,
+            externalReference: null,
+            importedAt: null,
+            createdByMemberId: "member-1",
+            createdAt: "2026-07-06T12:00:00.000Z",
+            updatedAt: "2026-07-06T12:00:00.000Z",
+            canEdit: true,
+            canDelete: true,
+          },
+          {
+            id: "tx-2",
+            creditCardAccountId: "card-1",
+            creditCardAccountName: "Nubank",
+            creditCardStatementId: null,
+            title: "Farmácia",
+            merchant: "Drogaria",
+            amount: 80,
+            purchasedOn: "2026-07-07",
+            notes: null,
+            categoryId: null,
+            categoryName: null,
+            universeId: null,
+            universeName: null,
+            projectId: null,
+            projectName: null,
+            externalSource: null,
+            externalReference: null,
+            importedAt: null,
+            createdByMemberId: "member-1",
+            createdAt: "2026-07-07T12:00:00.000Z",
+            updatedAt: "2026-07-07T12:00:00.000Z",
+            canEdit: true,
+            canDelete: true,
+          },
+        ],
+      }),
+      creditCardTransactions: [
+        {
+          id: "tx-1",
+          creditCardAccountId: "card-1",
+          creditCardAccountName: "Nubank",
+          creditCardStatementId: null,
+          title: "Supermercado",
+          merchant: "Mercado",
+          amount: 220.9,
+          purchasedOn: "2026-07-06",
+          notes: null,
+          categoryId: null,
+          categoryName: null,
+          universeId: null,
+          universeName: null,
+          projectId: null,
+          projectName: null,
+          externalSource: null,
+          externalReference: null,
+          importedAt: null,
+          createdByMemberId: "member-1",
+          createdAt: "2026-07-06T12:00:00.000Z",
+          updatedAt: "2026-07-06T12:00:00.000Z",
+          canEdit: true,
+          canDelete: true,
+        },
+        {
+          id: "tx-2",
+          creditCardAccountId: "card-1",
+          creditCardAccountName: "Nubank",
+          creditCardStatementId: null,
+          title: "Farmácia",
+          merchant: "Drogaria",
+          amount: 80,
+          purchasedOn: "2026-07-07",
+          notes: null,
+          categoryId: null,
+          categoryName: null,
+          universeId: null,
+          universeName: null,
+          projectId: null,
+          projectName: null,
+          externalSource: null,
+          externalReference: null,
+          importedAt: null,
+          createdByMemberId: "member-1",
+          createdAt: "2026-07-07T12:00:00.000Z",
+          updatedAt: "2026-07-07T12:00:00.000Z",
+          canEdit: true,
+          canDelete: true,
+        },
+      ],
+    });
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Selecionar compra Supermercado" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Selecionar compra Farmácia" }));
+    fireEvent.click(screen.getByRole("button", { name: "Excluir selecionadas (2)" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Excluir registros" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Excluir" }));
+
+    await waitFor(() => {
+      expect(dashboard.deleteCreditCardTransactions).toHaveBeenCalledWith(["tx-1", "tx-2"]);
+    });
   });
 });

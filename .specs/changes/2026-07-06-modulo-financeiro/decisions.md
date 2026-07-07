@@ -27,3 +27,7 @@
 15. Atualizacoes inline do financeiro devem aplicar patch otimista local com rollback em
     erro e reconciliacao pontual do trecho afetado, sem depender de `refreshWorkspace()`
     apos cada edicao.
+16. A exclusao de lancamentos de caixa e compras de cartao passa a usar apenas confirmacao
+    simples na UI, sem exigir digitacao do titulo do registro.
+17. As tabelas de caixa e compras de cartao passam a permitir selecao multipla para
+    exclusao em lote dentro do proprio modulo financeiro.

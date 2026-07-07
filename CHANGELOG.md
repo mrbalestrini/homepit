@@ -16,6 +16,8 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - A copy do módulo financeiro foi revisada para pt-BR com acentuação correta em botões, títulos, mensagens e textos de apoio.
 - Lançamentos de caixa, recorrências e compras de cartão agora aceitam categoria opcional e exibem a classificação escolhida nas tabelas do financeiro.
 - As tabelas do financeiro passaram a aceitar edição inline em campos rápidos, com atualização otimista imediata, rollback em erro e sincronização pontual sem recarregar o módulo inteiro após cada edição.
+- A exclusão de lançamentos de caixa e compras de cartão foi simplificada para confirmação direta, sem exigir digitação do título.
+- As seções de caixa e compras de cartão agora permitem selecionar vários registros para exclusão em lote.
 
 ## [1.7.0] - 2026-07-06
 
