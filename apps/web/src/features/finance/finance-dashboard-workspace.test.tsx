@@ -306,12 +306,14 @@ describe("FinanceDashboardWorkspace", () => {
     });
   });
 
-  it("renders the categories section and opens the creation dialog", async () => {
+  it("opens the categories modal from the toolbar and allows starting a new category", async () => {
     const dashboard = createDashboard();
 
     render(<FinanceDashboardWorkspace dashboard={dashboard} />);
 
-    expect(screen.getByText("Categorias")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
+
+    expect(await screen.findByRole("dialog", { name: "Categorias" })).toBeInTheDocument();
     expect(screen.getAllByText("Casa").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Mercado").length).toBeGreaterThan(0);
 

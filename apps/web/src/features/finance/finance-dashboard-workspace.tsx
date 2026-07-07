@@ -102,6 +102,7 @@ type EntryDialogState = { mode: "create" | "edit"; entryType: FinanceEntryType; 
 
 export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDashboardController }) {
   const [filters, setFilters] = useState<FinanceEntryFilters>(defaultFilters);
+  const [categoriesDialogOpen, setCategoriesDialogOpen] = useState(false);
   const [categoryDialog, setCategoryDialog] = useState<FinanceCategory | null | "create">(null);
   const [entryDialog, setEntryDialog] = useState<EntryDialogState | null>(null);
   const [templateDialog, setTemplateDialog] = useState<FinanceRecurringTemplate | null | "create">(null);
@@ -237,9 +238,9 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
               </p>
             </div>
 
-            <div className="flex w-full flex-col gap-2 overflow-x-auto lg:flex-row lg:flex-nowrap lg:items-center lg:justify-end">
+            <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
               <Select
-                className="lg:w-[8rem] lg:shrink-0"
+                className="w-full sm:w-[8rem] lg:shrink-0"
                 value={String(dashboard.activeYear)}
                 onChange={(event) => dashboard.setActivePeriod(Number(event.target.value), dashboard.activeMonth)}
                 aria-label="Ano do período"
@@ -251,7 +252,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                 ))}
               </Select>
               <Select
-                className="lg:w-[8.5rem] lg:shrink-0"
+                className="w-full sm:w-[8.5rem] lg:shrink-0"
                 value={String(dashboard.activeMonth)}
                 onChange={(event) => dashboard.setActivePeriod(dashboard.activeYear, Number(event.target.value))}
                 aria-label="Mês do período"
@@ -273,6 +274,10 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
               <Button variant="secondary" className="lg:shrink-0" onClick={() => setRecurringTemplatesDialogOpen(true)}>
                 <Wrench />
                 Recorrências
+              </Button>
+              <Button variant="secondary" className="lg:shrink-0" onClick={() => setCategoriesDialogOpen(true)}>
+                <Wrench />
+                Categorias
               </Button>
             </div>
           </CardContent>
@@ -318,66 +323,6 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                   helper="Quantidade de compras no período analítico"
                 />
                 <InfoBlock label="Verificados" value={`${periodSummary?.verifiedEntries ?? 0}/${entries.length}`} helper="Lançamentos revisados no caixa mensal" />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="border-b border-border/60 pb-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <CardTitle className="text-lg">Categorias</CardTitle>
-                  <Button onClick={() => setCategoryDialog("create")}>
-                    <Plus />
-                    Nova categoria
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
-                {dashboard.categories.length === 0 ? (
-                  <div className="md:col-span-2 xl:col-span-3">
-                    <EmptyState
-                      icon={<Wrench className="size-5" />}
-                      title="Nenhuma categoria disponível"
-                      description="Crie categorias personalizadas para classificar caixa, recorrências e compras de cartão."
-                    />
-                  </div>
-                ) : (
-                  dashboard.categories.map((category) => (
-                    <Card key={category.id}>
-                      <CardContent className="space-y-3 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-foreground">{category.name}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {category.usageCount === 1 ? "1 uso no financeiro" : `${category.usageCount} usos no financeiro`}
-                            </p>
-                          </div>
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                              category.isDefault ? "bg-highlight text-accent-foreground" : "bg-surface-muted text-muted-foreground"
-                            }`}
-                          >
-                            {category.isDefault ? "Padrão" : "Personalizada"}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button variant="secondary" size="sm" onClick={() => setCategoryDialog(category)} disabled={!category.canEdit}>
-                            <Pencil />
-                            Editar
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeleteTarget({ kind: "category", id: category.id, name: category.name })}
-                            disabled={!category.canDelete}
-                          >
-                            <Trash2 />
-                            Excluir
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
               </CardContent>
             </Card>
 
@@ -1019,6 +964,24 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         onDeleteTemplate={(template) => setDeleteTarget({ kind: "template", id: template.id, name: template.title })}
       />
 
+      <CategoriesDialog
+        open={categoriesDialogOpen}
+        categories={dashboard.categories}
+        onOpenChange={(open) => {
+          setCategoriesDialogOpen(open);
+          if (!open) {
+            setCategoryDialog(null);
+          }
+        }}
+        onCreateNew={() => {
+          setCategoryDialog("create");
+        }}
+        onEditCategory={(category) => {
+          setCategoryDialog(category);
+        }}
+        onDeleteCategory={(category) => setDeleteTarget({ kind: "category", id: category.id, name: category.name })}
+      />
+
       <GeneratePeriodDialog
         open={generateDialogOpen}
         periodLabel={formatMonthLabel(dashboard.activeYear, dashboard.activeMonth)}
@@ -1133,6 +1096,84 @@ function CategoryDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CategoriesDialog({
+  open,
+  categories,
+  onOpenChange,
+  onCreateNew,
+  onEditCategory,
+  onDeleteCategory,
+}: {
+  open: boolean;
+  categories: FinanceCategory[];
+  onOpenChange: (open: boolean) => void;
+  onCreateNew: () => void;
+  onEditCategory: (category: FinanceCategory) => void;
+  onDeleteCategory: (category: FinanceCategory) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[92vh] w-[min(96vw,72rem)] max-w-none flex-col overflow-hidden p-0">
+        <div className="flex flex-col gap-4 border-b border-border/60 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+          <DialogHeader className="space-y-2">
+            <DialogTitle>Categorias</DialogTitle>
+            <DialogDescription>Gerencie as categorias padrão e personalizadas usadas no caixa, nas recorrências e nas compras de cartão.</DialogDescription>
+          </DialogHeader>
+          <Button onClick={onCreateNew}>
+            <Plus />
+            Nova categoria
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+          {categories.length === 0 ? (
+            <EmptyState
+              icon={<Wrench className="size-5" />}
+              title="Nenhuma categoria disponível"
+              description="Crie categorias personalizadas para classificar caixa, recorrências e compras de cartão."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
+                    <TableHead className="min-w-[220px]">Nome</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Uso</TableHead>
+                    <TableHead className="min-w-[220px] text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {categories.map((category) => (
+                    <TableRow key={category.id}>
+                      <TableCell>
+                        <p className="font-medium text-foreground">{category.name}</p>
+                      </TableCell>
+                      <TableCell>{category.isDefault ? "Padrão" : "Personalizada"}</TableCell>
+                      <TableCell>{category.usageCount === 1 ? "1 uso no financeiro" : `${category.usageCount} usos no financeiro`}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => onEditCategory(category)} disabled={!category.canEdit}>
+                            <Pencil />
+                            Editar
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => onDeleteCategory(category)} disabled={!category.canDelete}>
+                            <Trash2 />
+                            Excluir
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
