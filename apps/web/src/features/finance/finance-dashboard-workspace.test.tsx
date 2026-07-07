@@ -306,6 +306,41 @@ describe("FinanceDashboardWorkspace", () => {
     expect(screen.getByText("Aluguel")).toBeInTheDocument();
   });
 
+  it("keeps the recurring templates modal open when creating a recurring template", async () => {
+    const dashboard = createDashboard({
+      recurringTemplates: [
+        {
+          id: "template-1",
+          title: "Aluguel",
+          notes: "Recorrência mensal",
+          type: "Saida",
+          defaultAmount: 1500,
+          recurrence: "Monthly",
+          dayOfMonth: 5,
+          monthOfYear: null,
+          isActive: true,
+          universeId: null,
+          universeName: null,
+          projectId: null,
+          projectName: null,
+          createdByMemberId: "member-1",
+          createdAt: "2026-07-06T12:00:00.000Z",
+          updatedAt: "2026-07-06T12:00:00.000Z",
+          canEdit: true,
+          canDelete: true,
+        },
+      ],
+    });
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Recorrências" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Nova recorrência" }));
+
+    expect(await screen.findByRole("dialog", { name: "Recorrências" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Nova recorrência" })).toBeInTheDocument();
+  });
+
   it("toggles verification and applies filters/grouping in the cash section", async () => {
     const dashboard = createDashboard();
 

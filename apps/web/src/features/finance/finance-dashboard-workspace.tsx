@@ -231,8 +231,9 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
               </p>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-4">
+            <div className="flex w-full flex-col gap-2 overflow-x-auto lg:flex-row lg:flex-nowrap lg:items-center lg:justify-end">
               <Select
+                className="lg:w-[8rem] lg:shrink-0"
                 value={String(dashboard.activeYear)}
                 onChange={(event) => dashboard.setActivePeriod(Number(event.target.value), dashboard.activeMonth)}
                 aria-label="Ano do período"
@@ -244,6 +245,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                 ))}
               </Select>
               <Select
+                className="lg:w-[8.5rem] lg:shrink-0"
                 value={String(dashboard.activeMonth)}
                 onChange={(event) => dashboard.setActivePeriod(dashboard.activeYear, Number(event.target.value))}
                 aria-label="Mês do período"
@@ -254,15 +256,15 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                   </option>
                 ))}
               </Select>
-              <Button variant="secondary" onClick={() => void dashboard.refreshWorkspace()}>
+              <Button variant="secondary" className="lg:shrink-0" onClick={() => void dashboard.refreshWorkspace()}>
                 <RefreshCw />
                 Atualizar
               </Button>
-              <Button onClick={handleGenerateClick}>
+              <Button className="lg:shrink-0" onClick={handleGenerateClick}>
                 <CalendarRange />
                 Inserir Recorrências
               </Button>
-              <Button variant="secondary" onClick={() => setRecurringTemplatesDialogOpen(true)}>
+              <Button variant="secondary" className="lg:shrink-0" onClick={() => setRecurringTemplatesDialogOpen(true)}>
                 <Wrench />
                 Recorrências
               </Button>
@@ -929,13 +931,16 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       <RecurringTemplatesDialog
         open={recurringTemplatesDialogOpen}
         templates={dashboard.recurringTemplates}
-        onOpenChange={setRecurringTemplatesDialogOpen}
+        onOpenChange={(open) => {
+          setRecurringTemplatesDialogOpen(open);
+          if (!open) {
+            setTemplateDialog(null);
+          }
+        }}
         onCreateNew={() => {
-          setRecurringTemplatesDialogOpen(false);
           setTemplateDialog("create");
         }}
         onEditTemplate={(template) => {
-          setRecurringTemplatesDialogOpen(false);
           setTemplateDialog(template);
         }}
         onDeleteTemplate={(template) => setDeleteTarget({ kind: "template", id: template.id, name: template.title })}
@@ -1323,7 +1328,7 @@ function RecurringTemplateDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} modal={false} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{template ? "Editar recorrência" : "Nova recorrência"}</DialogTitle>
