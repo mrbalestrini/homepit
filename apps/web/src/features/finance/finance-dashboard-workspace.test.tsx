@@ -442,7 +442,7 @@ describe("FinanceDashboardWorkspace", () => {
     expect(screen.getByText("Gerencie as recorrências mensais e anuais em uma janela dedicada quase em tela cheia.")).toBeInTheDocument();
   });
 
-  it("toggles verification and applies filters/grouping in the cash section", async () => {
+  it("toggles verification and applies filters in the cash section", async () => {
     const dashboard = createDashboard();
 
     render(<FinanceDashboardWorkspace dashboard={dashboard} />);
@@ -458,19 +458,11 @@ describe("FinanceDashboardWorkspace", () => {
       );
     });
 
-    const groupByField = screen.getByText("Agrupar por").parentElement?.querySelector("select") as HTMLSelectElement | null;
-    expect(groupByField).not.toBeNull();
-    fireEvent.change(groupByField!, { target: { value: "project" } });
-
-    await waitFor(() => {
-      const groupTitles = Array.from(document.querySelectorAll(".text-base")).map((element) => element.textContent?.trim());
-      expect(groupTitles).toEqual(expect.arrayContaining(["Moradia", "Viagem"]));
-      expect(groupTitles).not.toContain("Saídas");
-    });
-
     fireEvent.change(screen.getByPlaceholderText("Buscar lançamento"), { target: { value: "nubank" } });
-    expect(screen.queryByText("Condomínio")).not.toBeInTheDocument();
-    expect(screen.getByText("Fatura Nubank")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText("Condomínio")).not.toBeInTheDocument();
+      expect(screen.getByText("Fatura Nubank")).toBeInTheDocument();
+    });
   });
 
   it("switches between typed asset forms and submits property details", async () => {

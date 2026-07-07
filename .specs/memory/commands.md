@@ -23,6 +23,9 @@
 - `start` aceita `-Engine docker|podman` e `-NoBuild`.
 - O script tambem pode ser executado por `pwsh` ou com `-ExecutionPolicy Bypass`.
 - O README do MinIO documenta comandos Compose especificos para recriar o servico.
+- No frontend, `npm run build` e o mesmo gate principal usado pelo deploy Docker/Coolify,
+  incluindo o typecheck executado pelo `next build`; testes Vitest verdes nao substituem
+  essa validacao quando a mudanca afeta tipos, hooks-controladores ou estado otimista.
 
 ## Observacoes de seguranca
 

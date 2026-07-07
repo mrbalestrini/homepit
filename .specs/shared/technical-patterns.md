@@ -53,6 +53,9 @@
   relacionados, pois hoje esses artefatos sao mantidos separadamente.
 - Em HomePit, validar migration significa tambem validar descobribilidade no startup do
   deploy; arquivo presente no repositorio nao garante que o EF a considere pendente.
+- Em mudancas frontend com DTOs, patches otimistas, reconciliacao local ou hooks de
+  controller, a conclusao segura exige `npm run build` em `apps/web`, porque o gate de
+  deploy do Next pode falhar em typecheck mesmo quando os testes Vitest passam.
 
 ## NÃO IDENTIFICADO
 

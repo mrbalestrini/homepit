@@ -1071,7 +1071,7 @@ export function useFinanceDashboard() {
         currentEntry.month === previousPeriodDetail.month,
     );
     const classification = resolveClassification(input.universeId, input.projectId);
-    const optimisticEntry = currentEntry
+    const optimisticEntry: FinanceEntry | null = currentEntry
       ? {
           ...currentEntry,
           title: input.title,
@@ -1678,7 +1678,7 @@ export function useFinanceDashboard() {
       previousPeriodDetail?.cardTransactions.find((transaction) => transaction.id === transactionId) ??
       null;
     const classification = resolveClassification(input.universeId, input.projectId);
-    const optimisticTransaction = previousTransaction
+    const optimisticTransaction: CreditCardTransaction | null = previousTransaction
       ? {
           ...previousTransaction,
           title: input.title,
@@ -1881,7 +1881,7 @@ export function useFinanceDashboard() {
     const previousPeriods = financePeriods;
     const previousStatements = creditCardStatements;
     const previousStatement = creditCardStatements.find((statement) => statement.id === statementId) ?? null;
-    const optimisticStatement = previousStatement
+    const optimisticStatement: CreditCardStatement | null = previousStatement
       ? {
           ...previousStatement,
           closingDate: input.closingDate,
