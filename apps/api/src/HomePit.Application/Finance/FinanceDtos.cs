@@ -4,6 +4,20 @@ namespace HomePit.Application.Finance;
 
 public sealed record GenerateFinancePeriodRequest(string Mode);
 
+public sealed record CreateFinanceCategoryRequest(string Name);
+
+public sealed record UpdateFinanceCategoryRequest(string Name);
+
+public sealed record FinanceCategoryDto(
+    Guid Id,
+    string Name,
+    bool IsDefault,
+    int SortOrder,
+    Guid? CreatedByMemberId,
+    int UsageCount,
+    bool CanEdit,
+    bool CanDelete);
+
 public sealed record FinancePeriodListItemDto(
     Guid Id,
     int Year,
@@ -41,6 +55,7 @@ public sealed record CreateFinanceRecurringTemplateRequest(
     int? DayOfMonth,
     int? MonthOfYear,
     bool IsActive,
+    Guid? CategoryId,
     Guid? UniverseId,
     Guid? ProjectId);
 
@@ -53,6 +68,7 @@ public sealed record UpdateFinanceRecurringTemplateRequest(
     int? DayOfMonth,
     int? MonthOfYear,
     bool IsActive,
+    Guid? CategoryId,
     Guid? UniverseId,
     Guid? ProjectId);
 
@@ -66,6 +82,8 @@ public sealed record FinanceRecurringTemplateDto(
     int? DayOfMonth,
     int? MonthOfYear,
     bool IsActive,
+    Guid? CategoryId,
+    string? CategoryName,
     Guid? UniverseId,
     string? UniverseName,
     Guid? ProjectId,
@@ -86,6 +104,7 @@ public sealed record CreateFinanceEntryRequest(
     bool Verified,
     DateOnly ReferenceDate,
     Guid? RecurringTemplateId,
+    Guid? CategoryId,
     Guid? UniverseId,
     Guid? ProjectId);
 
@@ -99,6 +118,7 @@ public sealed record UpdateFinanceEntryRequest(
     bool Verified,
     DateOnly ReferenceDate,
     Guid? RecurringTemplateId,
+    Guid? CategoryId,
     Guid? UniverseId,
     Guid? ProjectId);
 
@@ -116,6 +136,8 @@ public sealed record FinanceEntryDto(
     FinanceEntryOrigin Origin,
     Guid? RecurringTemplateId,
     Guid? CreditCardStatementId,
+    Guid? CategoryId,
+    string? CategoryName,
     Guid? UniverseId,
     string? UniverseName,
     Guid? ProjectId,
@@ -251,6 +273,7 @@ public sealed record CreateCreditCardTransactionRequest(
     decimal Amount,
     DateOnly PurchasedOn,
     string? Notes,
+    Guid? CategoryId,
     Guid? UniverseId,
     Guid? ProjectId,
     string? ExternalSource,
@@ -263,6 +286,7 @@ public sealed record UpdateCreditCardTransactionRequest(
     decimal Amount,
     DateOnly PurchasedOn,
     string? Notes,
+    Guid? CategoryId,
     Guid? UniverseId,
     Guid? ProjectId,
     string? ExternalSource,
@@ -279,6 +303,8 @@ public sealed record CreditCardTransactionDto(
     decimal Amount,
     DateOnly PurchasedOn,
     string? Notes,
+    Guid? CategoryId,
+    string? CategoryName,
     Guid? UniverseId,
     string? UniverseName,
     Guid? ProjectId,

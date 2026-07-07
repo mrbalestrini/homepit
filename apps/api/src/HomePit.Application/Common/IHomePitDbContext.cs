@@ -18,6 +18,7 @@ public interface IHomePitDbContext
     DbSet<InstitutionalPage> InstitutionalPages { get; }
     DbSet<InstitutionalBenefit> InstitutionalBenefits { get; }
     DbSet<InstitutionalStep> InstitutionalSteps { get; }
+    DbSet<FinanceCategory> FinanceCategories { get; }
     DbSet<FinancePeriod> FinancePeriods { get; }
     DbSet<FinanceRecurringTemplate> FinanceRecurringTemplates { get; }
     DbSet<FinanceEntry> FinanceEntries { get; }

@@ -16,3 +16,9 @@
    recorrências vive em uma modal quase tela cheia dedicada.
 10. Textos de UI em português no financeiro devem passar por revisão final de acentuação
     antes de novas criações ou renomeações serem consideradas concluídas.
+11. Categorias financeiras sao vinculadas por household, mas ficam visiveis apenas dentro
+    do modulo `/finance`.
+12. As 12 categorias padrao do financeiro sao imutaveis e permanentes; apenas categorias
+    personalizadas podem ser criadas, editadas e excluidas.
+13. Excluir categoria personalizada apenas desvincula lancamentos, recorrencias e compras
+    de cartao; a fatura consolidada do cartao permanece sem categoria.

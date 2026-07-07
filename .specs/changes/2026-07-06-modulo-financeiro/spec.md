@@ -17,6 +17,8 @@ modulos da casa.
 - Persistir periodos mensais por household com unicidade por ano/mes.
 - Persistir lancamentos financeiros mensais, recorrencias mensais/anuais, cartoes, compras,
   faturas, bens e referencias anuais de valor.
+- Persistir categorias financeiras por household, com 12 categorias padrao imutaveis e CRUD
+  apenas para categorias personalizadas visiveis no modulo financeiro.
 - Reaproveitar `Universe` e `Project` como classificacoes opcionais em lancamentos,
   recorrencias e compras de cartao.
 - Expor rotas `/api/finance/*` para periodos, lancamentos, recorrencias, bens e cartoes.
@@ -52,7 +54,13 @@ modulos da casa.
 - Periodo mensal e unico por `(HouseholdId, Year, Month)`.
 - Gerar o mes aceita os modos `missingOnly` e `duplicateAll`.
 - Quando `ProjectId` vier preenchido, o backend valida o projeto e deriva `UniverseId`.
+- Lancamentos de caixa, recorrencias e compras de cartao podem apontar opcionalmente para
+  uma categoria financeira da mesma household.
+- Categorias padrao nao podem ser editadas nem excluidas.
+- Excluir categoria personalizada apenas desvincula os registros que a utilizavam.
 - O caixa mensal registra apenas a fatura consolidada do cartao, nao cada compra.
+- A fatura consolidada do cartao permanece sem categoria para evitar dupla classificacao com
+  as compras individuais.
 - A visao analitica do mes soma gastos de caixa sem fatura consolidada e compras de cartao
   do mes para evitar dupla contagem.
 - Bens podem ser `Property`, `Vehicle` ou `Other`; apenas os dois primeiros exigem detalhes
@@ -81,10 +89,11 @@ modulos da casa.
 ## Testes
 
 - Servico: geracao de periodo, recorrencia anual, consistencia universo/projeto, fatura
-  consolidada e permissao.
-- Integracao: CRUD basico de lancamentos, recorrencias, bens e cartoes com `X-Household-Id`.
+  consolidada, categorias e permissao.
+- Integracao: CRUD basico de lancamentos, recorrencias, bens, cartoes e categorias com
+  `X-Household-Id`.
 - Frontend: carregamento do mes atual, dialogo de geracao, toggle de verificado,
-  filtros/agrupamentos e formularios tipados.
+  filtros/agrupamentos, formularios tipados e gestao de categorias.
 
 ## Criterios de aceite
 
@@ -92,6 +101,7 @@ modulos da casa.
 - O mes atual abre mesmo sem periodo previamente gerado.
 - Recorrencias podem gerar lancamentos do mes e duplicar quando solicitado.
 - O cartao possui compras e faturas, e a fatura gera o lancamento mensal correspondente.
+- O usuario consegue gerir categorias padrao e personalizadas sem sair do modulo financeiro.
 - O shell deixa `Financeiro` de ser roadmap e passa a abrir a tela real.
 
 ## Decisao final

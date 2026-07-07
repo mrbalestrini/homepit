@@ -5,6 +5,7 @@ import type {
   CreditCardAccount,
   CreditCardStatement,
   CreditCardTransaction,
+  FinanceCategory,
   FinanceEntry,
   FinancePeriodDetail,
   FinanceRecurringTemplate,
@@ -27,6 +28,8 @@ function buildEntry(overrides: Partial<FinanceEntry> & Pick<FinanceEntry, "id" |
     origin: "Manual",
     recurringTemplateId: null,
     creditCardStatementId: null,
+    categoryId: null,
+    categoryName: null,
     universeId: null,
     universeName: null,
     projectId: null,
@@ -61,6 +64,8 @@ function buildPeriodDetail(overrides: Partial<FinancePeriodDetail> = {}): Financ
         title: "Condomínio",
         amount: 700,
         verified: true,
+        categoryId: "category-1",
+        categoryName: "Casa",
         universeId: "universe-1",
         universeName: "Casa",
         projectId: "project-1",
@@ -86,6 +91,8 @@ function buildPeriodDetail(overrides: Partial<FinancePeriodDetail> = {}): Financ
         amount: 220.9,
         purchasedOn: "2026-07-06",
         notes: null,
+        categoryId: "category-2",
+        categoryName: "Mercado",
         universeId: "universe-1",
         universeName: "Casa",
         projectId: "project-1",
@@ -151,6 +158,30 @@ function createDashboard(overrides: Partial<FinanceDashboardController> = {}): F
       },
     ];
 
+  const categories: FinanceCategory[] =
+    overrides.categories ?? [
+      {
+        id: "category-1",
+        name: "Casa",
+        isDefault: true,
+        sortOrder: 1,
+        createdByMemberId: "member-1",
+        usageCount: 1,
+        canEdit: false,
+        canDelete: false,
+      },
+      {
+        id: "category-2",
+        name: "Mercado",
+        isDefault: false,
+        sortOrder: 20,
+        createdByMemberId: "member-1",
+        usageCount: 2,
+        canEdit: true,
+        canDelete: true,
+      },
+    ];
+
   return {
     session: {
       accessToken: "token",
@@ -172,6 +203,7 @@ function createDashboard(overrides: Partial<FinanceDashboardController> = {}): F
     members: [],
     universes: [{ id: "universe-1", name: "Casa", imageUrl: null, hasImage: false, imageUpdatedAt: null, createdByMemberId: "member-1", projectCount: 1, canEdit: true, canDelete: true }],
     projects: [{ id: "project-1", universeId: "universe-1", universeName: "Casa", universeImageUrl: null, universeHasImage: false, universeImageUpdatedAt: null, name: "Moradia", createdByMemberId: "member-1", activityCount: 0, canEdit: true, canDelete: true }, { id: "project-2", universeId: "universe-1", universeName: "Casa", universeImageUrl: null, universeHasImage: false, universeImageUpdatedAt: null, name: "Viagem", createdByMemberId: "member-1", activityCount: 0, canEdit: true, canDelete: true }],
+    categories,
     financePeriods: [{ id: "period-1", year: 2026, month: 7, totalIncome: 5000, totalExpense: 900, cashBalance: 4100, entryCount: entries.length }],
     activeYear: 2026,
     activeMonth: 7,
@@ -215,6 +247,9 @@ function createDashboard(overrides: Partial<FinanceDashboardController> = {}): F
     shareHousehold: async () => undefined,
     updateProfile: async () => undefined,
     generatePeriod: vi.fn(async () => undefined),
+    createCategory: vi.fn(async () => undefined),
+    updateCategory: vi.fn(async () => undefined),
+    deleteCategory: vi.fn(async () => undefined),
     createEntry: vi.fn(async () => undefined),
     updateEntry: vi.fn(async () => undefined),
     toggleEntryVerified: vi.fn(async () => undefined),
@@ -269,6 +304,20 @@ describe("FinanceDashboardWorkspace", () => {
     await waitFor(() => {
       expect(dashboard.generatePeriod).toHaveBeenCalledWith("duplicateAll");
     });
+  });
+
+  it("renders the categories section and opens the creation dialog", async () => {
+    const dashboard = createDashboard();
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    expect(screen.getByText("Categorias")).toBeInTheDocument();
+    expect(screen.getAllByText("Casa").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Mercado").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Nova categoria" }));
+
+    expect(await screen.findByRole("dialog", { name: "Nova categoria" })).toBeInTheDocument();
   });
 
   it("opens the recurring templates modal from the toolbar", async () => {

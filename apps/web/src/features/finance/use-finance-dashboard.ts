@@ -10,6 +10,7 @@ import type {
   CreditCardAccount,
   CreditCardStatement,
   CreditCardTransaction,
+  FinanceCategory,
   FinanceEntry,
   FinanceEntryType,
   FinancePeriodDetail,
@@ -52,6 +53,7 @@ export type FinanceEntryFormInput = {
   verified: boolean;
   referenceDate: string;
   recurringTemplateId?: string | null;
+  categoryId?: string | null;
   universeId?: string | null;
   projectId?: string | null;
 };
@@ -65,8 +67,13 @@ export type FinanceRecurringTemplateFormInput = {
   dayOfMonth?: number | null;
   monthOfYear?: number | null;
   isActive: boolean;
+  categoryId?: string | null;
   universeId?: string | null;
   projectId?: string | null;
+};
+
+export type FinanceCategoryFormInput = {
+  name: string;
 };
 
 export type AssetFormInput = {
@@ -113,6 +120,7 @@ export type CreditCardTransactionFormInput = {
   amount: number;
   purchasedOn: string;
   notes?: string;
+  categoryId?: string | null;
   universeId?: string | null;
   projectId?: string | null;
   externalSource?: string;
@@ -143,6 +151,7 @@ export function useFinanceDashboard() {
   const [members, setMembers] = useState<HouseholdMember[]>([]);
   const [universes, setUniverses] = useState<Universe[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [categories, setCategories] = useState<FinanceCategory[]>([]);
   const [financePeriods, setFinancePeriods] = useState<FinancePeriodListItem[]>([]);
   const [activeYear, setActiveYear] = useState(currentPeriod.year);
   const [activeMonth, setActiveMonth] = useState(currentPeriod.month);
@@ -169,6 +178,7 @@ export function useFinanceDashboard() {
     setMembers([]);
     setUniverses([]);
     setProjects([]);
+    setCategories([]);
     setFinancePeriods([]);
     setPeriodDetail(null);
     setRecurringTemplates([]);
@@ -333,11 +343,12 @@ export function useFinanceDashboard() {
       setError(null);
 
       try {
-        const [nextMembers, nextUniverses, nextProjects, nextPeriods, nextPeriodDetail, nextTemplates, nextAssets, nextCards] =
+        const [nextMembers, nextUniverses, nextProjects, nextCategories, nextPeriods, nextPeriodDetail, nextTemplates, nextAssets, nextCards] =
           await Promise.all([
             apiFetch<HouseholdMember[]>("/api/households/members", { token, householdId }),
             apiFetch<Universe[]>("/api/universes", { token, householdId }),
             apiFetch<Project[]>("/api/projects", { token, householdId }),
+            apiFetch<FinanceCategory[]>("/api/finance/categories", { token, householdId }),
             apiFetch<FinancePeriodListItem[]>("/api/finance/periods", { token, householdId }),
             apiFetch<FinancePeriodDetail>(`/api/finance/periods/${year}/${month}`, { token, householdId }),
             apiFetch<FinanceRecurringTemplate[]>("/api/finance/recurring-templates", { token, householdId }),
@@ -348,6 +359,7 @@ export function useFinanceDashboard() {
         setMembers(nextMembers);
         setUniverses(nextUniverses);
         setProjects(nextProjects);
+        setCategories(nextCategories);
         setFinancePeriods(nextPeriods);
         setPeriodDetail(nextPeriodDetail);
         setRecurringTemplates(nextTemplates);
@@ -405,6 +417,7 @@ export function useFinanceDashboard() {
     setMembers([]);
     setUniverses([]);
     setProjects([]);
+    setCategories([]);
     setFinancePeriods([]);
     setPeriodDetail(null);
     setRecurringTemplates([]);
@@ -728,9 +741,66 @@ export function useFinanceDashboard() {
       verified: !entry.verified,
       referenceDate: entry.referenceDate,
       recurringTemplateId: entry.recurringTemplateId ?? null,
+      categoryId: entry.categoryId ?? null,
       universeId: entry.universeId ?? null,
       projectId: entry.projectId ?? null,
     });
+  }
+
+  async function createCategory(input: FinanceCategoryFormInput) {
+    if (!session || !activeHouseholdId) {
+      return;
+    }
+
+    try {
+      await apiFetch<FinanceCategory>("/api/finance/categories", {
+        method: "POST",
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+        body: JSON.stringify(input),
+      });
+      await refreshWorkspace();
+      toast.success("Categoria criada.");
+    } catch (exception) {
+      reportError(exception, "Não foi possível criar a categoria.");
+    }
+  }
+
+  async function updateCategory(categoryId: string, input: FinanceCategoryFormInput) {
+    if (!session || !activeHouseholdId) {
+      return;
+    }
+
+    try {
+      await apiFetch<FinanceCategory>(`/api/finance/categories/${categoryId}`, {
+        method: "PUT",
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+        body: JSON.stringify(input),
+      });
+      await refreshWorkspace();
+      toast.success("Categoria atualizada.");
+    } catch (exception) {
+      reportError(exception, "Não foi possível atualizar a categoria.");
+    }
+  }
+
+  async function deleteCategory(categoryId: string) {
+    if (!session || !activeHouseholdId) {
+      return;
+    }
+
+    try {
+      await apiFetch<void>(`/api/finance/categories/${categoryId}`, {
+        method: "DELETE",
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+      });
+      await refreshWorkspace();
+      toast.success("Categoria excluída.");
+    } catch (exception) {
+      reportError(exception, "Não foi possível excluir a categoria.");
+    }
   }
 
   async function deleteEntry(entryId: string) {
@@ -1119,6 +1189,7 @@ export function useFinanceDashboard() {
     members,
     universes,
     projects,
+    categories,
     financePeriods,
     activeYear,
     activeMonth,
@@ -1172,6 +1243,9 @@ export function useFinanceDashboard() {
     shareHousehold,
     updateProfile,
     generatePeriod,
+    createCategory,
+    updateCategory,
+    deleteCategory,
     createEntry,
     updateEntry,
     toggleEntryVerified,

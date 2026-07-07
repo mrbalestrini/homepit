@@ -30,6 +30,18 @@ public sealed class FinanceEndpointsTests
         using var client = factory.CreateClient();
         var seed = await SeedAsync(factory);
 
+        var createCategoryResponse = await SendAuthorizedAsync(
+            client,
+            seed.OwnerAccessToken,
+            seed.HouseholdId,
+            HttpMethod.Post,
+            "/api/finance/categories",
+            JsonContent.Create(new { name = "Pets" }));
+
+        Assert.Equal(HttpStatusCode.Created, createCategoryResponse.StatusCode);
+        var createdCategory = await createCategoryResponse.Content.ReadFromJsonAsync<FinanceCategoryResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(createdCategory);
+
         var createTemplateResponse = await SendAuthorizedAsync(
             client,
             seed.OwnerAccessToken,
@@ -46,6 +58,7 @@ public sealed class FinanceEndpointsTests
                 dayOfMonth = 10,
                 monthOfYear = (int?)null,
                 isActive = true,
+                categoryId = createdCategory!.Id,
                 universeId = (Guid?)null,
                 projectId = seed.ProjectId
             }));
@@ -53,6 +66,7 @@ public sealed class FinanceEndpointsTests
         Assert.Equal(HttpStatusCode.Created, createTemplateResponse.StatusCode);
         var createdTemplate = await createTemplateResponse.Content.ReadFromJsonAsync<FinanceRecurringTemplateResponse>(JsonSerializerOptions.Web);
         Assert.NotNull(createdTemplate);
+        Assert.Equal(createdCategory!.Id, createdTemplate!.CategoryId);
         Assert.Equal(seed.ProjectId, createdTemplate!.ProjectId);
         Assert.Equal(seed.UniverseId, createdTemplate.UniverseId);
 
@@ -87,6 +101,7 @@ public sealed class FinanceEndpointsTests
                 verified = false,
                 referenceDate = new DateOnly(2026, 7, 6),
                 recurringTemplateId = (Guid?)null,
+                categoryId = createdCategory.Id,
                 universeId = seed.UniverseId,
                 projectId = seed.ProjectId
             }));
@@ -95,6 +110,8 @@ public sealed class FinanceEndpointsTests
         var createdEntry = await createEntryResponse.Content.ReadFromJsonAsync<FinanceEntryResponse>(JsonSerializerOptions.Web);
         Assert.NotNull(createdEntry);
         Assert.Equal("Manual", createdEntry!.Origin);
+        Assert.Equal(createdCategory.Id, createdEntry.CategoryId);
+        Assert.Equal("Pets", createdEntry.CategoryName);
 
         var updateEntryResponse = await SendAuthorizedAsync(
             client,
@@ -113,6 +130,7 @@ public sealed class FinanceEndpointsTests
                 verified = true,
                 referenceDate = new DateOnly(2026, 7, 6),
                 recurringTemplateId = (Guid?)null,
+                categoryId = createdCategory.Id,
                 universeId = seed.UniverseId,
                 projectId = seed.ProjectId
             }));
@@ -151,6 +169,101 @@ public sealed class FinanceEndpointsTests
             $"/api/finance/recurring-templates/{createdTemplate.Id}");
 
         Assert.Equal(HttpStatusCode.NoContent, deleteTemplateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Finance_categories_crud_and_deletion_unlink_records()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+        var seed = await SeedAsync(factory);
+
+        var listDefaultsResponse = await SendAuthorizedAsync(
+            client,
+            seed.OwnerAccessToken,
+            seed.HouseholdId,
+            HttpMethod.Get,
+            "/api/finance/categories");
+
+        listDefaultsResponse.EnsureSuccessStatusCode();
+        var defaultCategories = await listDefaultsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<FinanceCategoryResponse>>(JsonSerializerOptions.Web);
+        Assert.NotNull(defaultCategories);
+        Assert.Equal(FinanceCategoryCatalog.DefaultNames.Count, defaultCategories!.Count);
+        Assert.Equal("Salário", defaultCategories.First().Name);
+        Assert.All(defaultCategories.Take(FinanceCategoryCatalog.DefaultNames.Count), category => Assert.True(category.IsDefault));
+
+        var createCategoryResponse = await SendAuthorizedAsync(
+            client,
+            seed.OwnerAccessToken,
+            seed.HouseholdId,
+            HttpMethod.Post,
+            "/api/finance/categories",
+            JsonContent.Create(new { name = "Pets" }));
+
+        Assert.Equal(HttpStatusCode.Created, createCategoryResponse.StatusCode);
+        var createdCategory = await createCategoryResponse.Content.ReadFromJsonAsync<FinanceCategoryResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(createdCategory);
+
+        var updateCategoryResponse = await SendAuthorizedAsync(
+            client,
+            seed.OwnerAccessToken,
+            seed.HouseholdId,
+            HttpMethod.Put,
+            $"/api/finance/categories/{createdCategory!.Id}",
+            JsonContent.Create(new { name = "Assinaturas" }));
+
+        updateCategoryResponse.EnsureSuccessStatusCode();
+        var updatedCategory = await updateCategoryResponse.Content.ReadFromJsonAsync<FinanceCategoryResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(updatedCategory);
+        Assert.Equal("Assinaturas", updatedCategory!.Name);
+
+        var createEntryResponse = await SendAuthorizedAsync(
+            client,
+            seed.OwnerAccessToken,
+            seed.HouseholdId,
+            HttpMethod.Post,
+            "/api/finance/entries",
+            JsonContent.Create(new
+            {
+                year = 2026,
+                month = 7,
+                title = "Streaming",
+                notes = "Categoria customizada",
+                amount = 39.9m,
+                type = "Saida",
+                verified = false,
+                referenceDate = new DateOnly(2026, 7, 6),
+                recurringTemplateId = (Guid?)null,
+                categoryId = updatedCategory.Id,
+                universeId = (Guid?)null,
+                projectId = (Guid?)null
+            }));
+
+        createEntryResponse.EnsureSuccessStatusCode();
+        var createdEntry = await createEntryResponse.Content.ReadFromJsonAsync<FinanceEntryResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(createdEntry);
+        Assert.Equal(updatedCategory.Id, createdEntry!.CategoryId);
+
+        var deleteCategoryResponse = await SendAuthorizedAsync(
+            client,
+            seed.OwnerAccessToken,
+            seed.HouseholdId,
+            HttpMethod.Delete,
+            $"/api/finance/categories/{updatedCategory.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteCategoryResponse.StatusCode);
+
+        var listEntriesResponse = await SendAuthorizedAsync(
+            client,
+            seed.OwnerAccessToken,
+            seed.HouseholdId,
+            HttpMethod.Get,
+            "/api/finance/entries?year=2026&month=7");
+
+        listEntriesResponse.EnsureSuccessStatusCode();
+        var listedEntries = await listEntriesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<FinanceEntryResponse>>(JsonSerializerOptions.Web);
+        Assert.NotNull(listedEntries);
+        Assert.Contains(listedEntries!, entry => entry.Id == createdEntry.Id && entry.CategoryId is null && entry.CategoryName is null);
     }
 
     [Fact]
@@ -241,6 +354,7 @@ public sealed class FinanceEndpointsTests
                 amount = 220.9m,
                 purchasedOn = new DateOnly(2026, 7, 6),
                 notes = "Compra mensal",
+                categoryId = seed.DefaultCategoryId,
                 universeId = seed.UniverseId,
                 projectId = seed.ProjectId,
                 externalSource = "SMS",
@@ -251,6 +365,7 @@ public sealed class FinanceEndpointsTests
         Assert.Equal(HttpStatusCode.Created, createTransactionResponse.StatusCode);
         var createdTransaction = await createTransactionResponse.Content.ReadFromJsonAsync<CreditCardTransactionResponse>(JsonSerializerOptions.Web);
         Assert.NotNull(createdTransaction);
+        Assert.Equal(seed.DefaultCategoryId, createdTransaction!.CategoryId);
 
         var createStatementResponse = await SendAuthorizedAsync(
             client,
@@ -491,6 +606,39 @@ public sealed class FinanceEndpointsTests
         Assert.All(await verificationDb.CreditCardTransactions.Where(item => item.HouseholdId == seed.HouseholdId).ToArrayAsync(), item => Assert.Null(item.UniverseId));
     }
 
+    [Fact]
+    public async Task New_household_starts_with_default_finance_categories()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+        var seed = await SeedAsync(factory);
+
+        var createHouseholdResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/households")
+        {
+            Headers =
+            {
+                Authorization = new AuthenticationHeaderValue("Bearer", seed.OwnerAccessToken)
+            },
+            Content = JsonContent.Create(new { name = "Casa Nova" })
+        });
+
+        createHouseholdResponse.EnsureSuccessStatusCode();
+        var createdHousehold = await createHouseholdResponse.Content.ReadFromJsonAsync<HouseholdResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(createdHousehold);
+
+        var listCategoriesResponse = await SendAuthorizedAsync(
+            client,
+            seed.OwnerAccessToken,
+            createdHousehold!.Id,
+            HttpMethod.Get,
+            "/api/finance/categories");
+
+        listCategoriesResponse.EnsureSuccessStatusCode();
+        var categories = await listCategoriesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<FinanceCategoryResponse>>(JsonSerializerOptions.Web);
+        Assert.NotNull(categories);
+        Assert.Equal(FinanceCategoryCatalog.DefaultNames, categories!.Select(item => item.Name).ToArray());
+    }
+
     private static async Task<SeedResult> SeedAsync(HomePitApiFactory factory)
     {
         await using var scope = factory.Services.CreateAsyncScope();
@@ -533,6 +681,9 @@ public sealed class FinanceEndpointsTests
         db.HouseholdMembers.AddRange(ownerMember, member);
         await db.SaveChangesAsync();
 
+        db.FinanceCategories.AddRange(FinanceCategoryCatalog.CreateDefaults(household.Id, ownerMember.Id));
+        await db.SaveChangesAsync();
+
         var universe = new Universe
         {
             HouseholdId = household.Id,
@@ -557,6 +708,7 @@ public sealed class FinanceEndpointsTests
             tokenService.CreateAccessToken(memberUser, [member]),
             household.Id,
             ownerMember.Id,
+            db.FinanceCategories.First(item => item.HouseholdId == household.Id && item.Name == "Salário").Id,
             universe.Id,
             project.Id);
     }
@@ -591,6 +743,7 @@ public sealed class FinanceEndpointsTests
         string MemberAccessToken,
         Guid HouseholdId,
         Guid OwnerMemberId,
+        Guid DefaultCategoryId,
         Guid UniverseId,
         Guid ProjectId);
 
@@ -613,7 +766,11 @@ public sealed class FinanceEndpointsTests
         int PendingVerificationEntries,
         int CardPurchaseCount);
 
-    private sealed record FinanceRecurringTemplateResponse(Guid Id, Guid? UniverseId, Guid? ProjectId);
+    private sealed record FinanceCategoryResponse(Guid Id, string Name, bool IsDefault, int UsageCount);
+
+    private sealed record HouseholdResponse(Guid Id, string Name, string Role, DateTimeOffset CreatedAt);
+
+    private sealed record FinanceRecurringTemplateResponse(Guid Id, Guid? CategoryId, Guid? UniverseId, Guid? ProjectId);
 
     private sealed record FinanceEntryResponse(
         Guid Id,
@@ -622,6 +779,8 @@ public sealed class FinanceEndpointsTests
         string Origin,
         Guid? RecurringTemplateId,
         Guid? CreditCardStatementId,
+        Guid? CategoryId,
+        string? CategoryName,
         Guid? UniverseId,
         Guid? ProjectId);
 
@@ -631,7 +790,7 @@ public sealed class FinanceEndpointsTests
 
     private sealed record CreditCardAccountResponse(Guid Id, string Name, int OpenTransactionCount, decimal OpenTransactionTotal);
 
-    private sealed record CreditCardTransactionResponse(Guid Id, Guid? CreditCardStatementId);
+    private sealed record CreditCardTransactionResponse(Guid Id, Guid? CreditCardStatementId, Guid? CategoryId);
 
     private sealed record CreditCardStatementResponse(Guid Id, Guid? FinanceEntryId, DateOnly DueDate, decimal TotalAmount, int TransactionCount);
 

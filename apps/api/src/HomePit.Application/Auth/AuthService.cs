@@ -1,5 +1,6 @@
 using HomePit.Application.Common;
 using HomePit.Application.Storage;
+using HomePit.Domain.Finance;
 using HomePit.Domain.Households;
 using HomePit.Domain.Notifications;
 using Microsoft.EntityFrameworkCore;
@@ -71,6 +72,7 @@ public sealed class AuthService(
 
             db.Households.Add(household);
             db.HouseholdMembers.Add(member);
+            db.FinanceCategories.AddRange(FinanceCategoryCatalog.CreateDefaults(household.Id, member.Id));
             db.NotificationPreferences.Add(preference);
             memberships.Add(member);
         }

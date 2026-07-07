@@ -52,6 +52,7 @@ public sealed class FinanceService(
         var entries = await db.FinanceEntries
             .AsNoTracking()
             .Include(entry => entry.FinancePeriod)
+            .Include(entry => entry.Category)
             .Include(entry => entry.Universe)
             .Include(entry => entry.Project)
             .Where(entry => entry.HouseholdId == currentMember.HouseholdId && entry.FinancePeriod!.Year == year && entry.FinancePeriod.Month == month)
@@ -63,6 +64,7 @@ public sealed class FinanceService(
         var transactions = await db.CreditCardTransactions
             .AsNoTracking()
             .Include(item => item.CreditCardAccount)
+            .Include(item => item.Category)
             .Include(item => item.Universe)
             .Include(item => item.Project)
             .Where(item => item.HouseholdId == currentMember.HouseholdId && item.PurchasedOn.Year == year && item.PurchasedOn.Month == month)
@@ -145,6 +147,7 @@ public sealed class FinanceService(
                 FinancePeriodId = period.Id,
                 CreatedByMemberId = currentMember.Id,
                 RecurringTemplateId = template.Id,
+                CategoryId = template.CategoryId,
                 UniverseId = template.UniverseId,
                 ProjectId = template.ProjectId,
                 Title = template.Title,
@@ -161,11 +164,133 @@ public sealed class FinanceService(
         return await GetPeriodAsync(year, month, cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<FinanceCategoryDto>> ListCategoriesAsync(CancellationToken cancellationToken)
+    {
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var categories = await db.FinanceCategories
+            .AsNoTracking()
+            .Where(item => item.HouseholdId == currentMember.HouseholdId)
+            .Select(item => new FinanceCategoryDto(
+                item.Id,
+                item.Name,
+                item.IsDefault,
+                item.SortOrder,
+                item.CreatedByMemberId,
+                item.Entries.Count +
+                item.RecurringTemplates.Count +
+                item.CreditCardTransactions.Count,
+                !item.IsDefault && CanManageEntity(currentMember, item.CreatedByMemberId),
+                !item.IsDefault && CanManageEntity(currentMember, item.CreatedByMemberId)))
+            .ToArrayAsync(cancellationToken);
+
+        return categories
+            .OrderBy(item => item.IsDefault ? 0 : 1)
+            .ThenBy(item => item.IsDefault ? item.SortOrder : int.MaxValue)
+            .ThenBy(item => item.IsDefault ? string.Empty : item.Name)
+            .ToArray();
+    }
+
+    public async Task<FinanceCategoryDto> CreateCategoryAsync(CreateFinanceCategoryRequest request, CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var name = RequiredText(request.Name, "Informe o nome da categoria.");
+        await EnsureFinanceCategoryNameAvailableAsync(currentMember.HouseholdId, name, null, cancellationToken);
+
+        var customSortOrder = await db.FinanceCategories
+            .Where(item => item.HouseholdId == currentMember.HouseholdId && !item.IsDefault)
+            .Select(item => (int?)item.SortOrder)
+            .MaxAsync(cancellationToken) ?? (FinanceCategoryCatalog.DefaultNames.Count - 1);
+
+        var category = new FinanceCategory
+        {
+            HouseholdId = currentMember.HouseholdId,
+            CreatedByMemberId = currentMember.Id,
+            Name = name,
+            IsDefault = false,
+            SortOrder = customSortOrder + 1
+        };
+
+        db.FinanceCategories.Add(category);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new FinanceCategoryDto(category.Id, category.Name, false, category.SortOrder, category.CreatedByMemberId, 0, true, true);
+    }
+
+    public async Task<FinanceCategoryDto> UpdateCategoryAsync(
+        Guid categoryId,
+        UpdateFinanceCategoryRequest request,
+        CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var category = await db.FinanceCategories
+            .Include(item => item.Entries)
+            .Include(item => item.RecurringTemplates)
+            .Include(item => item.CreditCardTransactions)
+            .FirstOrDefaultAsync(item => item.Id == categoryId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Categoria não encontrada.");
+
+        if (category.IsDefault)
+        {
+            throw new ValidationException("Categorias padrão não podem ser editadas.");
+        }
+
+        EnsureCanManageEntity(currentMember, category.CreatedByMemberId, "Você não pode editar uma categoria criada por outra pessoa.");
+
+        var name = RequiredText(request.Name, "Informe o nome da categoria.");
+        await EnsureFinanceCategoryNameAvailableAsync(currentMember.HouseholdId, name, category.Id, cancellationToken);
+
+        category.Name = name;
+        await db.SaveChangesAsync(cancellationToken);
+
+        var usageCount = category.Entries.Count + category.RecurringTemplates.Count + category.CreditCardTransactions.Count;
+        return new FinanceCategoryDto(category.Id, category.Name, false, category.SortOrder, category.CreatedByMemberId, usageCount, true, true);
+    }
+
+    public async Task DeleteCategoryAsync(Guid categoryId, CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        var category = await db.FinanceCategories
+            .FirstOrDefaultAsync(item => item.Id == categoryId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
+            ?? throw new NotFoundException("Categoria não encontrada.");
+
+        if (category.IsDefault)
+        {
+            throw new ValidationException("Categorias padrão não podem ser excluídas.");
+        }
+
+        EnsureCanManageEntity(currentMember, category.CreatedByMemberId, "Você não pode excluir uma categoria criada por outra pessoa.");
+
+        foreach (var entry in await db.FinanceEntries.Where(item => item.CategoryId == category.Id).ToArrayAsync(cancellationToken))
+        {
+            entry.CategoryId = null;
+            entry.Category = null;
+        }
+
+        foreach (var template in await db.FinanceRecurringTemplates.Where(item => item.CategoryId == category.Id).ToArrayAsync(cancellationToken))
+        {
+            template.CategoryId = null;
+            template.Category = null;
+        }
+
+        foreach (var transaction in await db.CreditCardTransactions.Where(item => item.CategoryId == category.Id).ToArrayAsync(cancellationToken))
+        {
+            transaction.CategoryId = null;
+            transaction.Category = null;
+        }
+
+        db.FinanceCategories.Remove(category);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<FinanceRecurringTemplateDto>> ListRecurringTemplatesAsync(CancellationToken cancellationToken)
     {
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var templates = await db.FinanceRecurringTemplates
             .AsNoTracking()
+            .Include(item => item.Category)
             .Include(item => item.Universe)
             .Include(item => item.Project)
             .Where(item => item.HouseholdId == currentMember.HouseholdId)
@@ -183,6 +308,7 @@ public sealed class FinanceService(
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var selection = await ResolveProjectUniverseAsync(currentMember.HouseholdId, request.UniverseId, request.ProjectId, cancellationToken);
+        var category = await ResolveFinanceCategoryAsync(currentMember.HouseholdId, request.CategoryId, cancellationToken);
 
         ValidateAmount(request.DefaultAmount, "O valor padrão da recorrência não pode ser negativo.");
         ValidateRecurrence(request.Recurrence, request.DayOfMonth, request.MonthOfYear);
@@ -193,6 +319,7 @@ public sealed class FinanceService(
             CreatedByMemberId = currentMember.Id,
             UniverseId = selection.UniverseId,
             ProjectId = selection.ProjectId,
+            CategoryId = category?.Id,
             Title = RequiredText(request.Title, "Informe o título da recorrência."),
             Notes = NormalizeOptional(request.Notes),
             Type = request.Type,
@@ -206,6 +333,7 @@ public sealed class FinanceService(
         db.FinanceRecurringTemplates.Add(template);
         await db.SaveChangesAsync(cancellationToken);
 
+        template.Category = category;
         template.Universe = selection.Universe;
         template.Project = selection.Project;
         return ToRecurringTemplateDto(template, currentMember);
@@ -219,6 +347,7 @@ public sealed class FinanceService(
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var template = await db.FinanceRecurringTemplates
+            .Include(item => item.Category)
             .Include(item => item.Universe)
             .Include(item => item.Project)
             .FirstOrDefaultAsync(item => item.Id == templateId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -227,11 +356,14 @@ public sealed class FinanceService(
         EnsureCanManageEntity(currentMember, template.CreatedByMemberId, "Você não pode editar uma recorrência criada por outra pessoa.");
 
         var selection = await ResolveProjectUniverseAsync(currentMember.HouseholdId, request.UniverseId, request.ProjectId, cancellationToken);
+        var category = await ResolveFinanceCategoryAsync(currentMember.HouseholdId, request.CategoryId, cancellationToken);
         ValidateAmount(request.DefaultAmount, "O valor padrão da recorrência não pode ser negativo.");
         ValidateRecurrence(request.Recurrence, request.DayOfMonth, request.MonthOfYear);
 
         template.UniverseId = selection.UniverseId;
         template.ProjectId = selection.ProjectId;
+        template.CategoryId = category?.Id;
+        template.Category = category;
         template.Title = RequiredText(request.Title, "Informe o título da recorrência.");
         template.Notes = NormalizeOptional(request.Notes);
         template.Type = request.Type;
@@ -280,6 +412,7 @@ public sealed class FinanceService(
         var query = db.FinanceEntries
             .AsNoTracking()
             .Include(entry => entry.FinancePeriod)
+            .Include(entry => entry.Category)
             .Include(entry => entry.Universe)
             .Include(entry => entry.Project)
             .Where(entry => entry.HouseholdId == currentMember.HouseholdId);
@@ -304,6 +437,7 @@ public sealed class FinanceService(
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var period = await GetOrCreatePeriodAsync(currentMember.HouseholdId, request.Year, request.Month, cancellationToken);
         var selection = await ResolveProjectUniverseAsync(currentMember.HouseholdId, request.UniverseId, request.ProjectId, cancellationToken);
+        var category = await ResolveFinanceCategoryAsync(currentMember.HouseholdId, request.CategoryId, cancellationToken);
         await EnsureRecurringTemplateAsync(currentMember.HouseholdId, request.RecurringTemplateId, cancellationToken);
 
         ValidateAmount(request.Amount, "O valor do lançamento não pode ser negativo.");
@@ -317,6 +451,7 @@ public sealed class FinanceService(
             RecurringTemplateId = request.RecurringTemplateId,
             UniverseId = selection.UniverseId,
             ProjectId = selection.ProjectId,
+            CategoryId = category?.Id,
             Title = RequiredText(request.Title, "Informe o título do lançamento."),
             Notes = NormalizeOptional(request.Notes),
             Amount = request.Amount,
@@ -329,6 +464,7 @@ public sealed class FinanceService(
         db.FinanceEntries.Add(entry);
         await db.SaveChangesAsync(cancellationToken);
 
+        entry.Category = category;
         entry.FinancePeriod = period;
         entry.Universe = selection.Universe;
         entry.Project = selection.Project;
@@ -345,6 +481,7 @@ public sealed class FinanceService(
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var entry = await db.FinanceEntries
             .Include(item => item.FinancePeriod)
+            .Include(item => item.Category)
             .Include(item => item.Universe)
             .Include(item => item.Project)
             .FirstOrDefaultAsync(item => item.Id == entryId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -359,6 +496,7 @@ public sealed class FinanceService(
 
         var period = await GetOrCreatePeriodAsync(currentMember.HouseholdId, request.Year, request.Month, cancellationToken);
         var selection = await ResolveProjectUniverseAsync(currentMember.HouseholdId, request.UniverseId, request.ProjectId, cancellationToken);
+        var category = await ResolveFinanceCategoryAsync(currentMember.HouseholdId, request.CategoryId, cancellationToken);
         await EnsureRecurringTemplateAsync(currentMember.HouseholdId, request.RecurringTemplateId, cancellationToken);
         ValidateAmount(request.Amount, "O valor do lançamento não pode ser negativo.");
         EnsureReferenceDateBelongsToPeriod(request.ReferenceDate, request.Year, request.Month);
@@ -367,8 +505,10 @@ public sealed class FinanceService(
         entry.FinancePeriod = period;
         entry.UniverseId = selection.UniverseId;
         entry.ProjectId = selection.ProjectId;
+        entry.CategoryId = category?.Id;
         entry.Universe = selection.Universe;
         entry.Project = selection.Project;
+        entry.Category = category;
         entry.RecurringTemplateId = request.RecurringTemplateId;
         entry.Title = RequiredText(request.Title, "Informe o título do lançamento.");
         entry.Notes = NormalizeOptional(request.Notes);
@@ -681,6 +821,7 @@ public sealed class FinanceService(
         var transactions = await db.CreditCardTransactions
             .AsNoTracking()
             .Include(item => item.CreditCardAccount)
+            .Include(item => item.Category)
             .Include(item => item.Universe)
             .Include(item => item.Project)
             .Where(item => item.HouseholdId == currentMember.HouseholdId && item.CreditCardAccountId == accountId)
@@ -700,6 +841,7 @@ public sealed class FinanceService(
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         await EnsureCreditCardAccountAsync(currentMember.HouseholdId, accountId, cancellationToken);
         var selection = await ResolveProjectUniverseAsync(currentMember.HouseholdId, request.UniverseId, request.ProjectId, cancellationToken);
+        var category = await ResolveFinanceCategoryAsync(currentMember.HouseholdId, request.CategoryId, cancellationToken);
         ValidatePositiveAmount(request.Amount, "O valor da compra no cartão deve ser maior que zero.");
 
         var transaction = new CreditCardTransaction
@@ -709,6 +851,7 @@ public sealed class FinanceService(
             CreatedByMemberId = currentMember.Id,
             UniverseId = selection.UniverseId,
             ProjectId = selection.ProjectId,
+            CategoryId = category?.Id,
             Title = RequiredText(request.Title, "Informe o título da compra no cartão."),
             Merchant = NormalizeOptional(request.Merchant),
             Amount = request.Amount,
@@ -723,6 +866,7 @@ public sealed class FinanceService(
         await db.SaveChangesAsync(cancellationToken);
 
         transaction.CreditCardAccount = await GetTrackedCreditCardAccountAsync(accountId, cancellationToken);
+        transaction.Category = category;
         transaction.Universe = selection.Universe;
         transaction.Project = selection.Project;
         return ToTransactionDto(transaction, currentMember);
@@ -738,6 +882,7 @@ public sealed class FinanceService(
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var transaction = await db.CreditCardTransactions
             .Include(item => item.CreditCardAccount)
+            .Include(item => item.Category)
             .Include(item => item.Universe)
             .Include(item => item.Project)
             .FirstOrDefaultAsync(item =>
@@ -750,12 +895,15 @@ public sealed class FinanceService(
         EnsureCanManageEntity(currentMember, transaction.CreatedByMemberId, "Você não pode editar uma compra no cartão criada por outra pessoa.");
 
         var selection = await ResolveProjectUniverseAsync(currentMember.HouseholdId, request.UniverseId, request.ProjectId, cancellationToken);
+        var category = await ResolveFinanceCategoryAsync(currentMember.HouseholdId, request.CategoryId, cancellationToken);
         ValidatePositiveAmount(request.Amount, "O valor da compra no cartão deve ser maior que zero.");
 
         transaction.UniverseId = selection.UniverseId;
         transaction.ProjectId = selection.ProjectId;
+        transaction.CategoryId = category?.Id;
         transaction.Universe = selection.Universe;
         transaction.Project = selection.Project;
+        transaction.Category = category;
         transaction.Title = RequiredText(request.Title, "Informe o título da compra no cartão.");
         transaction.Merchant = NormalizeOptional(request.Merchant);
         transaction.Amount = request.Amount;
@@ -1008,6 +1156,7 @@ public sealed class FinanceService(
                 FinancePeriodId = period.Id,
                 CreatedByMemberId = statement.CreatedByMemberId,
                 CreditCardStatementId = statement.Id,
+                CategoryId = null,
                 Title = entryTitle,
                 Notes = statement.Notes,
                 Amount = statement.TotalAmount,
@@ -1023,6 +1172,7 @@ public sealed class FinanceService(
         {
             generatedEntry.FinancePeriodId = period.Id;
             generatedEntry.CreatedByMemberId = statement.CreatedByMemberId;
+            generatedEntry.CategoryId = null;
             generatedEntry.Title = entryTitle;
             generatedEntry.Notes = statement.Notes;
             generatedEntry.Amount = statement.TotalAmount;
@@ -1069,6 +1219,39 @@ public sealed class FinanceService(
         if (!exists)
         {
             throw new ValidationException("A recorrência informada não pertence a esta casa.");
+        }
+    }
+
+    private async Task<FinanceCategory?> ResolveFinanceCategoryAsync(Guid householdId, Guid? categoryId, CancellationToken cancellationToken)
+    {
+        if (!categoryId.HasValue)
+        {
+            return null;
+        }
+
+        return await db.FinanceCategories
+            .FirstOrDefaultAsync(item => item.Id == categoryId.Value && item.HouseholdId == householdId, cancellationToken)
+            ?? throw new ValidationException("A categoria informada não pertence à casa ativa.");
+    }
+
+    private async Task EnsureFinanceCategoryNameAvailableAsync(
+        Guid householdId,
+        string name,
+        Guid? currentCategoryId,
+        CancellationToken cancellationToken)
+    {
+        var normalizedName = name.ToUpperInvariant();
+        var exists = await db.FinanceCategories
+            .AnyAsync(
+                item =>
+                    item.HouseholdId == householdId &&
+                    item.Id != currentCategoryId &&
+                    item.Name.ToUpper() == normalizedName,
+                cancellationToken);
+
+        if (exists)
+        {
+            throw new ValidationException("Já existe uma categoria com esse nome nesta casa.");
         }
     }
 
@@ -1383,6 +1566,8 @@ public sealed class FinanceService(
             template.DayOfMonth,
             template.MonthOfYear,
             template.IsActive,
+            template.CategoryId,
+            template.Category?.Name,
             template.UniverseId,
             template.Universe?.Name,
             template.ProjectId,
@@ -1411,6 +1596,8 @@ public sealed class FinanceService(
             entry.Origin,
             entry.RecurringTemplateId,
             entry.CreditCardStatementId,
+            entry.CategoryId,
+            entry.Category?.Name,
             entry.UniverseId,
             entry.Universe?.Name,
             entry.ProjectId,
@@ -1457,6 +1644,8 @@ public sealed class FinanceService(
             transaction.Amount,
             transaction.PurchasedOn,
             transaction.Notes,
+            transaction.CategoryId,
+            transaction.Category?.Name,
             transaction.UniverseId,
             transaction.Universe?.Name,
             transaction.ProjectId,
@@ -1490,6 +1679,23 @@ public sealed class FinanceService(
             statement.CreatedByMemberId,
             statement.CreatedAt,
             statement.UpdatedAt,
+            canManage,
+            canManage);
+    }
+
+    private static FinanceCategoryDto ToCategoryDto(
+        FinanceCategory category,
+        HouseholdMember currentMember,
+        int usageCount)
+    {
+        var canManage = !category.IsDefault && CanManageEntity(currentMember, category.CreatedByMemberId);
+        return new FinanceCategoryDto(
+            category.Id,
+            category.Name,
+            category.IsDefault,
+            category.SortOrder,
+            category.CreatedByMemberId,
+            usageCount,
             canManage,
             canManage);
     }

@@ -6,6 +6,7 @@ import type {
   CreditCardAccount,
   CreditCardStatement,
   CreditCardTransaction,
+  FinanceCategory,
   FinanceEntry,
   FinancePeriodDetail,
   FinancePeriodListItem,
@@ -82,6 +83,8 @@ function buildEntry(overrides: Partial<FinanceEntry> & Pick<FinanceEntry, "id" |
     origin: "Manual",
     recurringTemplateId: null,
     creditCardStatementId: null,
+    categoryId: null,
+    categoryName: null,
     universeId: null,
     universeName: null,
     projectId: null,
@@ -148,6 +151,8 @@ function buildTransaction(overrides: Partial<CreditCardTransaction> = {}): Credi
     amount: 220.9,
     purchasedOn: "2026-07-06",
     notes: null,
+    categoryId: "category-1",
+    categoryName: "Mercado",
     universeId: "universe-1",
     universeName: "Casa",
     projectId: "project-1",
@@ -186,6 +191,21 @@ function buildStatement(): CreditCardStatement {
   };
 }
 
+function buildCategories(): FinanceCategory[] {
+  return [
+    {
+      id: "category-1",
+      name: "Mercado",
+      isDefault: true,
+      sortOrder: 2,
+      createdByMemberId: "member-1",
+      usageCount: 2,
+      canEdit: false,
+      canDelete: false,
+    },
+  ];
+}
+
 describe("useFinanceDashboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -221,6 +241,10 @@ describe("useFinanceDashboard", () => {
         return [];
       }
 
+      if (path === "/api/finance/categories") {
+        return buildCategories();
+      }
+
       if (path === "/api/finance/periods") {
         return currentPeriods;
       }
@@ -244,6 +268,7 @@ describe("useFinanceDashboard", () => {
     expect(result.current.activeYear).toBe(2026);
     expect(result.current.activeMonth).toBe(7);
     expect(result.current.periodDetail?.year).toBe(2026);
+    expect(result.current.categories).toEqual(buildCategories());
     expect(mockedApiFetch).toHaveBeenCalledWith(
       "/api/finance/periods/2026/7",
       expect.objectContaining({ householdId: "household-1", token: "token-1" }),
@@ -261,6 +286,10 @@ describe("useFinanceDashboard", () => {
     mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { householdId?: string }) => {
       if (path === "/api/households/members" || path === "/api/universes" || path === "/api/projects") {
         return [];
+      }
+
+      if (path === "/api/finance/categories") {
+        return buildCategories();
       }
 
       if (path === "/api/finance/periods") {

@@ -252,6 +252,28 @@ finance.MapPost("/periods/{year:int}/{month:int}/generate", async (
     CancellationToken cancellationToken) =>
         Results.Ok(await service.GeneratePeriodAsync(year, month, request, cancellationToken)));
 
+finance.MapGet("/categories", async (FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListCategoriesAsync(cancellationToken)));
+finance.MapPost("/categories", async (
+    CreateFinanceCategoryRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Created("/api/finance/categories", await service.CreateCategoryAsync(request, cancellationToken)));
+finance.MapPut("/categories/{id:guid}", async (
+    Guid id,
+    UpdateFinanceCategoryRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateCategoryAsync(id, request, cancellationToken)));
+finance.MapDelete("/categories/{id:guid}", async (
+    Guid id,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteCategoryAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+
 finance.MapGet("/recurring-templates", async (FinanceService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.ListRecurringTemplatesAsync(cancellationToken)));
 finance.MapPost("/recurring-templates", async (

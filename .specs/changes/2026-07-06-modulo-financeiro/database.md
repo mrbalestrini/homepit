@@ -15,6 +15,8 @@ migrations automaticamente.
 
 - Novas tabelas para periodos, recorrencias, lancamentos, bens, referencias anuais,
   cartoes, compras e faturas.
+- Nova tabela para categorias financeiras por household e FKs opcionais de categoria em
+  recorrencias, lancamentos e compras de cartao.
 - Novos indices e FKs opcionais para `universes` e `projects`.
 
 ## Fora de escopo
@@ -35,15 +37,20 @@ Nao existe schema persistido para financeiro.
 ## Alteracao proposta
 
 - Criar tabelas `finance_periods`, `finance_recurring_templates`, `finance_entries`,
-  `assets`, `asset_property_details`, `asset_vehicle_details`, `asset_valuations`,
-  `credit_card_accounts`, `credit_card_transactions` e `credit_card_statements`.
+  `finance_categories`, `assets`, `asset_property_details`, `asset_vehicle_details`,
+  `asset_valuations`, `credit_card_accounts`, `credit_card_transactions` e
+  `credit_card_statements`.
 - Persistir enums como texto e datas sem horario em colunas `date`.
 - Usar `SetNull` em FKs opcionais para universo/projeto, autoria e vinculos derivados.
+- Usar `SetNull` tambem na exclusao de categoria financeira personalizada para preservar os
+  registros existentes sem categoria.
 
 ## Riscos para dados e compatibilidade
 
 - FKs opcionais para projeto/universo precisam sobreviver a exclusoes desses modulos sem
   quebrar historico.
+- Backfill das categorias padrao precisa cobrir households ja existentes sem depender de
+  seeds futuros da aplicacao.
 - Faturas de cartao geram `FinanceEntry`; exclusoes precisam evitar orfaos.
 - Migration manual precisa manter atributos do EF para ser descoberta automaticamente.
 

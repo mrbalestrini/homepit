@@ -212,6 +212,17 @@ export type FinanceEntryOrigin = "Manual" | "RecurringTemplate" | "CreditCardSta
 export type FinanceRecurrence = "Monthly" | "Annual";
 export type AssetType = "Property" | "Vehicle" | "Other";
 
+export type FinanceCategory = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  sortOrder: number;
+  createdByMemberId?: string | null;
+  usageCount: number;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
 export type FinancePeriodListItem = {
   id: string;
   year: number;
@@ -246,6 +257,8 @@ export type FinanceEntry = {
   origin: FinanceEntryOrigin;
   recurringTemplateId?: string | null;
   creditCardStatementId?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
   universeId?: string | null;
   universeName?: string | null;
   projectId?: string | null;
@@ -267,6 +280,8 @@ export type CreditCardTransaction = {
   amount: number;
   purchasedOn: string;
   notes?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
   universeId?: string | null;
   universeName?: string | null;
   projectId?: string | null;
@@ -322,6 +337,8 @@ export type FinanceRecurringTemplate = {
   dayOfMonth?: number | null;
   monthOfYear?: number | null;
   isActive: boolean;
+  categoryId?: string | null;
+  categoryName?: string | null;
   universeId?: string | null;
   universeName?: string | null;
   projectId?: string | null;

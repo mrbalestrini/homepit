@@ -24,6 +24,9 @@ public sealed class CreditCardTransaction : AuditableEntity, IHouseholdScoped
     public Guid? ProjectId { get; set; }
     public Project? Project { get; set; }
 
+    public Guid? CategoryId { get; set; }
+    public FinanceCategory? Category { get; set; }
+
     public required string Title { get; set; }
     public string? Merchant { get; set; }
     public decimal Amount { get; set; }

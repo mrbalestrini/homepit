@@ -6,10 +6,14 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ## [1.7.1] - 2026-07-07
 
+### Added
+- O módulo financeiro passou a ter uma seção de categorias por household, com 12 categorias padrão fixas e gestão de categorias personalizadas.
+
 ### Changed
 - O topo do financeiro passou a oferecer `Inserir Recorrências` como ação principal e um atalho dedicado para a gestão de recorrências.
 - A gestão de recorrências saiu da página principal e passou a viver em uma modal quase tela cheia, mantendo a lista e as ações de edição em um espaço dedicado.
 - A copy do módulo financeiro foi revisada para pt-BR com acentuação correta em botões, títulos, mensagens e textos de apoio.
+- Lançamentos de caixa, recorrências e compras de cartão agora aceitam categoria opcional e exibem a classificação escolhida nas tabelas do financeiro.
 
 ## [1.7.0] - 2026-07-06
 

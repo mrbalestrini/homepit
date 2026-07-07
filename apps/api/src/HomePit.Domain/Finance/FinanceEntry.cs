@@ -27,6 +27,9 @@ public sealed class FinanceEntry : AuditableEntity, IHouseholdScoped
     public Guid? ProjectId { get; set; }
     public Project? Project { get; set; }
 
+    public Guid? CategoryId { get; set; }
+    public FinanceCategory? Category { get; set; }
+
     public required string Title { get; set; }
     public string? Notes { get; set; }
     public decimal Amount { get; set; }

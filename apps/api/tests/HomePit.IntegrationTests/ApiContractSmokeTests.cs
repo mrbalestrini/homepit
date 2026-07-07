@@ -49,6 +49,7 @@ public sealed class ApiContractSmokeTests
         Assert.Contains("/api/finance/periods:", contract);
         Assert.Contains("/api/finance/periods/{year}/{month}:", contract);
         Assert.Contains("/api/finance/periods/{year}/{month}/generate:", contract);
+        Assert.Contains("/api/finance/categories:", contract);
         Assert.Contains("/api/finance/recurring-templates:", contract);
         Assert.Contains("/api/finance/entries:", contract);
         Assert.Contains("/api/finance/assets:", contract);

@@ -116,6 +116,7 @@ public sealed class FinanceServiceTests
                 new DateOnly(2026, 7, 6),
                 null,
                 null,
+                null,
                 fixture.ProjectId),
             CancellationToken.None);
 
@@ -132,6 +133,7 @@ public sealed class FinanceServiceTests
                 FinanceEntryType.Saida,
                 false,
                 new DateOnly(2026, 7, 7),
+                null,
                 null,
                 fixture.OtherUniverseId,
                 fixture.ProjectId),
@@ -160,6 +162,7 @@ public sealed class FinanceServiceTests
                 120m,
                 new DateOnly(2026, 7, 4),
                 null,
+                fixture.DefaultCategoryId,
                 fixture.UniverseId,
                 fixture.ProjectId,
                 null,
@@ -175,6 +178,7 @@ public sealed class FinanceServiceTests
                 "Farmacia central",
                 80m,
                 new DateOnly(2026, 7, 8),
+                null,
                 null,
                 null,
                 null,
@@ -274,8 +278,195 @@ public sealed class FinanceServiceTests
                 new DateOnly(2026, 7, 6),
                 null,
                 null,
+                null,
                 null),
             CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task List_categories_returns_defaults_in_expected_order()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        context.FinanceCategories.Add(new FinanceCategory
+        {
+            HouseholdId = fixture.HouseholdId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Name = "Pets",
+            IsDefault = false,
+            SortOrder = 20
+        });
+        context.FinanceCategories.Add(new FinanceCategory
+        {
+            HouseholdId = fixture.HouseholdId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Name = "Assinaturas",
+            IsDefault = false,
+            SortOrder = 19
+        });
+        await context.SaveChangesAsync();
+
+        var categories = await service.ListCategoriesAsync(CancellationToken.None);
+
+        Assert.Equal("Salário", categories.First().Name);
+        Assert.Equal(FinanceCategoryCatalog.DefaultNames, categories.Take(FinanceCategoryCatalog.DefaultNames.Count).Select(item => item.Name).ToArray());
+        Assert.Equal(["Assinaturas", "Pets"], categories.Skip(FinanceCategoryCatalog.DefaultNames.Count).Select(item => item.Name).ToArray());
+    }
+
+    [Fact]
+    public async Task Default_category_cannot_be_edited_or_deleted()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var defaultCategory = await context.FinanceCategories.FirstAsync(item => item.HouseholdId == fixture.HouseholdId && item.IsDefault);
+
+        var updateException = await Assert.ThrowsAsync<ValidationException>(() => service.UpdateCategoryAsync(
+            defaultCategory.Id,
+            new UpdateFinanceCategoryRequest("Salário 2"),
+            CancellationToken.None));
+
+        var deleteException = await Assert.ThrowsAsync<ValidationException>(() => service.DeleteCategoryAsync(defaultCategory.Id, CancellationToken.None));
+
+        Assert.Equal("Categorias padrão não podem ser editadas.", updateException.Message);
+        Assert.Equal("Categorias padrão não podem ser excluídas.", deleteException.Message);
+    }
+
+    [Fact]
+    public async Task Delete_category_unlinks_finance_records_and_member_cannot_manage_other_users_custom_category()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var ownerService = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var customCategory = new FinanceCategory
+        {
+            HouseholdId = fixture.HouseholdId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Name = "Pets",
+            IsDefault = false,
+            SortOrder = 20
+        };
+        var period = new FinancePeriod
+        {
+            HouseholdId = fixture.HouseholdId,
+            Year = 2026,
+            Month = 7
+        };
+        var recurringTemplate = new FinanceRecurringTemplate
+        {
+            HouseholdId = fixture.HouseholdId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Category = customCategory,
+            Title = "Ração",
+            DefaultAmount = 150m,
+            Type = FinanceEntryType.Saida,
+            Recurrence = FinanceRecurrence.Monthly,
+            IsActive = true
+        };
+        var entry = new FinanceEntry
+        {
+            HouseholdId = fixture.HouseholdId,
+            FinancePeriod = period,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Category = customCategory,
+            Title = "Veterinário",
+            Amount = 90m,
+            Type = FinanceEntryType.Saida,
+            Verified = false,
+            ReferenceDate = new DateOnly(2026, 7, 6),
+            Origin = FinanceEntryOrigin.Manual
+        };
+        var card = new CreditCardAccount
+        {
+            HouseholdId = fixture.HouseholdId,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Name = "Nubank",
+            ClosingDay = 20,
+            DueDay = 25,
+            IsActive = true
+        };
+        var transaction = new CreditCardTransaction
+        {
+            HouseholdId = fixture.HouseholdId,
+            CreditCardAccount = card,
+            CreatedByMemberId = fixture.OwnerMemberId,
+            Category = customCategory,
+            Title = "Pet shop",
+            Amount = 120m,
+            PurchasedOn = new DateOnly(2026, 7, 7)
+        };
+
+        context.FinanceCategories.Add(customCategory);
+        context.FinancePeriods.Add(period);
+        context.FinanceRecurringTemplates.Add(recurringTemplate);
+        context.FinanceEntries.Add(entry);
+        context.CreditCardAccounts.Add(card);
+        context.CreditCardTransactions.Add(transaction);
+        await context.SaveChangesAsync();
+
+        var memberService = CreateService(context, fixture.MemberUserId, fixture.HouseholdId);
+        await Assert.ThrowsAsync<ForbiddenException>(() => memberService.DeleteCategoryAsync(customCategory.Id, CancellationToken.None));
+
+        await ownerService.DeleteCategoryAsync(customCategory.Id, CancellationToken.None);
+
+        Assert.Null((await context.FinanceEntries.FirstAsync()).CategoryId);
+        Assert.Null((await context.FinanceRecurringTemplates.FirstAsync()).CategoryId);
+        Assert.Null((await context.CreditCardTransactions.FirstAsync()).CategoryId);
+    }
+
+    [Fact]
+    public async Task Create_entry_rejects_category_from_another_household()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var otherHousehold = new Household { Name = "Outra casa" };
+        var otherOwner = new HouseholdMember
+        {
+            Household = otherHousehold,
+            User = new AppUser
+            {
+                Email = $"other-owner-{Guid.NewGuid():N}@homepit.dev",
+                PasswordHash = "hash",
+                DisplayName = "Other owner",
+                SystemRole = SystemRole.User
+            },
+            Role = HouseholdRole.Owner
+        };
+        var foreignCategory = new FinanceCategory
+        {
+            Household = otherHousehold,
+            CreatedByMember = otherOwner,
+            Name = "Viagens",
+            IsDefault = false,
+            SortOrder = 20
+        };
+        context.Households.Add(otherHousehold);
+        context.HouseholdMembers.Add(otherOwner);
+        context.FinanceCategories.Add(foreignCategory);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => service.CreateEntryAsync(
+            new CreateFinanceEntryRequest(
+                2026,
+                7,
+                "Compra inválida",
+                null,
+                50m,
+                FinanceEntryType.Saida,
+                false,
+                new DateOnly(2026, 7, 6),
+                null,
+                foreignCategory.Id,
+                null,
+                null),
+            CancellationToken.None));
+
+        Assert.Equal("A categoria informada não pertence à casa ativa.", exception.Message);
     }
 
     private static HomePitDbContext CreateDbContext()
@@ -336,6 +527,9 @@ public sealed class FinanceServiceTests
         context.HouseholdMembers.AddRange(ownerMember, member);
         await context.SaveChangesAsync();
 
+        context.FinanceCategories.AddRange(FinanceCategoryCatalog.CreateDefaults(household.Id, ownerMember.Id));
+        await context.SaveChangesAsync();
+
         var universe = new Universe
         {
             HouseholdId = household.Id,
@@ -366,6 +560,7 @@ public sealed class FinanceServiceTests
             ownerUser.Id,
             ownerMember.Id,
             memberUser.Id,
+            context.FinanceCategories.First(category => category.HouseholdId == household.Id && category.Name == "Salário").Id,
             universe.Id,
             otherUniverse.Id,
             project.Id);
@@ -376,6 +571,7 @@ public sealed class FinanceServiceTests
         Guid OwnerUserId,
         Guid OwnerMemberId,
         Guid MemberUserId,
+        Guid DefaultCategoryId,
         Guid UniverseId,
         Guid OtherUniverseId,
         Guid ProjectId);

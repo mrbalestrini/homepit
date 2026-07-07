@@ -17,6 +17,7 @@ public sealed class Household : AuditableEntity
     public ICollection<PromptCategory> PromptCategories { get; } = new List<PromptCategory>();
     public ICollection<GsmNumber> GsmNumbers { get; } = new List<GsmNumber>();
     public ICollection<GsmRecharge> GsmRecharges { get; } = new List<GsmRecharge>();
+    public ICollection<FinanceCategory> FinanceCategories { get; } = new List<FinanceCategory>();
     public ICollection<FinancePeriod> FinancePeriods { get; } = new List<FinancePeriod>();
     public ICollection<FinanceRecurringTemplate> FinanceRecurringTemplates { get; } = new List<FinanceRecurringTemplate>();
     public ICollection<FinanceEntry> FinanceEntries { get; } = new List<FinanceEntry>();

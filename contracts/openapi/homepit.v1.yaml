@@ -358,6 +358,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FinancePeriodDetail"
+  /api/finance/categories:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      responses:
+        "200":
+          description: Finance categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinanceCategory"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFinanceCategoryRequest"
+      responses:
+        "201":
+          description: Finance category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceCategory"
+  /api/finance/categories/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFinanceCategoryRequest"
+      responses:
+        "200":
+          description: Finance category updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceCategory"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Finance category deleted
   /api/finance/recurring-templates:
     get:
       parameters:
@@ -1898,6 +1952,41 @@ components:
     AssetType:
       type: string
       enum: [Property, Vehicle, Other]
+    CreateFinanceCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    UpdateFinanceCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    FinanceCategory:
+      type: object
+      required: [id, name, isDefault, sortOrder, usageCount, canEdit, canDelete]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        isDefault:
+          type: boolean
+        sortOrder:
+          type: integer
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        usageCount:
+          type: integer
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
     GenerateFinancePeriodRequest:
       type: object
       required: [mode]
@@ -2010,6 +2099,10 @@ components:
           nullable: true
         isActive:
           type: boolean
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
         universeId:
           type: string
           format: uuid
@@ -2042,6 +2135,10 @@ components:
           nullable: true
         isActive:
           type: boolean
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
         universeId:
           type: string
           format: uuid
@@ -2089,6 +2186,13 @@ components:
           nullable: true
         isActive:
           type: boolean
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        categoryName:
+          type: string
+          nullable: true
         universeId:
           type: string
           format: uuid
@@ -2144,6 +2248,10 @@ components:
           type: string
           format: uuid
           nullable: true
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
         universeId:
           type: string
           format: uuid
@@ -2176,6 +2284,10 @@ components:
           type: string
           format: date
         recurringTemplateId:
+          type: string
+          format: uuid
+          nullable: true
+        categoryId:
           type: string
           format: uuid
           nullable: true
@@ -2241,6 +2353,13 @@ components:
         creditCardStatementId:
           type: string
           format: uuid
+          nullable: true
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        categoryName:
+          type: string
           nullable: true
         universeId:
           type: string
@@ -2613,6 +2732,10 @@ components:
         notes:
           type: string
           nullable: true
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
         universeId:
           type: string
           format: uuid
@@ -2648,6 +2771,10 @@ components:
           format: date
         notes:
           type: string
+          nullable: true
+        categoryId:
+          type: string
+          format: uuid
           nullable: true
         universeId:
           type: string
@@ -2707,6 +2834,13 @@ components:
           type: string
           format: date
         notes:
+          type: string
+          nullable: true
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        categoryName:
           type: string
           nullable: true
         universeId:

@@ -10,3 +10,4 @@
 - [x] Cobrir comportamentos centrais com testes backend e frontend.
 - [x] Atualizar changelog, versao e memoria relevante.
 - [x] Refatorar a barra do financeiro para a modal dedicada de recorrências e revisar a copy em pt-BR com acentuação correta.
+- [x] Adicionar categorias financeiras por household com defaults, CRUD de personalizadas e seleção opcional em caixa, recorrências e compras de cartão.

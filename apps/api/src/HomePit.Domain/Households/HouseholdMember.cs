@@ -26,6 +26,7 @@ public sealed class HouseholdMember : AuditableEntity, IHouseholdScoped
     public ICollection<PromptCategory> CreatedPromptCategories { get; } = new List<PromptCategory>();
     public ICollection<GsmNumber> CreatedGsmNumbers { get; } = new List<GsmNumber>();
     public ICollection<GsmRecharge> CreatedGsmRecharges { get; } = new List<GsmRecharge>();
+    public ICollection<FinanceCategory> CreatedFinanceCategories { get; } = new List<FinanceCategory>();
     public ICollection<FinanceRecurringTemplate> CreatedFinanceRecurringTemplates { get; } = new List<FinanceRecurringTemplate>();
     public ICollection<FinanceEntry> CreatedFinanceEntries { get; } = new List<FinanceEntry>();
     public ICollection<Asset> CreatedAssets { get; } = new List<Asset>();

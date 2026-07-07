@@ -18,6 +18,9 @@ public sealed class FinanceRecurringTemplate : AuditableEntity, IHouseholdScoped
     public Guid? ProjectId { get; set; }
     public Project? Project { get; set; }
 
+    public Guid? CategoryId { get; set; }
+    public FinanceCategory? Category { get; set; }
+
     public required string Title { get; set; }
     public string? Notes { get; set; }
     public FinanceEntryType Type { get; set; }

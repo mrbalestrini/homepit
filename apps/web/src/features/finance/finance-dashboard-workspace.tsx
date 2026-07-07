@@ -22,6 +22,7 @@ import type {
   CreditCardAccount,
   CreditCardStatement,
   CreditCardTransaction,
+  FinanceCategory,
   FinanceEntry,
   FinanceEntryOrigin,
   FinanceEntryType,
@@ -56,6 +57,7 @@ import type {
   CreditCardAccountFormInput,
   CreditCardStatementFormInput,
   CreditCardTransactionFormInput,
+  FinanceCategoryFormInput,
   FinanceDashboardController,
   FinanceEntryFormInput,
   FinanceRecurringTemplateFormInput,
@@ -100,6 +102,7 @@ type EntryDialogState = { mode: "create" | "edit"; entryType: FinanceEntryType; 
 
 export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDashboardController }) {
   const [filters, setFilters] = useState<FinanceEntryFilters>(defaultFilters);
+  const [categoryDialog, setCategoryDialog] = useState<FinanceCategory | null | "create">(null);
   const [entryDialog, setEntryDialog] = useState<EntryDialogState | null>(null);
   const [templateDialog, setTemplateDialog] = useState<FinanceRecurringTemplate | null | "create">(null);
   const [recurringTemplatesDialogOpen, setRecurringTemplatesDialogOpen] = useState(false);
@@ -110,6 +113,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
   const [statementDialog, setStatementDialog] = useState<CreditCardStatement | null | "create">(null);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<
+    | { kind: "category"; id: string; name: string }
     | { kind: "entry"; id: string; name: string }
     | { kind: "template"; id: string; name: string }
     | { kind: "asset"; id: string; name: string }
@@ -162,7 +166,9 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       return;
     }
 
-    if (deleteTarget.kind === "entry") {
+    if (deleteTarget.kind === "category") {
+      await dashboard.deleteCategory(deleteTarget.id);
+    } else if (deleteTarget.kind === "entry") {
       await dashboard.deleteEntry(deleteTarget.id);
     } else if (deleteTarget.kind === "template") {
       await dashboard.deleteRecurringTemplate(deleteTarget.id);
@@ -318,6 +324,66 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
             <Card>
               <CardHeader className="border-b border-border/60 pb-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <CardTitle className="text-lg">Categorias</CardTitle>
+                  <Button onClick={() => setCategoryDialog("create")}>
+                    <Plus />
+                    Nova categoria
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+                {dashboard.categories.length === 0 ? (
+                  <div className="md:col-span-2 xl:col-span-3">
+                    <EmptyState
+                      icon={<Wrench className="size-5" />}
+                      title="Nenhuma categoria disponível"
+                      description="Crie categorias personalizadas para classificar caixa, recorrências e compras de cartão."
+                    />
+                  </div>
+                ) : (
+                  dashboard.categories.map((category) => (
+                    <Card key={category.id}>
+                      <CardContent className="space-y-3 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium text-foreground">{category.name}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {category.usageCount === 1 ? "1 uso no financeiro" : `${category.usageCount} usos no financeiro`}
+                            </p>
+                          </div>
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              category.isDefault ? "bg-highlight text-accent-foreground" : "bg-surface-muted text-muted-foreground"
+                            }`}
+                          >
+                            {category.isDefault ? "Padrão" : "Personalizada"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => setCategoryDialog(category)} disabled={!category.canEdit}>
+                            <Pencil />
+                            Editar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteTarget({ kind: "category", id: category.id, name: category.name })}
+                            disabled={!category.canDelete}
+                          >
+                            <Trash2 />
+                            Excluir
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="border-b border-border/60 pb-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <CardTitle className="text-lg">Caixa</CardTitle>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" onClick={() => setEntryDialog({ mode: "create", entryType: "Entrada" })}>
@@ -403,6 +469,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                   <TableHead className="min-w-[180px]">Item</TableHead>
                                   <TableHead>Tipo</TableHead>
                                   <TableHead>Origem</TableHead>
+                                  <TableHead>Categoria</TableHead>
                                   <TableHead>Data</TableHead>
                                   <TableHead>Projeto</TableHead>
                                   <TableHead>Valor</TableHead>
@@ -421,6 +488,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                     </TableCell>
                                     <TableCell>{entry.type === "Entrada" ? "Entrada" : "Saída"}</TableCell>
                                     <TableCell>{formatOrigin(entry.origin)}</TableCell>
+                                    <TableCell>{entry.categoryName ?? "Sem categoria"}</TableCell>
                                     <TableCell>{formatDateOnlyPtBr(entry.referenceDate)}</TableCell>
                                     <TableCell>{entry.projectName ?? entry.universeName ?? "Sem classificação"}</TableCell>
                                     <TableCell className={`font-medium ${entry.type === "Entrada" ? "text-success" : "text-danger"}`}>
@@ -576,6 +644,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                   <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
                                     <TableHead className="min-w-[180px]">Compra</TableHead>
                                     <TableHead>Data</TableHead>
+                                    <TableHead>Categoria</TableHead>
                                     <TableHead>Classificação</TableHead>
                                     <TableHead>Fatura</TableHead>
                                     <TableHead>Valor</TableHead>
@@ -585,7 +654,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                 <TableBody>
                                   {dashboard.creditCardTransactions.length === 0 ? (
                                     <TableRow>
-                                      <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                                      <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                                         Nenhuma compra registrada neste cartão.
                                       </TableCell>
                                     </TableRow>
@@ -599,6 +668,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                           </div>
                                         </TableCell>
                                         <TableCell>{formatDateOnlyPtBr(transaction.purchasedOn)}</TableCell>
+                                        <TableCell>{transaction.categoryName ?? "Sem categoria"}</TableCell>
                                         <TableCell>{transaction.projectName ?? transaction.universeName ?? "Sem classificação"}</TableCell>
                                         <TableCell>{transaction.creditCardStatementId ? "Fechada" : "Em aberto"}</TableCell>
                                         <TableCell className="font-medium text-foreground">{formatCurrency(transaction.amount)}</TableCell>
@@ -787,6 +857,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         defaultEntryType={entryDialog?.entryType ?? "Saida"}
         activeYear={dashboard.activeYear}
         activeMonth={dashboard.activeMonth}
+        categories={dashboard.categories}
         templates={dashboard.recurringTemplates}
         universes={dashboard.universes}
         projects={dashboard.projects}
@@ -804,6 +875,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       <RecurringTemplateDialog
         open={templateDialog !== null}
         template={templateDialog && templateDialog !== "create" ? templateDialog : null}
+        categories={dashboard.categories}
         universes={dashboard.universes}
         projects={dashboard.projects}
         onOpenChange={(open) => !open && setTemplateDialog(null)}
@@ -900,6 +972,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       <CreditCardTransactionDialog
         open={transactionDialog !== null}
         transaction={transactionDialog && transactionDialog !== "create" ? transactionDialog : null}
+        categories={dashboard.categories}
         universes={dashboard.universes}
         projects={dashboard.projects}
         onOpenChange={(open) => !open && setTransactionDialog(null)}
@@ -960,18 +1033,108 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         }}
       />
 
+      <CategoryDialog
+        open={categoryDialog !== null}
+        category={categoryDialog && categoryDialog !== "create" ? categoryDialog : null}
+        onOpenChange={(open) => !open && setCategoryDialog(null)}
+        onSave={async (input) => {
+          if (categoryDialog && categoryDialog !== "create") {
+            await dashboard.updateCategory(categoryDialog.id, input);
+          } else {
+            await dashboard.createCategory(input);
+          }
+
+          setCategoryDialog(null);
+        }}
+      />
+
       <DeleteConfirmationDialog
         open={Boolean(deleteTarget)}
-        title="Excluir registro"
-        description="Essa acao remove o registro selecionado."
+        title={deleteTarget?.kind === "category" ? "Excluir categoria" : "Excluir registro"}
+        description={
+          deleteTarget?.kind === "category"
+            ? "Essa ação remove a categoria personalizada e desvincula os registros que a utilizavam."
+            : "Essa acao remove o registro selecionado."
+        }
         confirmationTarget={deleteTarget?.name}
         confirmationLabel={`Digite ${deleteTarget?.name ?? ""} para confirmar`}
         confirmLabel="Excluir"
-        impactItems={["A exclusao e permanente e atualiza os totais e relacionamentos do modulo financeiro."]}
+        impactItems={[
+          deleteTarget?.kind === "category"
+            ? "A exclusão é permanente e os lançamentos, recorrências e compras vinculados passam a ficar sem categoria."
+            : "A exclusao e permanente e atualiza os totais e relacionamentos do modulo financeiro.",
+        ]}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
       />
     </>
+  );
+}
+
+function CategoryDialog({
+  open,
+  category,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  category: FinanceCategory | null;
+  onOpenChange: (open: boolean) => void;
+  onSave: (input: FinanceCategoryFormInput) => Promise<void>;
+}) {
+  const [name, setName] = useState(category?.name ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setName(category?.name ?? "");
+    setError(null);
+    setSaving(false);
+  }, [category, open]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!name.trim()) {
+      setError("Informe o nome da categoria.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      await onSave({ name: name.trim() });
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar a categoria.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{category ? "Editar categoria" : "Nova categoria"}</DialogTitle>
+          <DialogDescription>Use categorias para organizar caixa, recorrências e compras de cartão dentro do módulo financeiro.</DialogDescription>
+        </DialogHeader>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          {error ? <Notice tone="danger">{error}</Notice> : null}
+          <Field label="Nome">
+            <Input value={name} onChange={(event) => setName(event.target.value)} autoFocus />
+          </Field>
+          <DialogFooter>
+            <Button variant="secondary" type="button" onClick={() => onOpenChange(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving}>
+              Salvar categoria
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1046,6 +1209,7 @@ function EntryDialog({
   defaultEntryType,
   activeYear,
   activeMonth,
+  categories,
   templates,
   universes,
   projects,
@@ -1057,6 +1221,7 @@ function EntryDialog({
   defaultEntryType: FinanceEntryType;
   activeYear: number;
   activeMonth: number;
+  categories: FinanceCategory[];
   templates: FinanceRecurringTemplate[];
   universes: { id: string; name: string }[];
   projects: { id: string; name: string; universeId: string }[];
@@ -1072,6 +1237,7 @@ function EntryDialog({
   const [verified, setVerified] = useState(entry?.verified ?? false);
   const [referenceDate, setReferenceDate] = useState(entry?.referenceDate ?? `${activeYear}-${String(activeMonth).padStart(2, "0")}-01`);
   const [recurringTemplateId, setRecurringTemplateId] = useState(entry?.recurringTemplateId ?? "none");
+  const [categoryId, setCategoryId] = useState(entry?.categoryId ?? "none");
   const [universeId, setUniverseId] = useState(entry?.universeId ?? "none");
   const [projectId, setProjectId] = useState(entry?.projectId ?? "none");
   const [error, setError] = useState<string | null>(null);
@@ -1087,6 +1253,7 @@ function EntryDialog({
     setVerified(entry?.verified ?? false);
     setReferenceDate(entry?.referenceDate ?? `${activeYear}-${String(activeMonth).padStart(2, "0")}-01`);
     setRecurringTemplateId(entry?.recurringTemplateId ?? "none");
+    setCategoryId(entry?.categoryId ?? "none");
     setUniverseId(entry?.universeId ?? "none");
     setProjectId(entry?.projectId ?? "none");
     setError(null);
@@ -1136,6 +1303,7 @@ function EntryDialog({
         verified,
         referenceDate,
         recurringTemplateId: recurringTemplateId === "none" ? null : recurringTemplateId,
+        categoryId: categoryId === "none" ? null : categoryId,
         universeId: universeId === "none" ? null : universeId,
         projectId: projectId === "none" ? null : projectId,
       });
@@ -1188,13 +1356,23 @@ function EntryDialog({
               <Input type="date" value={referenceDate} onChange={(event) => setReferenceDate(event.target.value)} />
             </Field>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Field label="Recorrência">
               <Select value={recurringTemplateId} onChange={(event) => setRecurringTemplateId(event.target.value)}>
                 <option value="none">Sem recorrência</option>
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
                     {template.title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Categoria">
+              <Select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+                <option value="none">Sem categoria</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
                   </option>
                 ))}
               </Select>
@@ -1244,6 +1422,7 @@ function EntryDialog({
 function RecurringTemplateDialog({
   open,
   template,
+  categories,
   universes,
   projects,
   onOpenChange,
@@ -1251,6 +1430,7 @@ function RecurringTemplateDialog({
 }: {
   open: boolean;
   template: FinanceRecurringTemplate | null;
+  categories: FinanceCategory[];
   universes: { id: string; name: string }[];
   projects: { id: string; name: string; universeId: string }[];
   onOpenChange: (open: boolean) => void;
@@ -1264,6 +1444,7 @@ function RecurringTemplateDialog({
   const [dayOfMonth, setDayOfMonth] = useState(template?.dayOfMonth?.toString() ?? "");
   const [monthOfYear, setMonthOfYear] = useState(template?.monthOfYear?.toString() ?? "");
   const [isActive, setIsActive] = useState(template?.isActive ?? true);
+  const [categoryId, setCategoryId] = useState(template?.categoryId ?? "none");
   const [universeId, setUniverseId] = useState(template?.universeId ?? "none");
   const [projectId, setProjectId] = useState(template?.projectId ?? "none");
   const [error, setError] = useState<string | null>(null);
@@ -1278,6 +1459,7 @@ function RecurringTemplateDialog({
     setDayOfMonth(template?.dayOfMonth?.toString() ?? "");
     setMonthOfYear(template?.monthOfYear?.toString() ?? "");
     setIsActive(template?.isActive ?? true);
+    setCategoryId(template?.categoryId ?? "none");
     setUniverseId(template?.universeId ?? "none");
     setProjectId(template?.projectId ?? "none");
     setError(null);
@@ -1317,6 +1499,7 @@ function RecurringTemplateDialog({
         dayOfMonth: parsedDay,
         monthOfYear: recurrence === "Annual" ? parsedMonth : null,
         isActive,
+        categoryId: categoryId === "none" ? null : categoryId,
         universeId: universeId === "none" ? null : universeId,
         projectId: projectId === "none" ? null : projectId,
       });
@@ -1373,7 +1556,17 @@ function RecurringTemplateDialog({
               </Select>
             </Field>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Categoria">
+              <Select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+                <option value="none">Sem categoria</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Universo">
               <Select value={universeId} onChange={(event) => setUniverseId(event.target.value)}>
                 <option value="none">Sem universo</option>
@@ -1840,6 +2033,7 @@ function CreditCardAccountDialog({
 function CreditCardTransactionDialog({
   open,
   transaction,
+  categories,
   universes,
   projects,
   onOpenChange,
@@ -1847,6 +2041,7 @@ function CreditCardTransactionDialog({
 }: {
   open: boolean;
   transaction: CreditCardTransaction | null;
+  categories: FinanceCategory[];
   universes: { id: string; name: string }[];
   projects: { id: string; name: string; universeId: string }[];
   onOpenChange: (open: boolean) => void;
@@ -1857,6 +2052,7 @@ function CreditCardTransactionDialog({
   const [amount, setAmount] = useState(transaction ? formatCurrency(transaction.amount) : "");
   const [purchasedOn, setPurchasedOn] = useState(transaction?.purchasedOn ?? formatDateOnlyInputValue());
   const [notes, setNotes] = useState(transaction?.notes ?? "");
+  const [categoryId, setCategoryId] = useState(transaction?.categoryId ?? "none");
   const [universeId, setUniverseId] = useState(transaction?.universeId ?? "none");
   const [projectId, setProjectId] = useState(transaction?.projectId ?? "none");
   const [externalSource, setExternalSource] = useState(transaction?.externalSource ?? "");
@@ -1870,6 +2066,7 @@ function CreditCardTransactionDialog({
     setAmount(transaction ? formatCurrency(transaction.amount) : "");
     setPurchasedOn(transaction?.purchasedOn ?? formatDateOnlyInputValue());
     setNotes(transaction?.notes ?? "");
+    setCategoryId(transaction?.categoryId ?? "none");
     setUniverseId(transaction?.universeId ?? "none");
     setProjectId(transaction?.projectId ?? "none");
     setExternalSource(transaction?.externalSource ?? "");
@@ -1905,6 +2102,7 @@ function CreditCardTransactionDialog({
         amount: parsedAmount,
         purchasedOn,
         notes: notes.trim(),
+        categoryId: categoryId === "none" ? null : categoryId,
         universeId: universeId === "none" ? null : universeId,
         projectId: projectId === "none" ? null : projectId,
         externalSource: externalSource.trim(),
@@ -1942,7 +2140,17 @@ function CreditCardTransactionDialog({
               <Input type="date" value={purchasedOn} onChange={(event) => setPurchasedOn(event.target.value)} />
             </Field>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Categoria">
+              <Select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+                <option value="none">Sem categoria</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Universo">
               <Select value={universeId} onChange={(event) => setUniverseId(event.target.value)}>
                 <option value="none">Sem universo</option>
@@ -2161,6 +2369,7 @@ function RecurringTemplatesDialog({
                     <TableHead>Tipo</TableHead>
                     <TableHead>Recorrência</TableHead>
                     <TableHead>Valor padrão</TableHead>
+                    <TableHead>Categoria</TableHead>
                     <TableHead>Classificação</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="min-w-[220px] text-right">Ações</TableHead>
@@ -2178,6 +2387,7 @@ function RecurringTemplatesDialog({
                       <TableCell>{template.type === "Entrada" ? "Entrada" : "Saída"}</TableCell>
                       <TableCell>{formatRecurrence(template.recurrence, template.dayOfMonth, template.monthOfYear)}</TableCell>
                       <TableCell>{formatCurrency(template.defaultAmount)}</TableCell>
+                      <TableCell>{template.categoryName ?? "Sem categoria"}</TableCell>
                       <TableCell>{template.projectName ?? template.universeName ?? "Sem classificação"}</TableCell>
                       <TableCell>{template.isActive ? "Ativa" : "Inativa"}</TableCell>
                       <TableCell className="text-right">

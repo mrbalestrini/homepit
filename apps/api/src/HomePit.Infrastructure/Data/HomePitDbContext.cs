@@ -21,6 +21,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<InstitutionalPage> InstitutionalPages => Set<InstitutionalPage>();
     public DbSet<InstitutionalBenefit> InstitutionalBenefits => Set<InstitutionalBenefit>();
     public DbSet<InstitutionalStep> InstitutionalSteps => Set<InstitutionalStep>();
+    public DbSet<FinanceCategory> FinanceCategories => Set<FinanceCategory>();
     public DbSet<FinancePeriod> FinancePeriods => Set<FinancePeriod>();
     public DbSet<FinanceRecurringTemplate> FinanceRecurringTemplates => Set<FinanceRecurringTemplate>();
     public DbSet<FinanceEntry> FinanceEntries => Set<FinanceEntry>();
@@ -234,6 +235,23 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
 
     private static void ConfigureFinance(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<FinanceCategory>(builder =>
+        {
+            builder.ToTable("finance_categories");
+            builder.Property(item => item.Name).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.IsDefault).HasDefaultValue(false);
+            builder.HasIndex(item => new { item.HouseholdId, item.Name }).IsUnique();
+            builder.HasIndex(item => new { item.HouseholdId, item.SortOrder });
+            builder.HasOne(item => item.Household)
+                .WithMany(household => household.FinanceCategories)
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.CreatedByMember)
+                .WithMany(member => member.CreatedFinanceCategories)
+                .HasForeignKey(item => item.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
         modelBuilder.Entity<FinancePeriod>(builder =>
         {
             builder.ToTable("finance_periods");
@@ -269,6 +287,10 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.HasOne(item => item.Project)
                 .WithMany()
                 .HasForeignKey(item => item.ProjectId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.Category)
+                .WithMany(category => category.RecurringTemplates)
+                .HasForeignKey(item => item.CategoryId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -310,6 +332,10 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.HasOne(item => item.Project)
                 .WithMany()
                 .HasForeignKey(item => item.ProjectId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.Category)
+                .WithMany(category => category.Entries)
+                .HasForeignKey(item => item.CategoryId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -451,6 +477,10 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.HasOne(item => item.Project)
                 .WithMany()
                 .HasForeignKey(item => item.ProjectId)
+                .OnDelete(DeleteBehavior.SetNull);
+            builder.HasOne(item => item.Category)
+                .WithMany(category => category.CreditCardTransactions)
+                .HasForeignKey(item => item.CategoryId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }
