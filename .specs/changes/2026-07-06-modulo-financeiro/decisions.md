@@ -31,3 +31,7 @@
     simples na UI, sem exigir digitacao do titulo do registro.
 17. As tabelas de caixa e compras de cartao passam a permitir selecao multipla para
     exclusao em lote dentro do proprio modulo financeiro.
+18. A navegação principal do financeiro passa a alternar apenas entre `Caixa` e `Cartões`,
+    com `Caixa` como aba inicial e sem persistência em `localStorage` ou na URL.
+19. `Patrimônio` permanece sempre visível abaixo das abas, independentemente da seção
+    ativa.

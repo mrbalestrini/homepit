@@ -13,3 +13,4 @@
 - [x] Adicionar categorias financeiras por household com defaults, CRUD de personalizadas e seleção opcional em caixa, recorrências e compras de cartão.
 - [x] Adicionar edição inline otimista nas tabelas do financeiro com rollback em erro e sincronização pontual por seção.
 - [x] Simplificar a confirmação de exclusão em caixa/cartão e permitir exclusão em lote nas tabelas de lançamentos e compras.
+- [x] Organizar a área central do financeiro em abas locais para `Caixa` e `Cartões`, mantendo `Patrimônio` fixo abaixo.

@@ -444,6 +444,33 @@ describe("FinanceDashboardWorkspace", () => {
     expect(screen.getByText("Gerencie as recorrências mensais e anuais em uma janela dedicada quase em tela cheia.")).toBeInTheDocument();
   });
 
+  it("opens on Caixa, switches to Cartões and preserves the cash panel state", async () => {
+    const dashboard = createDashboard();
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    const cashTab = screen.getByRole("tab", { name: "Caixa" });
+    const cardsTab = screen.getByRole("tab", { name: "Cartões" });
+
+    expect(cashTab).toHaveAttribute("aria-selected", "true");
+    expect(cardsTab).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("tabpanel", { name: "Caixa" })).toBeInTheDocument();
+    expect(screen.queryByRole("tabpanel", { name: "Cartões" })).toBeNull();
+
+    fireEvent.change(screen.getByPlaceholderText("Buscar lançamento"), { target: { value: "mercado" } });
+    fireEvent.click(cardsTab);
+
+    expect(screen.getByRole("tabpanel", { name: "Cartões" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Novo cartão" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Nova entrada" })).toBeNull();
+    expect(screen.getByText("Patrimônio")).toBeInTheDocument();
+
+    fireEvent.click(cashTab);
+
+    expect(screen.getByRole("tabpanel", { name: "Caixa" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Buscar lançamento")).toHaveValue("mercado");
+  });
+
   it("toggles verification and applies filters in the cash section", async () => {
     const dashboard = createDashboard();
 
@@ -725,6 +752,7 @@ describe("FinanceDashboardWorkspace", () => {
 
     render(<FinanceDashboardWorkspace dashboard={dashboard} />);
 
+    fireEvent.click(screen.getByRole("tab", { name: "Cartões" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Selecionar compra Supermercado" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Selecionar compra Farmácia" }));
     fireEvent.click(screen.getByRole("button", { name: "Excluir selecionadas (2)" }));

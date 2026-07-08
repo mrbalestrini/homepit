@@ -51,6 +51,7 @@ import {
   LoadingState,
   Notice,
 } from "@/features/workspace/homepit-workspace-shell";
+import { cn } from "@/lib/utils";
 import type {
   AssetFormInput,
   AssetValuationFormInput,
@@ -101,6 +102,12 @@ const defaultFilters: FinanceEntryFilters = {
 type EntryDialogState = { mode: "create" | "edit"; entryType: FinanceEntryType; entry?: FinanceEntry | null };
 type InlineCellMode = "idle" | "editing" | "saving" | "syncing";
 type InlineSelectOption = { value: string; label: string; disabled?: boolean };
+type FinanceWorkspaceSection = "cash" | "cards";
+
+const financeWorkspaceSections: Array<{ value: FinanceWorkspaceSection; label: string }> = [
+  { value: "cash", label: "Caixa" },
+  { value: "cards", label: "Cartões" },
+];
 
 function areStringArraysEqual(left: string[], right: string[]) {
   if (left.length !== right.length) {
@@ -120,6 +127,89 @@ function InlineSyncLabel({ syncing, label = "Sincronizando..." }: { syncing: boo
       <RefreshCw className="size-3 animate-spin" />
       {label}
     </span>
+  );
+}
+
+function FinanceWorkspaceTabs({
+  value,
+  onChange,
+}: {
+  value: FinanceWorkspaceSection;
+  onChange: (section: FinanceWorkspaceSection) => void;
+}) {
+  const tabRefs = useRef<Record<FinanceWorkspaceSection, HTMLButtonElement | null>>({
+    cash: null,
+    cards: null,
+  });
+
+  function focusSection(section: FinanceWorkspaceSection) {
+    onChange(section);
+    window.requestAnimationFrame(() => tabRefs.current[section]?.focus());
+  }
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    const currentIndex = financeWorkspaceSections.findIndex((section) => section.value === value);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    let nextIndex = -1;
+    if (event.key === "ArrowRight") {
+      nextIndex = (currentIndex + 1) % financeWorkspaceSections.length;
+    } else if (event.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + financeWorkspaceSections.length) % financeWorkspaceSections.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = financeWorkspaceSections.length - 1;
+    }
+
+    if (nextIndex === -1) {
+      return;
+    }
+
+    event.preventDefault();
+    const nextSection = financeWorkspaceSections[nextIndex];
+    if (nextSection) {
+      focusSection(nextSection.value);
+    }
+  }
+
+  return (
+    <div
+      className="inline-flex flex-wrap gap-2 rounded-[18px] border border-border/60 bg-surface-muted p-1"
+      role="tablist"
+      aria-label="Seções do financeiro"
+    >
+      {financeWorkspaceSections.map((section) => {
+        const isActive = section.value === value;
+
+        return (
+          <button
+            key={section.value}
+            ref={(element) => {
+              tabRefs.current[section.value] = element;
+            }}
+            type="button"
+            role="tab"
+            id={`finance-tab-${section.value}`}
+            aria-controls={`finance-panel-${section.value}`}
+            aria-selected={isActive}
+            tabIndex={isActive ? 0 : -1}
+            onClick={() => focusSection(section.value)}
+            onKeyDown={handleKeyDown}
+            className={cn(
+              "rounded-[14px] px-4 py-2 text-sm font-semibold transition",
+              isActive
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:bg-surface hover:text-foreground",
+            )}
+          >
+            {section.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -507,6 +597,7 @@ function InlineCheckboxCell({
 
 export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDashboardController }) {
   const [filters, setFilters] = useState<FinanceEntryFilters>(defaultFilters);
+  const [activeSection, setActiveSection] = useState<FinanceWorkspaceSection>("cash");
   const [categoriesDialogOpen, setCategoriesDialogOpen] = useState(false);
   const [categoryDialog, setCategoryDialog] = useState<FinanceCategory | null | "create">(null);
   const [entryDialog, setEntryDialog] = useState<EntryDialogState | null>(null);
@@ -538,6 +629,8 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
   const entries = dashboard.periodDetail?.entries ?? [];
   const filteredEntries = useMemo(() => filterFinanceEntries(entries, filters), [entries, filters]);
   const groupedEntries = useMemo(() => groupFinanceEntries(filteredEntries, filters.groupBy), [filteredEntries, filters.groupBy]);
+  const visibleCount = activeSection === "cash" ? filteredEntries.length : dashboard.creditCardTransactions.length;
+  const visibleLabel = activeSection === "cash" ? "lançamentos" : "compras";
 
   const periodSummary = dashboard.periodDetail?.summary;
   const headerStats = [
@@ -836,8 +929,8 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         }}
         activeModule="finance"
         subtitle={dashboard.subtitle}
-        visibleCount={entries.length}
-        visibleLabel="lançamentos"
+        visibleCount={visibleCount}
+        visibleLabel={visibleLabel}
         headerStats={headerStats}
       >
         <Card>
@@ -938,7 +1031,17 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
               </CardContent>
             </Card>
 
-            <Card>
+            <div className="space-y-4">
+              <FinanceWorkspaceTabs value={activeSection} onChange={setActiveSection} />
+
+              <section
+                role="tabpanel"
+                id="finance-panel-cash"
+                aria-labelledby="finance-tab-cash"
+                hidden={activeSection !== "cash"}
+                className="space-y-4"
+              >
+                <Card>
               <CardHeader className="border-b border-border/60 pb-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="space-y-1">
@@ -1234,7 +1337,16 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
               </CardContent>
             </Card>
 
-            <Card>
+              </section>
+
+              <section
+                role="tabpanel"
+                id="finance-panel-cards"
+                aria-labelledby="finance-tab-cards"
+                hidden={activeSection !== "cards"}
+                className="space-y-4"
+              >
+                <Card>
               <CardHeader className="border-b border-border/60 pb-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="space-y-1">
@@ -1658,6 +1770,9 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                 </div>
               </CardContent>
             </Card>
+
+              </section>
+            </div>
 
             <Card>
               <CardHeader className="border-b border-border/60 pb-4">

@@ -22,8 +22,8 @@ modulos da casa.
 - Reaproveitar `Universe` e `Project` como classificacoes opcionais em lancamentos,
   recorrencias e compras de cartao.
 - Expor rotas `/api/finance/*` para periodos, lancamentos, recorrencias, bens e cartoes.
-- Ativar a rota `/finance` no workspace com secoes `Resumo`, `Caixa`, `Recorrencias`,
-  `Cartoes` e `Patrimonio`.
+- Ativar a rota `/finance` no workspace com `Resumo` acima, abas locais para `Caixa` e
+  `Cartoes` e `Patrimonio` sempre visivel.
 - Cobrir regras centrais com testes backend e frontend.
 
 ## Fora de escopo
@@ -101,6 +101,7 @@ modulos da casa.
 - O mes atual abre mesmo sem periodo previamente gerado.
 - Recorrencias podem gerar lancamentos do mes e duplicar quando solicitado.
 - O cartao possui compras e faturas, e a fatura gera o lancamento mensal correspondente.
+- `Caixa` e `Cartoes` podem ser alternados por abas locais sem esconder `Patrimonio`.
 - O usuario consegue gerir categorias padrao e personalizadas sem sair do modulo financeiro.
 - O shell deixa `Financeiro` de ser roadmap e passa a abrir a tela real.
 

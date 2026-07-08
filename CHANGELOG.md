@@ -4,6 +4,11 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.8.0] - 2026-07-08
+
+### Changed
+- A área central do módulo financeiro passou a alternar entre `Caixa` e `Cartões` por abas locais, mantendo `Patrimônio` sempre visível abaixo da navegação.
+
 ## [1.7.1] - 2026-07-07
 
 ### Added
