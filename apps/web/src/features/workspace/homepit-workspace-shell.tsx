@@ -52,6 +52,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { COMMON_IMAGE_ACCEPT, COMMON_IMAGE_HELP_TEXT } from "@/lib/image-upload";
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 import { AvatarCircle, HouseholdMemberAvatar, ProtectedUserAvatar } from "./protected-user-avatar";
@@ -887,13 +888,13 @@ export function ProfileDialog({
                   {profilePhoto ? "Nova foto selecionada" : "Sua foto atual"}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {profilePhoto ? profilePhoto.name : "Use JPG, PNG ou WEBP com até 5 MB."}
+                  {profilePhoto ? profilePhoto.name : COMMON_IMAGE_HELP_TEXT}
                 </p>
               </div>
             </div>
             <Input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={COMMON_IMAGE_ACCEPT}
               onChange={(event) => setProfilePhoto(event.target.files?.[0] ?? null)}
             />
           </Field>

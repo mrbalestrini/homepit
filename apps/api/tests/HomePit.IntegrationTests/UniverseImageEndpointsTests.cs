@@ -18,34 +18,34 @@ using Xunit;
 
 namespace HomePit.IntegrationTests;
 
-public sealed class ActivityImageEndpointsTests
+public sealed class UniverseImageEndpointsTests
 {
     [Fact]
-    public async Task Activity_image_upload_get_and_delete_work()
+    public async Task Universe_image_upload_get_and_delete_work()
     {
         await using var factory = new HomePitApiFactory();
         using var client = factory.CreateClient();
         var seed = await SeedAsync(factory);
-        var png = TestImageFactory.CreatePng(640, 360);
+        var jpeg = TestImageFactory.CreateJpeg(900, 600);
 
-        using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/activities/{seed.ActivityId}/image");
+        using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/universes/{seed.UniverseId}/image");
         uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", seed.AccessToken);
         uploadRequest.Headers.Add("X-Household-Id", seed.HouseholdId.ToString());
         using var form = new MultipartFormDataContent();
-        using var file = new ByteArrayContent(png);
-        file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-        form.Add(file, "file", "activity.png");
+        using var file = new ByteArrayContent(jpeg);
+        file.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        form.Add(file, "file", "universe.jpg");
         uploadRequest.Content = form;
 
         var uploadResponse = await client.SendAsync(uploadRequest);
         uploadResponse.EnsureSuccessStatusCode();
 
-        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<ActivityResponse>(JsonSerializerOptions.Web);
+        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<UniverseResponse>(JsonSerializerOptions.Web);
         Assert.NotNull(uploaded);
         Assert.True(uploaded.HasImage);
         Assert.NotNull(uploaded.ImageUpdatedAt);
 
-        using var getRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/activities/{seed.ActivityId}/image");
+        using var getRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/universes/{seed.UniverseId}/image");
         getRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", seed.AccessToken);
         getRequest.Headers.Add("X-Household-Id", seed.HouseholdId.ToString());
 
@@ -53,14 +53,14 @@ public sealed class ActivityImageEndpointsTests
         getResponse.EnsureSuccessStatusCode();
         Assert.Equal("image/webp", getResponse.Content.Headers.ContentType?.MediaType);
 
-        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/activities/{seed.ActivityId}/image");
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/universes/{seed.UniverseId}/image");
         deleteRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", seed.AccessToken);
         deleteRequest.Headers.Add("X-Household-Id", seed.HouseholdId.ToString());
 
         var deleteResponse = await client.SendAsync(deleteRequest);
         deleteResponse.EnsureSuccessStatusCode();
 
-        using var missingRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/activities/{seed.ActivityId}/image");
+        using var missingRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/universes/{seed.UniverseId}/image");
         missingRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", seed.AccessToken);
         missingRequest.Headers.Add("X-Household-Id", seed.HouseholdId.ToString());
         Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(missingRequest)).StatusCode);
@@ -95,38 +95,22 @@ public sealed class ActivityImageEndpointsTests
             CreatedByMember = member,
             Name = "Universo"
         };
-        var project = new Project
-        {
-            HouseholdId = household.Id,
-            Universe = universe,
-            CreatedByMember = member,
-            Name = "Projeto"
-        };
-        var activity = new Activity
-        {
-            HouseholdId = household.Id,
-            Project = project,
-            CreatedByMember = member,
-            Title = "Atividade com imagem"
-        };
 
         db.Users.Add(user);
         db.Households.Add(household);
         db.HouseholdMembers.Add(member);
         db.Universes.Add(universe);
-        db.Projects.Add(project);
-        db.Activities.Add(activity);
         await db.SaveChangesAsync();
 
         return new SeedResult(
             tokenService.CreateAccessToken(user, [member]),
             household.Id,
-            activity.Id);
+            universe.Id);
     }
 
-    private sealed record SeedResult(string AccessToken, Guid HouseholdId, Guid ActivityId);
+    private sealed record SeedResult(string AccessToken, Guid HouseholdId, Guid UniverseId);
 
-    private sealed record ActivityResponse(bool HasImage, string? ImageUpdatedAt);
+    private sealed record UniverseResponse(bool HasImage, string? ImageUpdatedAt);
 
     private sealed class HomePitApiFactory : WebApplicationFactory<Program>, IAsyncDisposable
     {

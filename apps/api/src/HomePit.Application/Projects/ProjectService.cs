@@ -1,4 +1,5 @@
 using HomePit.Application.Common;
+using HomePit.Application.Images;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Domain.Projects;
@@ -10,25 +11,24 @@ public sealed class ProjectService(
     IHomePitDbContext db,
     IUserContext userContext,
     IObjectStorage objectStorage,
+    IImageUploadProcessor imageUploadProcessor,
     TimeProvider timeProvider)
 {
-    private const long UniverseImageMaxBytes = 5 * 1024 * 1024;
-    private const long ActivityImageMaxBytes = 5 * 1024 * 1024;
     private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
-    private static readonly HashSet<string> AllowedUniverseImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "image/jpeg",
-        "image/png",
-        "image/webp"
-    };
+    private static readonly ImageUploadValidationMessages UniverseImageMessages = new(
+        "Envie uma imagem com conteúdo para o universo.",
+        "A imagem do universo deve ter no máximo 5 MB.",
+        "A imagem do universo deve estar em JPG, PNG, WEBP, GIF ou BMP.",
+        "Envie um arquivo de imagem válido para o universo.",
+        "Imagens animadas não são aceitas no universo.");
 
-    private static readonly HashSet<string> AllowedActivityImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "image/jpeg",
-        "image/png",
-        "image/webp"
-    };
+    private static readonly ImageUploadValidationMessages ActivityImageMessages = new(
+        "Envie uma imagem com conteúdo para a atividade.",
+        "A imagem da atividade deve ter no máximo 5 MB.",
+        "A imagem da atividade deve estar em JPG, PNG, WEBP, GIF ou BMP.",
+        "Envie um arquivo de imagem válido para a atividade.",
+        "Imagens animadas não são aceitas na atividade.");
 
     public async Task<IReadOnlyCollection<UniverseDto>> ListUniversesAsync(CancellationToken cancellationToken)
     {
@@ -113,17 +113,13 @@ public sealed class ProjectService(
         CancellationToken cancellationToken)
     {
         EnsureWritable();
-        if (contentLength <= 0)
-        {
-            throw new ValidationException("Envie uma imagem com conteúdo para o universo.");
-        }
-
-        if (contentLength > UniverseImageMaxBytes)
-        {
-            throw new ValidationException($"A imagem do universo deve ter no máximo {FormatMegabytes(UniverseImageMaxBytes)} MB.");
-        }
-
-        var normalizedContentType = NormalizeUniverseImageContentType(contentType);
+        var preparedImage = await imageUploadProcessor.PrepareAsync(
+            content,
+            contentLength,
+            contentType,
+            ImageUploadPolicies.Common,
+            UniverseImageMessages,
+            cancellationToken);
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var universe = await db.Universes
             .FirstOrDefaultAsync(item => item.Id == universeId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -132,13 +128,14 @@ public sealed class ProjectService(
         EnsureCanManageEntity(currentMember, universe.CreatedByMemberId, "Você não pode editar um universo criado por outra pessoa.");
 
         var objectKey = ObjectStorageKeys.UniverseImage(universe.Id);
+        await using var uploadStream = new MemoryStream(preparedImage.Content, writable: false);
         await objectStorage.PutAsync(
-            new ObjectStoragePutRequest(objectKey, content, contentLength, normalizedContentType),
+            new ObjectStoragePutRequest(objectKey, uploadStream, preparedImage.ContentLength, preparedImage.ContentType),
             cancellationToken);
 
         universe.ImageUrl = null;
         universe.ImageObjectKey = objectKey;
-        universe.ImageContentType = normalizedContentType;
+        universe.ImageContentType = preparedImage.ContentType;
         universe.ImageUpdatedAt = timeProvider.GetUtcNow();
         await db.SaveChangesAsync(cancellationToken);
 
@@ -472,17 +469,13 @@ public sealed class ProjectService(
         CancellationToken cancellationToken)
     {
         EnsureWritable();
-        if (contentLength <= 0)
-        {
-            throw new ValidationException("Envie uma imagem com conteúdo para a atividade.");
-        }
-
-        if (contentLength > ActivityImageMaxBytes)
-        {
-            throw new ValidationException($"A imagem da atividade deve ter no máximo {FormatMegabytes(ActivityImageMaxBytes)} MB.");
-        }
-
-        var normalizedContentType = NormalizeActivityImageContentType(contentType);
+        var preparedImage = await imageUploadProcessor.PrepareAsync(
+            content,
+            contentLength,
+            contentType,
+            ImageUploadPolicies.Common,
+            ActivityImageMessages,
+            cancellationToken);
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var activity = await db.Activities
             .FirstOrDefaultAsync(item => item.Id == activityId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
@@ -491,12 +484,13 @@ public sealed class ProjectService(
         EnsureCanManageEntity(currentMember, activity.CreatedByMemberId, "Você não pode editar uma atividade criada por outra pessoa.");
 
         var objectKey = ObjectStorageKeys.ActivityImage(activity.Id);
+        await using var uploadStream = new MemoryStream(preparedImage.Content, writable: false);
         await objectStorage.PutAsync(
-            new ObjectStoragePutRequest(objectKey, content, contentLength, normalizedContentType),
+            new ObjectStoragePutRequest(objectKey, uploadStream, preparedImage.ContentLength, preparedImage.ContentType),
             cancellationToken);
 
         activity.ImageObjectKey = objectKey;
-        activity.ImageContentType = normalizedContentType;
+        activity.ImageContentType = preparedImage.ContentType;
         activity.ImageUpdatedAt = timeProvider.GetUtcNow();
         await db.SaveChangesAsync(cancellationToken);
 
@@ -842,28 +836,6 @@ public sealed class ProjectService(
         return normalized;
     }
 
-    private static string NormalizeUniverseImageContentType(string? contentType)
-    {
-        var normalized = NormalizeOptional(contentType);
-        if (normalized is null || !AllowedUniverseImageContentTypes.Contains(normalized))
-        {
-            throw new ValidationException("A imagem do universo deve estar em JPG, PNG ou WEBP.");
-        }
-
-        return normalized;
-    }
-
-    private static string NormalizeActivityImageContentType(string? contentType)
-    {
-        var normalized = NormalizeOptional(contentType);
-        if (normalized is null || !AllowedActivityImageContentTypes.Contains(normalized))
-        {
-            throw new ValidationException("A imagem da atividade deve estar em JPG, PNG ou WEBP.");
-        }
-
-        return normalized;
-    }
-
     private static UniverseDto ToUniverseDto(Universe universe, int projectCount, HouseholdMember currentMember)
     {
         var canManage = CanManageEntity(currentMember, universe.CreatedByMemberId);
@@ -924,11 +896,6 @@ public sealed class ProjectService(
             activity.Comments.Count,
             canManage,
             canManage);
-    }
-
-    private static long FormatMegabytes(long bytes)
-    {
-        return bytes / (1024 * 1024);
     }
 
     private async Task DeleteObjectKeysAsync(IEnumerable<string?> objectKeys, CancellationToken cancellationToken)

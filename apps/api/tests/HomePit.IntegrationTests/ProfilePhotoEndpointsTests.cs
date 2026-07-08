@@ -40,12 +40,13 @@ public sealed class ProfilePhotoEndpointsTests
         await using var factory = new HomePitApiFactory();
         using var client = factory.CreateClient();
         var accessToken = await SeedAccessTokenAsync(factory);
+        var png = TestImageFactory.CreatePng(256, 256);
 
         using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users/me/profile-photo");
         uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
         using var form = new MultipartFormDataContent();
-        using var file = new ByteArrayContent([1, 3, 3, 7]);
+        using var file = new ByteArrayContent(png);
         file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
         form.Add(file, "file", "avatar.png");
         uploadRequest.Content = form;
@@ -63,8 +64,7 @@ public sealed class ProfilePhotoEndpointsTests
         var getResponse = await client.SendAsync(getRequest);
 
         getResponse.EnsureSuccessStatusCode();
-        Assert.Equal("image/png", getResponse.Content.Headers.ContentType?.MediaType);
-        Assert.Equal([1, 3, 3, 7], await getResponse.Content.ReadAsByteArrayAsync());
+        Assert.Equal("image/webp", getResponse.Content.Headers.ContentType?.MediaType);
     }
 
     private static async Task<string> SeedAccessTokenAsync(HomePitApiFactory factory)

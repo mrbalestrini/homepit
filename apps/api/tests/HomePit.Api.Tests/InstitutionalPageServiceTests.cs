@@ -3,6 +3,7 @@ using HomePit.Application.Institutional;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Infrastructure.Data;
+using HomePit.Infrastructure.Images;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -95,7 +96,8 @@ public sealed class InstitutionalPageServiceTests
     public async Task Uploading_and_deleting_image_updates_public_metadata()
     {
         var context = CreateContext(SystemRole.SuperAdmin);
-        await using var stream = new MemoryStream([1, 2, 3, 4]);
+        var png = TestImageFactory.CreatePng(600, 400);
+        await using var stream = new MemoryStream(png);
 
         var uploaded = await context.Service.UploadImageAsync(
             "hero",
@@ -108,8 +110,7 @@ public sealed class InstitutionalPageServiceTests
 
         Assert.True(uploaded.HasHeroImage);
         Assert.NotNull(uploaded.HeroImageUpdatedAt);
-        Assert.Equal("image/png", image.ContentType);
-        Assert.Equal([1, 2, 3, 4], image.Content);
+        Assert.Equal("image/webp", image.ContentType);
         Assert.False(deleted.HasHeroImage);
         Assert.Empty(context.Storage.Objects);
     }
@@ -118,12 +119,14 @@ public sealed class InstitutionalPageServiceTests
     public async Task Uploading_seo_image_requires_webp_1200x630_and_600_kb()
     {
         var context = CreateContext(SystemRole.SuperAdmin);
+        var validSeo = TestImageFactory.CreateWebp(1200, 630);
+        var invalidSeo = TestImageFactory.CreateWebp(1000, 630);
 
         var invalidTypeException = await Assert.ThrowsAsync<ValidationException>(() =>
             context.Service.UploadImageAsync(
                 "seo",
-                new MemoryStream(CreateWebpWithDimensions(1200, 630)),
-                30,
+                new MemoryStream(validSeo),
+                validSeo.Length,
                 "image/png",
                 CancellationToken.None));
 
@@ -138,8 +141,8 @@ public sealed class InstitutionalPageServiceTests
         var invalidDimensionsException = await Assert.ThrowsAsync<ValidationException>(() =>
             context.Service.UploadImageAsync(
                 "seo",
-                new MemoryStream(CreateWebpWithDimensions(1000, 630)),
-                30,
+                new MemoryStream(invalidSeo),
+                invalidSeo.Length,
                 "image/webp",
                 CancellationToken.None));
 
@@ -152,7 +155,7 @@ public sealed class InstitutionalPageServiceTests
     public async Task Uploading_seo_image_updates_public_metadata()
     {
         var context = CreateContext(SystemRole.SuperAdmin);
-        var bytes = CreateWebpWithDimensions(1200, 630);
+        var bytes = TestImageFactory.CreateWebp(1200, 630);
 
         var uploaded = await context.Service.UploadImageAsync(
             "seo",
@@ -181,6 +184,7 @@ public sealed class InstitutionalPageServiceTests
             db,
             new FakeUserContext(role),
             storage,
+            new ImageSharpImageUploadProcessor(),
             new FakeTimeProvider(DateTimeOffset.Parse("2026-06-15T12:00:00+00:00")));
 
         return new TestContext(db, service, storage);
@@ -264,33 +268,4 @@ public sealed class InstitutionalPageServiceTests
     }
 
     private const int SEOImageMaxBytes = 600 * 1024;
-
-    private static byte[] CreateWebpWithDimensions(int width, int height)
-    {
-        var data = new byte[30];
-        data[0] = (byte)'R';
-        data[1] = (byte)'I';
-        data[2] = (byte)'F';
-        data[3] = (byte)'F';
-        data[4] = 22;
-        data[8] = (byte)'W';
-        data[9] = (byte)'E';
-        data[10] = (byte)'B';
-        data[11] = (byte)'P';
-        data[12] = (byte)'V';
-        data[13] = (byte)'P';
-        data[14] = (byte)'8';
-        data[15] = (byte)'X';
-        data[16] = 10;
-
-        var widthMinusOne = width - 1;
-        var heightMinusOne = height - 1;
-        data[24] = (byte)(widthMinusOne & 0xFF);
-        data[25] = (byte)((widthMinusOne >> 8) & 0xFF);
-        data[26] = (byte)((widthMinusOne >> 16) & 0xFF);
-        data[27] = (byte)(heightMinusOne & 0xFF);
-        data[28] = (byte)((heightMinusOne >> 8) & 0xFF);
-        data[29] = (byte)((heightMinusOne >> 16) & 0xFF);
-        return data;
-    }
 }

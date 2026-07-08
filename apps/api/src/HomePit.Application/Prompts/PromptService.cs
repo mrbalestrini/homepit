@@ -1,4 +1,5 @@
 using HomePit.Application.Common;
+using HomePit.Application.Images;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Domain.Prompts;
@@ -10,20 +11,20 @@ public sealed class PromptService(
     IHomePitDbContext db,
     IUserContext userContext,
     IObjectStorage objectStorage,
+    IImageUploadProcessor imageUploadProcessor,
     TimeProvider timeProvider)
 {
     private const int DefaultPageSize = 12;
     private const int MaxPageSize = 48;
     private const int PromptTextMaxLength = 20000;
-    private const long PromptImageMaxBytes = 5 * 1024 * 1024;
     private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
-    private static readonly HashSet<string> AllowedPromptImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "image/jpeg",
-        "image/png",
-        "image/webp"
-    };
+    private static readonly ImageUploadValidationMessages PromptImageMessages = new(
+        "Envie uma imagem com conteúdo para o prompt.",
+        "A imagem do prompt deve ter no máximo 5 MB.",
+        "A imagem do prompt deve estar em JPG, PNG, WEBP, GIF ou BMP.",
+        "Envie um arquivo de imagem válido para o prompt.",
+        "Imagens animadas não são aceitas no prompt.");
 
     public async Task<PromptListResponse> ListPromptsAsync(
         string? search,
@@ -241,17 +242,13 @@ public sealed class PromptService(
         CancellationToken cancellationToken)
     {
         EnsureWritable();
-        if (contentLength <= 0)
-        {
-            throw new ValidationException("Envie uma imagem com conteúdo para o prompt.");
-        }
-
-        if (contentLength > PromptImageMaxBytes)
-        {
-            throw new ValidationException($"A imagem do prompt deve ter no máximo {FormatMegabytes(PromptImageMaxBytes)} MB.");
-        }
-
-        var normalizedContentType = NormalizePromptImageContentType(contentType);
+        var preparedImage = await imageUploadProcessor.PrepareAsync(
+            content,
+            contentLength,
+            contentType,
+            ImageUploadPolicies.Common,
+            PromptImageMessages,
+            cancellationToken);
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var prompt = await db.Prompts
             .Include(item => item.CategoryAssignments)
@@ -263,12 +260,13 @@ public sealed class PromptService(
         EnsureCanManageEntity(currentMember, prompt.CreatedByMemberId, "Você não pode editar um prompt criado por outra pessoa.");
 
         var objectKey = ObjectStorageKeys.PromptImage(prompt.Id);
+        await using var uploadStream = new MemoryStream(preparedImage.Content, writable: false);
         await objectStorage.PutAsync(
-            new ObjectStoragePutRequest(objectKey, content, contentLength, normalizedContentType),
+            new ObjectStoragePutRequest(objectKey, uploadStream, preparedImage.ContentLength, preparedImage.ContentType),
             cancellationToken);
 
         prompt.ImageObjectKey = objectKey;
-        prompt.ImageContentType = normalizedContentType;
+        prompt.ImageContentType = preparedImage.ContentType;
         prompt.ImageUpdatedAt = timeProvider.GetUtcNow();
         await db.SaveChangesAsync(cancellationToken);
 
@@ -722,22 +720,6 @@ public sealed class PromptService(
         {
             throw new ForbiddenException(message);
         }
-    }
-
-    private static string NormalizePromptImageContentType(string? contentType)
-    {
-        var normalized = NormalizeOptional(contentType);
-        if (normalized is null || !AllowedPromptImageContentTypes.Contains(normalized))
-        {
-            throw new ValidationException("A imagem do prompt deve estar em JPG, PNG ou WEBP.");
-        }
-
-        return normalized;
-    }
-
-    private static long FormatMegabytes(long bytes)
-    {
-        return bytes / (1024 * 1024);
     }
 
     private async Task<Guid> ResolveSuperAdminHouseholdIdAsync(CancellationToken cancellationToken)

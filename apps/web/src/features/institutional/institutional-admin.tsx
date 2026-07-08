@@ -34,6 +34,7 @@ import {
   storeSession,
   subscribeToSessionChanges,
 } from "@/lib/api";
+import { COMMON_IMAGE_ACCEPT, COMMON_IMAGE_HELP_TEXT } from "@/lib/image-upload";
 import { SeoImageCropDialog, type SeoImageCropDraft } from "./seo-image-crop-dialog";
 import {
   SEO_IMAGE_HEIGHT,
@@ -463,8 +464,8 @@ export function InstitutionalAdmin() {
                 <ImageManager
                   slot="hero"
                   label="Imagem principal"
-                  description="JPG, PNG ou WEBP, com até 5 MB."
-                  accept="image/jpeg,image/png,image/webp"
+                  description={COMMON_IMAGE_HELP_TEXT}
+                  accept={COMMON_IMAGE_ACCEPT}
                   hasImage={page.hasHeroImage}
                   updatedAt={page.heroImageUpdatedAt}
                   alt={page.heroImageAlt}
@@ -518,8 +519,8 @@ export function InstitutionalAdmin() {
                 <ImageManager
                   slot="highlight"
                   label="Imagem de destaque"
-                  description="JPG, PNG ou WEBP, com até 5 MB."
-                  accept="image/jpeg,image/png,image/webp"
+                  description={COMMON_IMAGE_HELP_TEXT}
+                  accept={COMMON_IMAGE_ACCEPT}
                   hasImage={page.hasHighlightImage}
                   updatedAt={page.highlightImageUpdatedAt}
                   alt={page.highlightImageAlt}

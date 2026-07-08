@@ -62,6 +62,12 @@ import { Select } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  COMMON_IMAGE_ACCEPT,
+  COMMON_IMAGE_HELP_TEXT,
+  COMMON_IMAGE_MAX_BYTES,
+  COMMON_IMAGE_TYPE_ERROR,
+} from "@/lib/image-upload";
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmation-dialog";
 import { ActivityImageViewerDialog } from "./activity-image-viewer";
@@ -1492,13 +1498,13 @@ function UniverseDialog({
       return;
     }
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setError("Envie uma imagem JPG, PNG ou WEBP.");
+    if (!COMMON_IMAGE_ACCEPT.split(",").includes(file.type)) {
+      setError(COMMON_IMAGE_TYPE_ERROR);
       event.target.value = "";
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > COMMON_IMAGE_MAX_BYTES) {
       setError("A imagem do universo deve ter no máximo 5 MB.");
       event.target.value = "";
       return;
@@ -1558,10 +1564,10 @@ function UniverseDialog({
             <Input
               key={fileInputKey}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={COMMON_IMAGE_ACCEPT}
               onChange={handleImageChange}
             />
-            <p className="mt-2 text-xs text-muted-foreground">Envie JPG, PNG ou WEBP com até 5 MB.</p>
+            <p className="mt-2 text-xs text-muted-foreground">{COMMON_IMAGE_HELP_TEXT}</p>
           </Field>
           {displayImageUrl || removeImage ? (
             <div className="flex items-center gap-3 rounded-[16px] border border-border/60 bg-surface-muted p-3">
@@ -1741,13 +1747,13 @@ export function ActivityDialog({
       return;
     }
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setError("Envie uma imagem JPG, PNG ou WEBP.");
+    if (!COMMON_IMAGE_ACCEPT.split(",").includes(file.type)) {
+      setError(COMMON_IMAGE_TYPE_ERROR);
       event.target.value = "";
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > COMMON_IMAGE_MAX_BYTES) {
       setError("A imagem da atividade deve ter no máximo 5 MB.");
       event.target.value = "";
       return;
@@ -1887,10 +1893,10 @@ export function ActivityDialog({
                   <Input
                     key={fileInputKey}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept={COMMON_IMAGE_ACCEPT}
                     onChange={handleImageChange}
                   />
-                  <p className="text-xs text-muted-foreground">JPG, PNG ou WEBP, com até 5 MB.</p>
+                  <p className="text-xs text-muted-foreground">{COMMON_IMAGE_HELP_TEXT}</p>
                 </>
               ) : null}
 

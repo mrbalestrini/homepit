@@ -80,13 +80,14 @@ public sealed class InstitutionalPageEndpointsTests
         await using var factory = new HomePitApiFactory();
         using var client = factory.CreateClient();
         var token = await SeedAccessTokenAsync(factory, SystemRole.SuperAdmin);
+        var png = TestImageFactory.CreatePng(1800, 900);
 
         using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, "/api/admin/institutional-page/images/hero");
         uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var form = new MultipartFormDataContent();
-        using var file = new ByteArrayContent([4, 3, 2, 1]);
-        file.Headers.ContentType = new MediaTypeHeaderValue("image/webp");
-        form.Add(file, "file", "hero.webp");
+        using var file = new ByteArrayContent(png);
+        file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        form.Add(file, "file", "hero.png");
         uploadRequest.Content = form;
 
         var uploadResponse = await client.SendAsync(uploadRequest);
@@ -96,7 +97,6 @@ public sealed class InstitutionalPageEndpointsTests
         publicImage.EnsureSuccessStatusCode();
         Assert.Equal("image/webp", publicImage.Content.Headers.ContentType?.MediaType);
         Assert.Equal("public, max-age=31536000, immutable", publicImage.Headers.CacheControl?.ToString());
-        Assert.Equal([4, 3, 2, 1], await publicImage.Content.ReadAsByteArrayAsync());
 
         var deleteResponse = await SendAuthorizedAsync(
             client,
@@ -113,7 +113,7 @@ public sealed class InstitutionalPageEndpointsTests
         await using var factory = new HomePitApiFactory();
         using var client = factory.CreateClient();
         var token = await SeedAccessTokenAsync(factory, SystemRole.SuperAdmin);
-        var seoBytes = CreateWebpWithDimensions(1200, 630);
+        var seoBytes = TestImageFactory.CreateWebp(1200, 630);
 
         using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, "/api/admin/institutional-page/images/seo");
         uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -280,32 +280,4 @@ public sealed class InstitutionalPageEndpointsTests
         }
     }
 
-    private static byte[] CreateWebpWithDimensions(int width, int height)
-    {
-        var data = new byte[30];
-        data[0] = (byte)'R';
-        data[1] = (byte)'I';
-        data[2] = (byte)'F';
-        data[3] = (byte)'F';
-        data[4] = 22;
-        data[8] = (byte)'W';
-        data[9] = (byte)'E';
-        data[10] = (byte)'B';
-        data[11] = (byte)'P';
-        data[12] = (byte)'V';
-        data[13] = (byte)'P';
-        data[14] = (byte)'8';
-        data[15] = (byte)'X';
-        data[16] = 10;
-
-        var widthMinusOne = width - 1;
-        var heightMinusOne = height - 1;
-        data[24] = (byte)(widthMinusOne & 0xFF);
-        data[25] = (byte)((widthMinusOne >> 8) & 0xFF);
-        data[26] = (byte)((widthMinusOne >> 16) & 0xFF);
-        data[27] = (byte)(heightMinusOne & 0xFF);
-        data[28] = (byte)((heightMinusOne >> 8) & 0xFF);
-        data[29] = (byte)((heightMinusOne >> 16) & 0xFF);
-        return data;
-    }
 }

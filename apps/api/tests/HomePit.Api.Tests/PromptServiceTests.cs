@@ -5,6 +5,7 @@ using HomePit.Domain.Households;
 using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
 using HomePit.Infrastructure.Data;
+using HomePit.Infrastructure.Images;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -309,6 +310,7 @@ public sealed class PromptServiceTests
             context,
             new TestUserContext(userId, householdId, systemRole),
             new InMemoryObjectStorage(),
+            new ImageSharpImageUploadProcessor(),
             TimeProvider.System);
     }
 

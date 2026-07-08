@@ -23,6 +23,7 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } 
 import { toast } from "sonner";
 import type { PromptCategory, PromptDetail, PromptListItem } from "@/lib/api";
 import { ApiError, apiFetchBlob } from "@/lib/api";
+import { COMMON_IMAGE_ACCEPT, COMMON_IMAGE_HELP_TEXT } from "@/lib/image-upload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -1026,7 +1027,7 @@ function PromptDialog({
 
               <Input
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept={COMMON_IMAGE_ACCEPT}
                 onChange={(event) => {
                   setImageFile(event.target.files?.[0] ?? null);
                   if (event.target.files?.[0]) {
@@ -1034,6 +1035,7 @@ function PromptDialog({
                   }
                 }}
               />
+              <p className="text-xs text-muted-foreground">{COMMON_IMAGE_HELP_TEXT}</p>
 
               {prompt?.hasImage ? (
                 <button

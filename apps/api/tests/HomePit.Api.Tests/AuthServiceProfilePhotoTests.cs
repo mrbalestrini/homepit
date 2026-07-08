@@ -2,6 +2,7 @@ using HomePit.Application.Auth;
 using HomePit.Application.Common;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
+using HomePit.Infrastructure.Images;
 using HomePit.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -24,12 +25,13 @@ public sealed class AuthServiceProfilePhotoTests
     public async Task Rejects_invalid_profile_photo_content_type()
     {
         var context = await CreateContextAsync();
-        await using var stream = new MemoryStream([1, 2, 3]);
+        var png = TestImageFactory.CreatePng();
+        await using var stream = new MemoryStream(png);
 
         var exception = await Assert.ThrowsAsync<ValidationException>(() =>
-            context.Service.UploadProfilePhotoAsync(stream, stream.Length, "image/gif", CancellationToken.None));
+            context.Service.UploadProfilePhotoAsync(stream, stream.Length, "image/tiff", CancellationToken.None));
 
-        Assert.Equal("A foto de perfil deve estar em JPG, PNG ou WEBP.", exception.Message);
+        Assert.Equal("A foto de perfil deve estar em JPG, PNG, WEBP, GIF ou BMP.", exception.Message);
     }
 
     [Fact]
@@ -48,7 +50,8 @@ public sealed class AuthServiceProfilePhotoTests
     public async Task Uploading_profile_photo_sets_storage_key_and_flags()
     {
         var context = await CreateContextAsync();
-        await using var stream = new MemoryStream([1, 2, 3, 4]);
+        var png = TestImageFactory.CreatePng(120, 120);
+        await using var stream = new MemoryStream(png);
 
         var result = await context.Service.UploadProfilePhotoAsync(stream, stream.Length, "image/png", CancellationToken.None);
         var savedUser = await context.Db.Users.SingleAsync();
@@ -58,14 +61,17 @@ public sealed class AuthServiceProfilePhotoTests
         Assert.Equal(ObjectStorageKeys.UserProfilePhoto(savedUser.Id), savedUser.ProfilePhotoObjectKey);
         Assert.NotNull(savedUser.ProfilePhotoUpdatedAt);
         Assert.Single(context.Storage.Objects);
+        Assert.Equal("image/webp", context.Storage.Objects.Single().Value.ContentType);
     }
 
     [Fact]
     public async Task Replacing_profile_photo_reuses_same_object_key()
     {
         var context = await CreateContextAsync();
-        await using var firstStream = new MemoryStream([1, 2, 3]);
-        await using var secondStream = new MemoryStream([9, 8, 7, 6]);
+        var firstPng = TestImageFactory.CreatePng(64, 64);
+        var secondPng = TestImageFactory.CreatePng(96, 96);
+        await using var firstStream = new MemoryStream(firstPng);
+        await using var secondStream = new MemoryStream(secondPng);
 
         var first = await context.Service.UploadProfilePhotoAsync(firstStream, firstStream.Length, "image/png", CancellationToken.None);
         context.TimeProvider.UtcNow = context.TimeProvider.UtcNow.AddMinutes(5);
@@ -77,7 +83,7 @@ public sealed class AuthServiceProfilePhotoTests
         Assert.NotEqual(first.ProfilePhotoUpdatedAt, second.ProfilePhotoUpdatedAt);
         Assert.Single(context.Storage.Objects);
         Assert.Equal(ObjectStorageKeys.UserProfilePhoto(context.UserId), context.Storage.Objects.Single().Key);
-        Assert.Equal([9, 8, 7, 6], context.Storage.Objects.Single().Value.Content);
+        Assert.Equal("image/webp", context.Storage.Objects.Single().Value.ContentType);
     }
 
     private static async Task<TestContext> CreateContextAsync()
@@ -110,6 +116,7 @@ public sealed class AuthServiceProfilePhotoTests
             timeProvider,
             userContext,
             storage,
+            new ImageSharpImageUploadProcessor(),
             new SuperAdminOptions());
 
         return new TestContext(db, service, storage, timeProvider, user.Id);

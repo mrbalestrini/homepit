@@ -70,6 +70,7 @@ paths:
   /api/institutional-page/images/{slot}:
     get:
       security: []
+      description: Public institutional image. Hero and highlight uploads are normalized to WEBP within 2000 x 2000 px; legacy reads may still return JPEG, PNG or WEBP.
       parameters:
         - $ref: "#/components/parameters/InstitutionalImageSlot"
       responses:
@@ -119,6 +120,7 @@ paths:
           description: SuperAdmin role required
   /api/admin/institutional-page/images/{slot}:
     post:
+      description: Upload an institutional image. Hero and highlight accept JPG, PNG, WEBP, GIF or BMP and are normalized to WEBP within 2000 x 2000 px. SEO keeps its dedicated WEBP 1200 x 630 rules.
       parameters:
         - $ref: "#/components/parameters/InstitutionalImageSlot"
       requestBody:
@@ -134,7 +136,7 @@ paths:
                   format: binary
       responses:
         "200":
-          description: Institutional image uploaded
+          description: Institutional image uploaded. New common uploads are stored as WEBP.
           content:
             application/json:
               schema:
@@ -260,6 +262,7 @@ paths:
                 $ref: "#/components/schemas/UserProfile"
   /api/users/me/profile-photo:
     post:
+      description: Upload the current user profile photo. Common uploads accept JPG, PNG, WEBP, GIF or BMP and are normalized to WEBP within 2000 x 2000 px.
       requestBody:
         required: true
         content:
@@ -273,12 +276,13 @@ paths:
                   format: binary
       responses:
         "200":
-          description: Current user profile photo updated
+          description: Current user profile photo updated. New uploads are stored as WEBP.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
     get:
+      description: Current user profile photo. Legacy reads may return JPEG, PNG or WEBP.
       responses:
         "200":
           description: Current user profile photo
@@ -1012,6 +1016,64 @@ paths:
       responses:
         "204":
           description: Universe deleted
+  /api/universes/{id}/image:
+    post:
+      description: Upload a universe image. Common uploads accept JPG, PNG, WEBP, GIF or BMP and are normalized to WEBP within 2000 x 2000 px.
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Universe image updated. New uploads are stored as WEBP.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Universe"
+    get:
+      description: Universe image. Legacy reads may return JPEG, PNG or WEBP.
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Universe image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Universe image not found
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Universe image removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Universe"
   /api/projects:
     get:
       parameters:
@@ -1189,6 +1251,7 @@ paths:
                 $ref: "#/components/schemas/PromptDetail"
   /api/prompts/{id}/image:
     post:
+      description: Upload a prompt image. Common uploads accept JPG, PNG, WEBP, GIF or BMP and are normalized to WEBP within 2000 x 2000 px.
       parameters:
         - $ref: "#/components/parameters/HouseholdHeader"
         - $ref: "#/components/parameters/IdPath"
@@ -1205,12 +1268,13 @@ paths:
                   format: binary
       responses:
         "200":
-          description: Prompt image updated
+          description: Prompt image updated. New uploads are stored as WEBP.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PromptDetail"
     get:
+      description: Prompt image. Legacy reads may return JPEG, PNG or WEBP.
       parameters:
         - $ref: "#/components/parameters/HouseholdHeader"
         - $ref: "#/components/parameters/IdPath"
@@ -1395,6 +1459,7 @@ paths:
                 $ref: "#/components/schemas/Activity"
   /api/activities/{id}/image:
     post:
+      description: Upload an activity image. Common uploads accept JPG, PNG, WEBP, GIF or BMP and are normalized to WEBP within 2000 x 2000 px.
       parameters:
         - $ref: "#/components/parameters/HouseholdHeader"
         - name: id
@@ -1416,12 +1481,13 @@ paths:
                   format: binary
       responses:
         "200":
-          description: Activity image updated
+          description: Activity image updated. New uploads are stored as WEBP.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Activity"
     get:
+      description: Activity image. Legacy reads may return JPEG, PNG or WEBP.
       parameters:
         - $ref: "#/components/parameters/HouseholdHeader"
         - name: id

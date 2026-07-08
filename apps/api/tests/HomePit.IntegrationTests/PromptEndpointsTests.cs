@@ -191,7 +191,7 @@ public sealed class PromptEndpointsTests
         using (var uploadRequest = CreateAuthorizedRequest(seed.AccessToken, seed.HouseholdId, HttpMethod.Post, $"/api/prompts/{prompt.Id}/image"))
         {
             using var form = new MultipartFormDataContent();
-            using var file = new ByteArrayContent([9, 8, 7, 6]);
+            using var file = new ByteArrayContent(TestImageFactory.CreatePng(320, 240));
             file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
             form.Add(file, "file", "prompt.png");
             uploadRequest.Content = form;
@@ -335,7 +335,7 @@ public sealed class PromptEndpointsTests
 
         using var uploadRequest = CreateAuthorizedRequest(seed.AccessToken, seed.HouseholdId, HttpMethod.Post, $"/api/prompts/{prompt.Id}/image");
         using var form = new MultipartFormDataContent();
-        using var file = new ByteArrayContent([9, 8, 7, 6]);
+        using var file = new ByteArrayContent(TestImageFactory.CreatePng(320, 240));
         file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
         form.Add(file, "file", "prompt.png");
         uploadRequest.Content = form;
@@ -354,8 +354,7 @@ public sealed class PromptEndpointsTests
             $"/api/prompts/{prompt.Id}/image");
 
         getResponse.EnsureSuccessStatusCode();
-        Assert.Equal("image/png", getResponse.Content.Headers.ContentType?.MediaType);
-        Assert.Equal([9, 8, 7, 6], await getResponse.Content.ReadAsByteArrayAsync());
+        Assert.Equal("image/webp", getResponse.Content.Headers.ContentType?.MediaType);
 
         var deleteResponse = await SendAuthorizedAsync(
             client,

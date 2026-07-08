@@ -1,9 +1,11 @@
 using HomePit.Application.Auth;
 using HomePit.Application.Common;
+using HomePit.Application.Images;
 using HomePit.Application.Notifications;
 using HomePit.Application.Storage;
 using HomePit.Infrastructure.Auth;
 using HomePit.Infrastructure.Data;
+using HomePit.Infrastructure.Images;
 using HomePit.Infrastructure.Notifications;
 using HomePit.Infrastructure.ObjectStorage;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +35,7 @@ public static class DependencyInjection
 
         services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddScoped<ITokenService, JwtTokenService>();
+        services.AddScoped<IImageUploadProcessor, ImageSharpImageUploadProcessor>();
         services.AddScoped<DailyDigestService>();
         services.AddHttpClient<IWhatsAppClient, EvolutionApiWhatsAppClient>();
         services.AddSingleton<IMinioClient>(provider =>

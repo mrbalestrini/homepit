@@ -23,6 +23,9 @@
 - Arquivos privados sao lidos por endpoints autenticados com `Cache-Control: no-store`.
 - Imagens privadas de atividades seguem o mesmo padrao de upload multipart, leitura
   autenticada e remocao protegida, usando `Cache-Control: no-store` na leitura.
+- Uploads comuns de imagem agora passam por um `IImageUploadProcessor` compartilhado no
+  backend, que normaliza novos arquivos para `image/webp` com no maximo `2000px` por lado,
+  enquanto SEO institucional permanece com policy separada.
 - Imagens institucionais sao a excecao publica do object storage e usam
   `Cache-Control: public, max-age=31536000, immutable` com timestamp na URL.
 - O CMS institucional e global, nao usa `X-Household-Id` e valida `SystemRole.SuperAdmin`

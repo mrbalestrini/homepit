@@ -3,6 +3,7 @@ using HomePit.Application.Common;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Infrastructure.Data;
+using HomePit.Infrastructure.Images;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -105,6 +106,7 @@ public sealed class AuthServiceSuperAdminTests
             TimeProvider.System,
             new TestUserContext(),
             new FakeObjectStorage(),
+            new ImageSharpImageUploadProcessor(),
             options);
     }
 

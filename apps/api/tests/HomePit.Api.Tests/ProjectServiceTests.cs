@@ -4,6 +4,7 @@ using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Domain.Projects;
 using HomePit.Infrastructure.Data;
+using HomePit.Infrastructure.Images;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -57,14 +58,33 @@ public sealed class ProjectServiceTests
         context.Activities.Add(activity);
         await context.SaveChangesAsync();
 
-        await using var stream = new MemoryStream([1, 2, 3, 4]);
+        var png = TestImageFactory.CreatePng(400, 300);
+        await using var stream = new MemoryStream(png);
         var result = await service.UploadActivityImageAsync(activity.Id, stream, stream.Length, "image/png", CancellationToken.None);
 
         Assert.True(result.HasImage);
         Assert.NotNull(result.ImageUpdatedAt);
         Assert.Equal(ObjectStorageKeys.ActivityImage(activity.Id), activity.ImageObjectKey);
         Assert.Single(storage.Objects);
-        Assert.Equal([1, 2, 3, 4], storage.Objects.Single().Value.Content);
+        Assert.Equal("image/webp", storage.Objects.Single().Value.ContentType);
+    }
+
+    [Fact]
+    public async Task Uploading_universe_image_sets_metadata_and_storage_key()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var storage = new InMemoryObjectStorage();
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId, storage);
+
+        var jpeg = TestImageFactory.CreateJpeg(640, 360);
+        await using var stream = new MemoryStream(jpeg);
+        var result = await service.UploadUniverseImageAsync(fixture.UniverseId, stream, stream.Length, "image/jpeg", CancellationToken.None);
+
+        Assert.True(result.HasImage);
+        Assert.NotNull(result.ImageUpdatedAt);
+        Assert.Equal(ObjectStorageKeys.UniverseImage(fixture.UniverseId), storage.Objects.Single().Key);
+        Assert.Equal("image/webp", storage.Objects.Single().Value.ContentType);
     }
 
     [Fact]
@@ -85,7 +105,8 @@ public sealed class ProjectServiceTests
         context.Activities.Add(activity);
         await context.SaveChangesAsync();
 
-        await using var stream = new MemoryStream([1, 2, 3, 4]);
+        var png = TestImageFactory.CreatePng(400, 300);
+        await using var stream = new MemoryStream(png);
         await service.UploadActivityImageAsync(activity.Id, stream, stream.Length, "image/png", CancellationToken.None);
 
         var deleted = await service.DeleteActivityImageAsync(activity.Id, CancellationToken.None);
@@ -113,7 +134,8 @@ public sealed class ProjectServiceTests
         context.Activities.Add(activity);
         await context.SaveChangesAsync();
 
-        await using var stream = new MemoryStream([1, 2, 3, 4]);
+        var png = TestImageFactory.CreatePng(400, 300);
+        await using var stream = new MemoryStream(png);
         await service.UploadActivityImageAsync(activity.Id, stream, stream.Length, "image/png", CancellationToken.None);
 
         await service.DeleteProjectAsync(fixture.ProjectId, CancellationToken.None);
@@ -139,7 +161,8 @@ public sealed class ProjectServiceTests
         context.Activities.Add(activity);
         await context.SaveChangesAsync();
 
-        await using var stream = new MemoryStream([1, 2, 3, 4]);
+        var png = TestImageFactory.CreatePng(400, 300);
+        await using var stream = new MemoryStream(png);
         await service.UploadActivityImageAsync(activity.Id, stream, stream.Length, "image/png", CancellationToken.None);
 
         await service.DeleteUniverseAsync(fixture.UniverseId, CancellationToken.None);
@@ -166,6 +189,7 @@ public sealed class ProjectServiceTests
             context,
             new TestUserContext(userId, householdId),
             storage ?? new InMemoryObjectStorage(),
+            new ImageSharpImageUploadProcessor(),
             TimeProvider.System);
     }
 

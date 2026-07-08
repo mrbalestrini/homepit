@@ -1,4 +1,5 @@
 using HomePit.Application.Common;
+using HomePit.Application.Images;
 using HomePit.Application.Storage;
 using HomePit.Domain.Finance;
 using HomePit.Domain.Households;
@@ -16,17 +17,17 @@ public sealed class AuthService(
     TimeProvider timeProvider,
     IUserContext userContext,
     IObjectStorage objectStorage,
+    IImageUploadProcessor imageUploadProcessor,
     SuperAdminOptions superAdminOptions)
 {
-    private const long ProfilePhotoMaxBytes = 5 * 1024 * 1024;
     private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
-    private static readonly HashSet<string> AllowedProfilePhotoContentTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "image/jpeg",
-        "image/png",
-        "image/webp"
-    };
+    private static readonly ImageUploadValidationMessages ProfilePhotoImageMessages = new(
+        "Envie uma imagem com conteúdo para a foto de perfil.",
+        "A foto de perfil deve ter no máximo 5 MB.",
+        "A foto de perfil deve estar em JPG, PNG, WEBP, GIF ou BMP.",
+        "Envie um arquivo de imagem válido para a foto de perfil.",
+        "Imagens animadas não são aceitas na foto de perfil.");
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
@@ -204,22 +205,19 @@ public sealed class AuthService(
         CancellationToken cancellationToken)
     {
         EnsureWritableUser();
-        if (contentLength <= 0)
-        {
-            throw new ValidationException("Envie uma imagem com conteúdo para a foto de perfil.");
-        }
-
-        if (contentLength > ProfilePhotoMaxBytes)
-        {
-            throw new ValidationException($"A foto de perfil deve ter no máximo {FormatMegabytes(ProfilePhotoMaxBytes)} MB.");
-        }
-
-        var normalizedContentType = NormalizeProfilePhotoContentType(contentType);
+        var preparedImage = await imageUploadProcessor.PrepareAsync(
+            content,
+            contentLength,
+            contentType,
+            ImageUploadPolicies.Common,
+            ProfilePhotoImageMessages,
+            cancellationToken);
         var user = await FindCurrentUserAsync(cancellationToken);
         var objectKey = ObjectStorageKeys.UserProfilePhoto(user.Id);
 
+        await using var uploadStream = new MemoryStream(preparedImage.Content, writable: false);
         await objectStorage.PutAsync(
-            new ObjectStoragePutRequest(objectKey, content, contentLength, normalizedContentType),
+            new ObjectStoragePutRequest(objectKey, uploadStream, preparedImage.ContentLength, preparedImage.ContentType),
             cancellationToken);
 
         user.ProfilePhotoObjectKey = objectKey;
@@ -423,22 +421,6 @@ public sealed class AuthService(
         }
 
         return value.Trim();
-    }
-
-    private static string NormalizeProfilePhotoContentType(string? contentType)
-    {
-        var normalized = NormalizeOptional(contentType);
-        if (normalized is null || !AllowedProfilePhotoContentTypes.Contains(normalized))
-        {
-            throw new ValidationException("A foto de perfil deve estar em JPG, PNG ou WEBP.");
-        }
-
-        return normalized;
-    }
-
-    private static long FormatMegabytes(long bytes)
-    {
-        return bytes / (1024 * 1024);
     }
 
     private static void ValidatePassword(string password)

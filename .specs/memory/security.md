@@ -17,9 +17,11 @@
   ocorre no servico de Application.
 - `Owner`, `Admin` e `Member` possuem autorizacao adicional aplicada nos servicos.
 - CORS aceita qualquer origem quando a lista configurada esta vazia.
-- Uploads de perfil, universo, prompt e atividade aceitam JPG, PNG ou WEBP e limitam 5 MB.
-- Imagens institucionais aceitam os mesmos tipos e limite, mas possuem leitura publica
-  intencional e cache por URL versionada.
+- Uploads comuns de perfil, universo, prompt, atividade e imagens institucionais nao SEO
+  aceitam JPG, PNG, WEBP, GIF e BMP com limite bruto de 5 MB, rejeitam animacoes e sao
+  normalizados para WEBP com no maximo 2000 px por lado.
+- Imagens institucionais possuem leitura publica intencional e cache por URL versionada;
+  a imagem de SEO permanece com regra separada em WEBP e dimensoes fixas.
 - Dados com indicio de sensibilidade: e-mail, hash de senha, telefone/WhatsApp, tokens,
   objetos privados e identificadores de mensagens.
 
