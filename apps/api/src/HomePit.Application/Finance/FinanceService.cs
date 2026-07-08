@@ -872,6 +872,91 @@ public sealed class FinanceService(
         return ToTransactionDto(transaction, currentMember);
     }
 
+    public async Task<ImportCreditCardTransactionsResponse> ImportCreditCardTransactionsAsync(
+        Guid accountId,
+        ImportCreditCardTransactionsRequest request,
+        CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        await EnsureCreditCardAccountAsync(currentMember.HouseholdId, accountId, cancellationToken);
+
+        if (request.Transactions is null || request.Transactions.Count == 0)
+        {
+            throw new ValidationException("Envie ao menos uma compra para importar.");
+        }
+
+        var existingCategories = await db.FinanceCategories
+            .AsNoTracking()
+            .Where(item => item.HouseholdId == currentMember.HouseholdId)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .ToArrayAsync(cancellationToken);
+        var categoriesByNormalizedName = existingCategories
+            .GroupBy(item => NormalizeNameKey(item.Name))
+            .ToDictionary(group => group.Key, group => group.First());
+        var nextCategorySortOrder = existingCategories.Length == 0 ? 1 : existingCategories.Max(item => item.SortOrder) + 1;
+        var createdCategoryCount = 0;
+        var createdTransactions = new List<CreditCardTransaction>(request.Transactions.Count);
+
+        foreach (var item in request.Transactions)
+        {
+            var selection = await ResolveProjectUniverseByNameAsync(currentMember.HouseholdId, item.UniverseName, item.ProjectName, cancellationToken);
+            var category = ResolveOrCreateFinanceCategoryByName(
+                currentMember.HouseholdId,
+                currentMember.Id,
+                categoriesByNormalizedName,
+                ref nextCategorySortOrder,
+                ref createdCategoryCount,
+                item.CategoryName);
+            ValidatePositiveAmount(item.Amount, "O valor da compra no cartão deve ser maior que zero.");
+
+            var transaction = new CreditCardTransaction
+            {
+                HouseholdId = currentMember.HouseholdId,
+                CreditCardAccountId = accountId,
+                CreatedByMemberId = currentMember.Id,
+                UniverseId = selection.UniverseId,
+                ProjectId = selection.ProjectId,
+                CategoryId = category?.Id,
+                Title = RequiredText(item.Title, "Informe o título da compra no cartão."),
+                Merchant = NormalizeOptional(item.Merchant),
+                Amount = item.Amount,
+                PurchasedOn = item.PurchasedOn,
+                Notes = NormalizeOptional(item.Notes),
+                ExternalSource = NormalizeOptional(item.ExternalSource),
+                ExternalReference = NormalizeOptional(item.ExternalReference),
+                ImportedAt = item.ImportedAt
+            };
+
+            db.CreditCardTransactions.Add(transaction);
+            createdTransactions.Add(transaction);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        var createdTransactionIds = createdTransactions.Select(item => item.Id).ToArray();
+        var persistedTransactions = await db.CreditCardTransactions
+            .AsNoTracking()
+            .Include(item => item.CreditCardAccount)
+            .Include(item => item.Category)
+            .Include(item => item.Universe)
+            .Include(item => item.Project)
+            .Where(item => createdTransactionIds.Contains(item.Id))
+            .ToArrayAsync(cancellationToken);
+        var persistedById = persistedTransactions.ToDictionary(item => item.Id);
+        var orderedDtos = createdTransactionIds
+            .Select(id => persistedById[id])
+            .Select(item => ToTransactionDto(item, currentMember))
+            .ToArray();
+
+        return new ImportCreditCardTransactionsResponse(
+            orderedDtos.Length,
+            orderedDtos.Sum(item => item.Amount),
+            createdCategoryCount,
+            orderedDtos);
+    }
+
     public async Task<CreditCardTransactionDto> UpdateCreditCardTransactionAsync(
         Guid accountId,
         Guid transactionId,
@@ -1234,6 +1319,41 @@ public sealed class FinanceService(
             ?? throw new ValidationException("A categoria informada não pertence à casa ativa.");
     }
 
+    private FinanceCategory? ResolveOrCreateFinanceCategoryByName(
+        Guid householdId,
+        Guid? createdByMemberId,
+        IDictionary<string, FinanceCategory> categoriesByNormalizedName,
+        ref int nextCategorySortOrder,
+        ref int createdCategoryCount,
+        string? categoryName)
+    {
+        var normalizedName = NormalizeOptional(categoryName);
+        if (normalizedName is null)
+        {
+            return null;
+        }
+
+        var normalizedKey = NormalizeNameKey(normalizedName);
+        if (categoriesByNormalizedName.TryGetValue(normalizedKey, out var existingCategory))
+        {
+            return existingCategory;
+        }
+
+        var category = new FinanceCategory
+        {
+            HouseholdId = householdId,
+            CreatedByMemberId = createdByMemberId,
+            Name = normalizedName,
+            IsDefault = false,
+            SortOrder = nextCategorySortOrder++
+        };
+
+        db.FinanceCategories.Add(category);
+        categoriesByNormalizedName[normalizedKey] = category;
+        createdCategoryCount++;
+        return category;
+    }
+
     private async Task EnsureFinanceCategoryNameAvailableAsync(
         Guid householdId,
         string name,
@@ -1326,6 +1446,77 @@ public sealed class FinanceService(
         }
 
         return new ProjectUniverseSelection(universe?.Id, universe, null, null);
+    }
+
+    private async Task<ProjectUniverseSelection> ResolveProjectUniverseByNameAsync(
+        Guid householdId,
+        string? universeName,
+        string? projectName,
+        CancellationToken cancellationToken)
+    {
+        var universe = await ResolveUniverseByNameAsync(householdId, universeName, cancellationToken);
+        var normalizedProjectName = NormalizeOptional(projectName);
+        if (normalizedProjectName is null)
+        {
+            return new ProjectUniverseSelection(universe?.Id, universe, null, null);
+        }
+
+        var normalizedProjectKey = NormalizeNameKey(normalizedProjectName);
+        var selectedUniverseId = universe?.Id;
+        var projectMatches = await db.Projects
+            .AsNoTracking()
+            .Include(item => item.Universe)
+            .Where(item =>
+                item.HouseholdId == householdId &&
+                item.Name.ToUpper() == normalizedProjectKey &&
+                (!selectedUniverseId.HasValue || item.UniverseId == selectedUniverseId.Value))
+            .ToArrayAsync(cancellationToken);
+
+        if (projectMatches.Length == 0)
+        {
+            throw new ValidationException(
+                universe is null
+                    ? "O projeto informado não pertence à casa ativa."
+                    : "O projeto informado não pertence ao universo selecionado.");
+        }
+
+        if (projectMatches.Length > 1)
+        {
+            throw new ValidationException(
+                universe is null
+                    ? "Há mais de um projeto com esse nome na casa ativa. Informe também o universo."
+                    : "Há mais de um projeto com esse nome dentro do universo selecionado.");
+        }
+
+        var project = projectMatches[0];
+        return new ProjectUniverseSelection(project.UniverseId, project.Universe, project.Id, project);
+    }
+
+    private async Task<Universe?> ResolveUniverseByNameAsync(Guid householdId, string? universeName, CancellationToken cancellationToken)
+    {
+        var normalizedUniverseName = NormalizeOptional(universeName);
+        if (normalizedUniverseName is null)
+        {
+            return null;
+        }
+
+        var normalizedUniverseKey = NormalizeNameKey(normalizedUniverseName);
+        var universeMatches = await db.Universes
+            .AsNoTracking()
+            .Where(item => item.HouseholdId == householdId && item.Name.ToUpper() == normalizedUniverseKey)
+            .ToArrayAsync(cancellationToken);
+
+        if (universeMatches.Length == 0)
+        {
+            throw new ValidationException("O universo informado não pertence à casa ativa.");
+        }
+
+        if (universeMatches.Length > 1)
+        {
+            throw new ValidationException("Há mais de um universo com esse nome na casa ativa.");
+        }
+
+        return universeMatches[0];
     }
 
     private static void ValidatePeriod(int year, int month)
@@ -1803,6 +1994,11 @@ public sealed class FinanceService(
         }
 
         return value.Trim();
+    }
+
+    private static string NormalizeNameKey(string value)
+    {
+        return value.Trim().ToUpperInvariant();
     }
 
     private static string? NormalizeOptional(string? value)

@@ -296,6 +296,27 @@ export type CreditCardTransaction = {
   canDelete: boolean;
 };
 
+export type ImportCreditCardTransactionItem = {
+  title: string;
+  merchant?: string | null;
+  amount: number;
+  purchasedOn: string;
+  notes?: string | null;
+  categoryName?: string | null;
+  universeName?: string | null;
+  projectName?: string | null;
+  externalSource?: string | null;
+  externalReference?: string | null;
+  importedAt?: string | null;
+};
+
+export type ImportCreditCardTransactionsResponse = {
+  totalCount: number;
+  totalAmount: number;
+  createdCategoryCount: number;
+  createdTransactions: CreditCardTransaction[];
+};
+
 export type CreditCardStatement = {
   id: string;
   creditCardAccountId: string;

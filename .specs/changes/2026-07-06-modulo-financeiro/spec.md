@@ -21,6 +21,8 @@ modulos da casa.
   apenas para categorias personalizadas visiveis no modulo financeiro.
 - Reaproveitar `Universe` e `Project` como classificacoes opcionais em lancamentos,
   recorrencias e compras de cartao.
+- Permitir importacao em lote de compras de cartao a partir de JSON, com revisao editavel
+  antes da gravacao final.
 - Expor rotas `/api/finance/*` para periodos, lancamentos, recorrencias, bens e cartoes.
 - Ativar a rota `/finance` no workspace com `Resumo` acima, abas locais para `Caixa` e
   `Cartoes` e `Patrimonio` sempre visivel.
@@ -28,7 +30,8 @@ modulos da casa.
 
 ## Fora de escopo
 
-- Importacao automatica por SMS, XLS, OCR ou integracoes externas de cartao.
+- Importacao automatica por SMS, XLS, OCR ou integracoes externas de cartao alem do upload
+  manual de JSON neste fluxo.
 - Parcelamento de cartao, conciliacao bancaria e anexos de comprovantes.
 - Modelagem estrutural de IPTU/IPVA dentro do patrimonio.
 
@@ -56,13 +59,20 @@ modulos da casa.
 - Quando `ProjectId` vier preenchido, o backend valida o projeto e deriva `UniverseId`.
 - Lancamentos de caixa, recorrencias e compras de cartao podem apontar opcionalmente para
   uma categoria financeira da mesma household.
+- A importacao em lote de compras de cartao usa um JSON no formato `{"transactions":[...]}`
+  com referencias por nome para categoria, universo e projeto.
 - Categorias padrao nao podem ser editadas nem excluidas.
 - Excluir categoria personalizada apenas desvincula os registros que a utilizavam.
+- Categorias ausentes no JSON podem ser criadas automaticamente dentro da household antes da
+  persistencia das compras; universos e projetos continuam restritos aos registros ja
+  existentes.
 - O caixa mensal registra apenas a fatura consolidada do cartao, nao cada compra.
 - A fatura consolidada do cartao permanece sem categoria para evitar dupla classificacao com
   as compras individuais.
 - A visao analitica do mes soma gastos de caixa sem fatura consolidada e compras de cartao
   do mes para evitar dupla contagem.
+- A importacao em lote de compras de cartao e atomica: qualquer falha invalida o lote
+  inteiro e nenhuma compra e inserida parcialmente.
 - Bens podem ser `Property`, `Vehicle` ou `Other`; apenas os dois primeiros exigem detalhes
   tipados.
 - Referencias anuais de valor usam registros livres por ano/rotulo, sem colunas fixas por
@@ -93,7 +103,8 @@ modulos da casa.
 - Integracao: CRUD basico de lancamentos, recorrencias, bens, cartoes e categorias com
   `X-Household-Id`.
 - Frontend: carregamento do mes atual, dialogo de geracao, toggle de verificado,
-  filtros/agrupamentos, formularios tipados e gestao de categorias.
+  filtros/agrupamentos, formularios tipados, gestao de categorias e revisao de importacao
+  JSON em lote para compras de cartao.
 
 ## Criterios de aceite
 
@@ -101,6 +112,8 @@ modulos da casa.
 - O mes atual abre mesmo sem periodo previamente gerado.
 - Recorrencias podem gerar lancamentos do mes e duplicar quando solicitado.
 - O cartao possui compras e faturas, e a fatura gera o lancamento mensal correspondente.
+- O usuario consegue importar varias compras de cartao a partir de um JSON, revisar os
+  itens, ajustar categorias e confirmar a gravacao em lote.
 - `Caixa` e `Cartoes` podem ser alternados por abas locais sem esconder `Patrimonio`.
 - O usuario consegue gerir categorias padrao e personalizadas sem sair do modulo financeiro.
 - O shell deixa `Financeiro` de ser roadmap e passa a abrir a tela real.

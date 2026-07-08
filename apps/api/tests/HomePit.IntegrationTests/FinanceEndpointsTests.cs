@@ -451,6 +451,138 @@ public sealed class FinanceEndpointsTests
     }
 
     [Fact]
+    public async Task Credit_card_transaction_import_creates_categories_and_purchases_atomically()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+        var seed = await SeedAsync(factory);
+
+        var createCardResponse = await SendAuthorizedAsync(
+            client,
+            seed.OwnerAccessToken,
+            seed.HouseholdId,
+            HttpMethod.Post,
+            "/api/finance/credit-cards",
+            JsonContent.Create(new
+            {
+                name = "Nubank",
+                brand = "Mastercard",
+                lastFourDigits = "1234",
+                closingDay = 20,
+                dueDay = 25,
+                notes = "Cartao principal",
+                isActive = true
+            }));
+
+        createCardResponse.EnsureSuccessStatusCode();
+        var createdCard = await createCardResponse.Content.ReadFromJsonAsync<CreditCardAccountResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(createdCard);
+
+        var importResponse = await SendAuthorizedAsync(
+            client,
+            seed.OwnerAccessToken,
+            seed.HouseholdId,
+            HttpMethod.Post,
+            $"/api/finance/credit-cards/{createdCard!.Id}/transactions/import",
+            JsonContent.Create(new
+            {
+                transactions = new object[]
+                {
+                    new
+                    {
+                        title = "Supermercado",
+                        merchant = "Mercado da esquina",
+                        amount = 220.9m,
+                        purchasedOn = new DateOnly(2026, 7, 6),
+                        notes = "Compra mensal",
+                        categoryName = "Categoria importada",
+                        universeName = "Casa",
+                        projectName = "Reforma",
+                        externalSource = "JSON",
+                        externalReference = "json-001",
+                        importedAt = (DateTimeOffset?)null
+                    },
+                    new
+                    {
+                        title = "Assinatura anual",
+                        merchant = "Streaming",
+                        amount = 39.9m,
+                        purchasedOn = new DateOnly(2026, 7, 8),
+                        notes = (string?)null,
+                        categoryName = "Categoria importada",
+                        universeName = (string?)null,
+                        projectName = (string?)null,
+                        externalSource = "JSON",
+                        externalReference = "json-002",
+                        importedAt = (DateTimeOffset?)null
+                    }
+                }
+            }));
+
+        importResponse.EnsureSuccessStatusCode();
+        var imported = await importResponse.Content.ReadFromJsonAsync<ImportCreditCardTransactionsResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(imported);
+        Assert.Equal(2, imported!.TotalCount);
+        Assert.Equal(260.8m, imported.TotalAmount);
+        Assert.Equal(1, imported.CreatedCategoryCount);
+        Assert.Equal(2, imported.CreatedTransactions.Count);
+        Assert.All(imported.CreatedTransactions, item => Assert.Equal("Categoria importada", item.CategoryName));
+
+        await using var verificationScope = factory.Services.CreateAsyncScope();
+        var verificationDb = verificationScope.ServiceProvider.GetRequiredService<HomePitDbContext>();
+        Assert.Equal(2, await verificationDb.CreditCardTransactions.CountAsync(item => item.CreditCardAccountId == createdCard.Id));
+        Assert.Single(await verificationDb.FinanceCategories.Where(item => item.HouseholdId == seed.HouseholdId && item.Name == "Categoria importada").ToArrayAsync());
+
+        var failedImportResponse = await SendAuthorizedAsync(
+            client,
+            seed.OwnerAccessToken,
+            seed.HouseholdId,
+            HttpMethod.Post,
+            $"/api/finance/credit-cards/{createdCard.Id}/transactions/import",
+            JsonContent.Create(new
+            {
+                transactions = new object[]
+                {
+                    new
+                    {
+                        title = "Compra valida",
+                        merchant = (string?)null,
+                        amount = 100m,
+                        purchasedOn = new DateOnly(2026, 7, 9),
+                        notes = (string?)null,
+                        categoryName = "Nova categoria",
+                        universeName = (string?)null,
+                        projectName = (string?)null,
+                        externalSource = "JSON",
+                        externalReference = "json-003",
+                        importedAt = (DateTimeOffset?)null
+                    },
+                    new
+                    {
+                        title = "Compra invalida",
+                        merchant = (string?)null,
+                        amount = 80m,
+                        purchasedOn = new DateOnly(2026, 7, 10),
+                        notes = (string?)null,
+                        categoryName = (string?)null,
+                        universeName = (string?)null,
+                        projectName = "Projeto inexistente",
+                        externalSource = "JSON",
+                        externalReference = "json-004",
+                        importedAt = (DateTimeOffset?)null
+                    }
+                }
+            }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, failedImportResponse.StatusCode);
+
+        await using var rollbackScope = factory.Services.CreateAsyncScope();
+        var rollbackDb = rollbackScope.ServiceProvider.GetRequiredService<HomePitDbContext>();
+        Assert.Equal(2, await rollbackDb.CreditCardTransactions.CountAsync(item => item.CreditCardAccountId == createdCard.Id));
+        Assert.Empty(await rollbackDb.FinanceCategories.Where(item => item.HouseholdId == seed.HouseholdId && item.Name == "Nova categoria").ToArrayAsync());
+    }
+
+    [Fact]
     public async Task Finance_period_generation_keeps_a_single_period_per_month()
     {
         await using var factory = new HomePitApiFactory();
@@ -791,6 +923,19 @@ public sealed class FinanceEndpointsTests
     private sealed record CreditCardAccountResponse(Guid Id, string Name, int OpenTransactionCount, decimal OpenTransactionTotal);
 
     private sealed record CreditCardTransactionResponse(Guid Id, Guid? CreditCardStatementId, Guid? CategoryId);
+
+    private sealed record ImportCreditCardTransactionsResponse(
+        int TotalCount,
+        decimal TotalAmount,
+        int CreatedCategoryCount,
+        IReadOnlyCollection<ImportCreditCardTransactionResponse> CreatedTransactions);
+
+    private sealed record ImportCreditCardTransactionResponse(
+        Guid Id,
+        string Title,
+        string? CategoryName,
+        Guid? ProjectId,
+        Guid? UniverseId);
 
     private sealed record CreditCardStatementResponse(Guid Id, Guid? FinanceEntryId, DateOnly DueDate, decimal TotalAmount, int TransactionCount);
 

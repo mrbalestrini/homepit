@@ -405,6 +405,12 @@ finance.MapPost("/credit-cards/{id:guid}/transactions", async (
     FinanceService service,
     CancellationToken cancellationToken) =>
         Results.Created($"/api/finance/credit-cards/{id}/transactions", await service.CreateCreditCardTransactionAsync(id, request, cancellationToken)));
+finance.MapPost("/credit-cards/{id:guid}/transactions/import", async (
+    Guid id,
+    ImportCreditCardTransactionsRequest request,
+    FinanceService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ImportCreditCardTransactionsAsync(id, request, cancellationToken)));
 finance.MapPut("/credit-cards/{id:guid}/transactions/{transactionId:guid}", async (
     Guid id,
     Guid transactionId,

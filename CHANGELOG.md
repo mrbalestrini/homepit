@@ -6,8 +6,12 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ## [1.8.0] - 2026-07-08
 
+### Added
+- A seção de cartões do financeiro agora aceita importar múltiplas compras por JSON, com arquivo de exemplo, revisão editável e criação automática de categorias faltantes.
+
 ### Changed
 - A área central do módulo financeiro passou a alternar entre `Caixa` e `Cartões` por abas locais, mantendo `Patrimônio` sempre visível abaixo da navegação.
+- A importação em lote de compras de cartão passou a validar universo e projeto por nome antes do envio e só grava o lote inteiro quando todas as linhas estiverem válidas.
 
 ## [1.7.1] - 2026-07-07
 

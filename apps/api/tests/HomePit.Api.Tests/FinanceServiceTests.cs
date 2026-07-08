@@ -235,6 +235,141 @@ public sealed class FinanceServiceTests
     }
 
     [Fact]
+    public async Task Import_transactions_creates_missing_categories_and_reuses_existing_ones()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var account = await service.CreateCreditCardAccountAsync(
+            new CreateCreditCardAccountRequest("Nubank", "Mastercard", "1234", 20, 25, null, true),
+            CancellationToken.None);
+
+        var imported = await service.ImportCreditCardTransactionsAsync(
+            account.Id,
+            new ImportCreditCardTransactionsRequest(
+                [
+                    new ImportCreditCardTransactionItem(
+                        "Supermercado",
+                        "Mercado da esquina",
+                        220.9m,
+                        new DateOnly(2026, 7, 6),
+                        "Compra do mês",
+                        "Categoria importada",
+                        "Casa",
+                        "Reforma",
+                        "JSON",
+                        "json-001",
+                        null),
+                    new ImportCreditCardTransactionItem(
+                        "Reserva mensal",
+                        null,
+                        300m,
+                        new DateOnly(2026, 7, 8),
+                        null,
+                        "Salário",
+                        null,
+                        null,
+                        "JSON",
+                        "json-002",
+                        null)
+                ]),
+            CancellationToken.None);
+
+        Assert.Equal(2, imported.TotalCount);
+        Assert.Equal(520.9m, imported.TotalAmount);
+        Assert.Equal(1, imported.CreatedCategoryCount);
+        Assert.Equal(["Supermercado", "Reserva mensal"], imported.CreatedTransactions.Select(item => item.Title).ToArray());
+        Assert.Equal("Categoria importada", imported.CreatedTransactions.First().CategoryName);
+        Assert.Equal(fixture.ProjectId, imported.CreatedTransactions.First().ProjectId);
+        Assert.Equal(fixture.UniverseId, imported.CreatedTransactions.First().UniverseId);
+        Assert.Equal("Salário", imported.CreatedTransactions.Last().CategoryName);
+
+        Assert.Equal(2, await context.CreditCardTransactions.CountAsync(item => item.CreditCardAccountId == account.Id));
+        Assert.Single(await context.FinanceCategories.Where(item => item.HouseholdId == fixture.HouseholdId && item.Name == "Categoria importada").ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task Import_transactions_rolls_back_when_any_item_is_invalid()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var account = await service.CreateCreditCardAccountAsync(
+            new CreateCreditCardAccountRequest("Nubank", "Mastercard", "1234", 20, 25, null, true),
+            CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => service.ImportCreditCardTransactionsAsync(
+            account.Id,
+            new ImportCreditCardTransactionsRequest(
+                [
+                    new ImportCreditCardTransactionItem(
+                        "Compra válida",
+                        null,
+                        120m,
+                        new DateOnly(2026, 7, 6),
+                        null,
+                        "Categoria nova",
+                        null,
+                        null,
+                        "JSON",
+                        "json-001",
+                        null),
+                    new ImportCreditCardTransactionItem(
+                        "Compra inválida",
+                        null,
+                        50m,
+                        new DateOnly(2026, 7, 7),
+                        null,
+                        null,
+                        null,
+                        "Projeto inexistente",
+                        "JSON",
+                        "json-002",
+                        null)
+                ]),
+            CancellationToken.None));
+
+        Assert.Equal("O projeto informado não pertence à casa ativa.", exception.Message);
+        Assert.Empty(await context.CreditCardTransactions.Where(item => item.CreditCardAccountId == account.Id).ToArrayAsync());
+        Assert.Empty(await context.FinanceCategories.Where(item => item.HouseholdId == fixture.HouseholdId && item.Name == "Categoria nova").ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task Superadmin_cannot_import_credit_card_transactions()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var ownerService = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var account = await ownerService.CreateCreditCardAccountAsync(
+            new CreateCreditCardAccountRequest("Nubank", "Mastercard", "1234", 20, 25, null, true),
+            CancellationToken.None);
+
+        var superAdminService = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId, SystemRole.SuperAdmin);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => superAdminService.ImportCreditCardTransactionsAsync(
+            account.Id,
+            new ImportCreditCardTransactionsRequest(
+                [
+                    new ImportCreditCardTransactionItem(
+                        "Compra bloqueada",
+                        null,
+                        90m,
+                        new DateOnly(2026, 7, 6),
+                        null,
+                        null,
+                        null,
+                        null,
+                        "JSON",
+                        "json-001",
+                        null)
+                ]),
+            CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Member_cannot_update_entry_created_by_another_person()
     {
         await using var context = CreateDbContext();

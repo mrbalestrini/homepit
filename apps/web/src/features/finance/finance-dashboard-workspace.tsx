@@ -28,6 +28,7 @@ import type {
   FinanceEntryType,
   FinanceRecurringTemplate,
   FinanceRecurrence,
+  ImportCreditCardTransactionItem,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,10 +59,12 @@ import type {
   CreditCardAccountFormInput,
   CreditCardStatementFormInput,
   CreditCardTransactionFormInput,
+  CreditCardTransactionImportSummary,
   FinanceCategoryFormInput,
   FinanceDashboardController,
   FinanceEntryFormInput,
   FinanceRecurringTemplateFormInput,
+  ImportedCreditCardTransactionDraft,
 } from "./use-finance-dashboard";
 import {
   filterFinanceEntries,
@@ -103,11 +106,14 @@ type EntryDialogState = { mode: "create" | "edit"; entryType: FinanceEntryType; 
 type InlineCellMode = "idle" | "editing" | "saving" | "syncing";
 type InlineSelectOption = { value: string; label: string; disabled?: boolean };
 type FinanceWorkspaceSection = "cash" | "cards";
+type EditableImportedTransactionField = Exclude<keyof ImportedCreditCardTransactionDraft, "localId" | "errors">;
 
 const financeWorkspaceSections: Array<{ value: FinanceWorkspaceSection; label: string }> = [
   { value: "cash", label: "Caixa" },
   { value: "cards", label: "Cartões" },
 ];
+
+let importDraftSequence = 0;
 
 function areStringArraysEqual(left: string[], right: string[]) {
   if (left.length !== right.length) {
@@ -115,6 +121,291 @@ function areStringArraysEqual(left: string[], right: string[]) {
   }
 
   return left.every((value, index) => value === right[index]);
+}
+
+function createImportDraftLocalId() {
+  importDraftSequence += 1;
+  return `import-draft-${importDraftSequence}`;
+}
+
+function normalizeImportLookup(value: string) {
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
+function coerceOptionalImportText(value: unknown, field: string) {
+  if (value == null) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  throw new Error(`O campo "${field}" deve ser texto.`);
+}
+
+function coerceImportAmount(value: unknown) {
+  if (value == null) {
+    return "";
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  throw new Error('O campo "amount" deve ser número ou texto.');
+}
+
+function createEmptyImportedTransactionDraft(overrides: Partial<ImportedCreditCardTransactionDraft> = {}): ImportedCreditCardTransactionDraft {
+  return {
+    localId: createImportDraftLocalId(),
+    title: "",
+    merchant: "",
+    amount: "",
+    purchasedOn: formatDateOnlyInputValue(),
+    notes: "",
+    categoryName: "",
+    universeName: "",
+    projectName: "",
+    externalSource: "",
+    externalReference: "",
+    importedAt: "",
+    errors: [],
+    ...overrides,
+  };
+}
+
+function parseImportedTransactionDraftsFromJson(content: string) {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error("O arquivo não contém um JSON válido.");
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error('O arquivo deve seguir o formato {"transactions":[...]}');
+  }
+
+  const transactions = (parsed as { transactions?: unknown }).transactions;
+  if (!Array.isArray(transactions)) {
+    throw new Error('O JSON deve conter uma lista "transactions".');
+  }
+
+  if (transactions.length === 0) {
+    throw new Error("Adicione ao menos uma compra em transactions.");
+  }
+
+  return transactions.map((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error(`O item ${index + 1} de "transactions" deve ser um objeto.`);
+    }
+
+    const value = item as Record<string, unknown>;
+    return createEmptyImportedTransactionDraft({
+      title: coerceOptionalImportText(value.title, "title"),
+      merchant: coerceOptionalImportText(value.merchant, "merchant"),
+      amount: coerceImportAmount(value.amount),
+      purchasedOn: coerceOptionalImportText(value.purchasedOn, "purchasedOn"),
+      notes: coerceOptionalImportText(value.notes, "notes"),
+      categoryName: coerceOptionalImportText(value.categoryName, "categoryName"),
+      universeName: coerceOptionalImportText(value.universeName, "universeName"),
+      projectName: coerceOptionalImportText(value.projectName, "projectName"),
+      externalSource: coerceOptionalImportText(value.externalSource, "externalSource"),
+      externalReference: coerceOptionalImportText(value.externalReference, "externalReference"),
+      importedAt: coerceOptionalImportText(value.importedAt, "importedAt"),
+    });
+  });
+}
+
+function buildCreditCardImportExampleJson() {
+  return JSON.stringify(
+    {
+      transactions: [
+        {
+          title: "Supermercado",
+          merchant: "Mercado da esquina",
+          amount: 220.9,
+          purchasedOn: "2026-07-06",
+          notes: "Compra mensal",
+          categoryName: "Mercado",
+          universeName: "Casa",
+          projectName: "Moradia",
+          externalSource: "JSON",
+          externalReference: "json-001",
+          importedAt: "2026-07-08T12:00:00Z",
+        },
+      ],
+    },
+    null,
+    2,
+  );
+}
+
+async function readImportFileContent(file: File) {
+  if (typeof file.text === "function") {
+    return await file.text();
+  }
+
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo JSON."));
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.readAsText(file);
+  });
+}
+
+function validateImportedTransactionDrafts(
+  drafts: ImportedCreditCardTransactionDraft[],
+  categories: FinanceCategory[],
+  universes: { id: string; name: string }[],
+  projects: { id: string; name: string; universeId: string }[],
+) {
+  const normalizedCategories = new Set(categories.map((category) => normalizeImportLookup(category.name)));
+
+  return drafts.map((draft) => {
+    const errors: ImportedCreditCardTransactionDraft["errors"] = [];
+    const title = draft.title.trim();
+    const amount = parseCurrencyInput(draft.amount);
+    const purchasedOn = draft.purchasedOn.trim();
+    const categoryName = draft.categoryName.trim();
+    const universeName = draft.universeName.trim();
+    const projectName = draft.projectName.trim();
+    const importedAt = draft.importedAt.trim();
+
+    if (!title) {
+      errors.push({ field: "title", message: "Informe o título da compra." });
+    }
+
+    if (amount == null || amount <= 0) {
+      errors.push({ field: "amount", message: "Informe um valor positivo." });
+    }
+
+    const purchasedOnDate = purchasedOn ? new Date(`${purchasedOn}T00:00:00Z`) : null;
+    if (!purchasedOn || !purchasedOnDate || Number.isNaN(purchasedOnDate.getTime())) {
+      errors.push({ field: "purchasedOn", message: "Informe uma data de compra válida." });
+    }
+
+    if (importedAt) {
+      const importedAtDate = new Date(importedAt);
+      if (Number.isNaN(importedAtDate.getTime())) {
+        errors.push({ field: "importedAt", message: "Use uma data/hora válida em importedAt." });
+      }
+    }
+
+    const universeMatches = universeName
+      ? universes.filter((universe) => normalizeImportLookup(universe.name) === normalizeImportLookup(universeName))
+      : [];
+
+    if (universeName && universeMatches.length === 0) {
+      errors.push({ field: "universeName", message: "Universo não encontrado." });
+    }
+
+    if (universeMatches.length > 1) {
+      errors.push({ field: "universeName", message: "Há mais de um universo com esse nome." });
+    }
+
+    if (projectName) {
+      const matchingProjects = projects.filter((project) => {
+        if (normalizeImportLookup(project.name) !== normalizeImportLookup(projectName)) {
+          return false;
+        }
+
+        if (universeMatches.length === 1) {
+          return project.universeId === universeMatches[0]?.id;
+        }
+
+        return true;
+      });
+
+      if (matchingProjects.length === 0) {
+        errors.push({
+          field: "projectName",
+          message: universeMatches.length === 1 ? "Projeto não encontrado no universo informado." : "Projeto não encontrado.",
+        });
+      } else if (matchingProjects.length > 1) {
+        errors.push({
+          field: "projectName",
+          message: universeMatches.length === 1 ? "Há mais de um projeto com esse nome neste universo." : "Informe também o universo para este projeto.",
+        });
+      }
+    }
+
+    const nextDraft: ImportedCreditCardTransactionDraft = {
+      ...draft,
+      title,
+      merchant: draft.merchant.trim(),
+      notes: draft.notes.trim(),
+      categoryName,
+      universeName,
+      projectName,
+      externalSource: draft.externalSource.trim(),
+      externalReference: draft.externalReference.trim(),
+      importedAt,
+      errors,
+    };
+
+    if (categoryName && !normalizedCategories.has(normalizeImportLookup(categoryName))) {
+      return nextDraft;
+    }
+
+    return nextDraft;
+  });
+}
+
+function summarizeImportedTransactionDrafts(
+  drafts: ImportedCreditCardTransactionDraft[],
+  categories: FinanceCategory[],
+): CreditCardTransactionImportSummary {
+  const existingCategories = new Set(categories.map((category) => normalizeImportLookup(category.name)));
+  const totalAmount = drafts.reduce((sum, draft) => {
+    const parsed = parseCurrencyInput(draft.amount);
+    return parsed != null && parsed > 0 ? sum + parsed : sum;
+  }, 0);
+  const invalidCount = drafts.filter((draft) => draft.errors.length > 0).length;
+  const newCategoryCount = new Set(
+    drafts
+      .map((draft) => draft.categoryName.trim())
+      .filter(Boolean)
+      .filter((name) => !existingCategories.has(normalizeImportLookup(name))),
+  ).size;
+
+  return {
+    totalCount: drafts.length,
+    validCount: drafts.length - invalidCount,
+    invalidCount,
+    totalAmount,
+    newCategoryCount,
+  };
+}
+
+function buildImportRequestItems(drafts: ImportedCreditCardTransactionDraft[]): ImportCreditCardTransactionItem[] {
+  return drafts.map((draft) => ({
+    title: draft.title.trim(),
+    merchant: draft.merchant.trim() || null,
+    amount: parseCurrencyInput(draft.amount) ?? 0,
+    purchasedOn: draft.purchasedOn.trim(),
+    notes: draft.notes.trim() || null,
+    categoryName: draft.categoryName.trim() || null,
+    universeName: draft.universeName.trim() || null,
+    projectName: draft.projectName.trim() || null,
+    externalSource: draft.externalSource.trim() || null,
+    externalReference: draft.externalReference.trim() || null,
+    importedAt: draft.importedAt.trim() || null,
+  }));
 }
 
 function InlineSyncLabel({ syncing, label = "Sincronizando..." }: { syncing: boolean; label?: string }) {
@@ -609,6 +900,13 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
   const [transactionDialog, setTransactionDialog] = useState<CreditCardTransaction | null | "create">(null);
   const [statementDialog, setStatementDialog] = useState<CreditCardStatement | null | "create">(null);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importReviewOpen, setImportReviewOpen] = useState(false);
+  const [importDrafts, setImportDrafts] = useState<ImportedCreditCardTransactionDraft[]>([]);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importFileName, setImportFileName] = useState<string | null>(null);
+  const [importParsing, setImportParsing] = useState(false);
+  const [importSubmitting, setImportSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<
     | { kind: "category"; id: string; name: string }
     | { kind: "entry"; id: string; name: string }
@@ -650,6 +948,14 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
   }, [dashboard.activeYear, dashboard.financePeriods]);
 
   const selectedCard = dashboard.creditCardAccounts.find((card) => card.id === dashboard.selectedCreditCardId) ?? null;
+  const importReviewDrafts = useMemo(
+    () => validateImportedTransactionDrafts(importDrafts, dashboard.categories, dashboard.universes, dashboard.projects),
+    [dashboard.categories, dashboard.projects, dashboard.universes, importDrafts],
+  );
+  const importSummary = useMemo(
+    () => summarizeImportedTransactionDrafts(importReviewDrafts, dashboard.categories),
+    [dashboard.categories, importReviewDrafts],
+  );
   const openTransactions = dashboard.creditCardTransactions.filter(
     (transaction) =>
       !transaction.creditCardStatementId ||
@@ -676,6 +982,16 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
 
   useEffect(() => {
     setSelectedTransactionIds((current) => (current.length === 0 ? current : []));
+  }, [dashboard.selectedCreditCardId]);
+
+  useEffect(() => {
+    setImportDialogOpen(false);
+    setImportReviewOpen(false);
+    setImportDrafts([]);
+    setImportError(null);
+    setImportFileName(null);
+    setImportParsing(false);
+    setImportSubmitting(false);
   }, [dashboard.selectedCreditCardId]);
 
   function setRowSaving(rowKey: string, saving: boolean) {
@@ -813,6 +1129,73 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       externalReference: statement.externalReference ?? "",
       ...overrides,
     };
+  }
+
+  function resetImportFlow() {
+    setImportDialogOpen(false);
+    setImportReviewOpen(false);
+    setImportDrafts([]);
+    setImportError(null);
+    setImportFileName(null);
+    setImportParsing(false);
+    setImportSubmitting(false);
+  }
+
+  function updateImportDraft(localId: string, field: EditableImportedTransactionField, value: string) {
+    setImportDrafts((current) =>
+      current.map((draft) => (draft.localId === localId ? { ...draft, [field]: value } : draft)),
+    );
+  }
+
+  function addImportDraft() {
+    setImportDrafts((current) => [...current, createEmptyImportedTransactionDraft()]);
+  }
+
+  function removeImportDraft(localId: string) {
+    setImportDrafts((current) => current.filter((draft) => draft.localId !== localId));
+  }
+
+  function downloadImportExample() {
+    const blob = new Blob([buildCreditCardImportExampleJson()], { type: "application/json" });
+    const objectUrl = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = "homepit-cartao-import-exemplo.json";
+    anchor.click();
+    window.URL.revokeObjectURL(objectUrl);
+  }
+
+  async function handleImportFile(file: File) {
+    setImportParsing(true);
+    setImportError(null);
+
+    try {
+      const parsedDrafts = parseImportedTransactionDraftsFromJson(await readImportFileContent(file));
+      setImportDrafts(parsedDrafts);
+      setImportFileName(file.name);
+      setImportReviewOpen(true);
+    } catch (exception) {
+      setImportError(exception instanceof Error ? exception.message : "Não foi possível ler o arquivo JSON.");
+    } finally {
+      setImportParsing(false);
+    }
+  }
+
+  async function handleImportConfirm() {
+    if (importReviewDrafts.length === 0 || importSummary.invalidCount > 0) {
+      return;
+    }
+
+    setImportSubmitting(true);
+    setImportError(null);
+    try {
+      await dashboard.importCreditCardTransactions(buildImportRequestItems(importReviewDrafts));
+      resetImportFlow();
+    } catch (exception) {
+      setImportError(exception instanceof Error ? exception.message : "Não foi possível importar as compras do cartão.");
+    } finally {
+      setImportSubmitting(false);
+    }
   }
 
   function buildAssetValuationInput(
@@ -1360,6 +1743,10 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                     <Button variant="secondary" onClick={() => setCardDialog("create")}>
                       <Plus />
                       Novo cartão
+                    </Button>
+                    <Button variant="secondary" onClick={() => setImportDialogOpen(true)} disabled={!selectedCard}>
+                      <Plus />
+                      Importar JSON
                     </Button>
                     <Button onClick={() => setTransactionDialog("create")} disabled={!selectedCard}>
                       <Plus />
@@ -2009,6 +2396,43 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
           setTransactionDialog(null);
         }}
       />
+
+      <CreditCardTransactionImportDialog
+        open={importDialogOpen}
+        card={selectedCard}
+        error={importError}
+        loading={importParsing}
+        importFileName={importFileName}
+        onOpenChange={(open) => {
+          setImportDialogOpen(open);
+          if (!open) {
+            setImportError(null);
+          }
+        }}
+        onDownloadExample={downloadImportExample}
+        onImportFile={handleImportFile}
+      >
+        <CreditCardTransactionImportReviewDialog
+          open={importReviewOpen}
+          card={selectedCard}
+          drafts={importReviewDrafts}
+          summary={importSummary}
+          error={importError}
+          loading={importSubmitting}
+          categories={dashboard.categories}
+          universes={dashboard.universes}
+          projects={dashboard.projects}
+          onOpenChange={(open) => {
+            if (!open) {
+              resetImportFlow();
+            }
+          }}
+          onDraftChange={updateImportDraft}
+          onAddDraft={addImportDraft}
+          onRemoveDraft={removeImportDraft}
+          onConfirm={handleImportConfirm}
+        />
+      </CreditCardTransactionImportDialog>
 
       <CreditCardStatementDialog
         open={statementDialog !== null}
@@ -3430,6 +3854,315 @@ function CreditCardTransactionDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CreditCardTransactionImportDialog({
+  open,
+  card,
+  error,
+  loading,
+  importFileName,
+  onOpenChange,
+  onDownloadExample,
+  onImportFile,
+  children,
+}: {
+  open: boolean;
+  card: CreditCardAccount | null;
+  error: string | null;
+  loading: boolean;
+  importFileName: string | null;
+  onOpenChange: (open: boolean) => void;
+  onDownloadExample: () => void;
+  onImportFile: (file: File) => Promise<void>;
+  children?: ReactNode;
+}) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setSelectedFile(null);
+    }
+  }, [open]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedFile) {
+      return;
+    }
+
+    await onImportFile(selectedFile);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Importar compras por JSON</DialogTitle>
+          <DialogDescription>
+            {card
+              ? `Envie um arquivo JSON para importar múltiplas compras no cartão ${card.name}.`
+              : "Selecione um cartão para importar compras por JSON."}
+          </DialogDescription>
+        </DialogHeader>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          {error ? <Notice tone="danger">{error}</Notice> : null}
+          {card ? (
+            <div className="grid gap-3 rounded-xl border border-border/60 bg-surface-muted/60 p-4 sm:grid-cols-3">
+              <InfoBlock label="Cartão" value={card.name} helper={card.brand ?? "Sem bandeira"} />
+              <InfoBlock label="Fechamento" value={`Dia ${card.closingDay}`} />
+              <InfoBlock label="Vencimento" value={`Dia ${card.dueDay}`} />
+            </div>
+          ) : null}
+          <Notice tone="warning">
+            Formato oficial: <code>{'{"transactions":[...]}'}</code> com os campos{" "}
+            <code>title</code>, <code>merchant</code>, <code>amount</code>, <code>purchasedOn</code>, <code>notes</code>,{" "}
+            <code>categoryName</code>, <code>universeName</code>, <code>projectName</code>, <code>externalSource</code>,{" "}
+            <code>externalReference</code> e <code>importedAt</code>.
+          </Notice>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" onClick={onDownloadExample}>
+              Baixar exemplo
+            </Button>
+          </div>
+          <Field label="Arquivo JSON">
+            <Input
+              type="file"
+              accept=".json,application/json"
+              onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+            />
+          </Field>
+          {selectedFile || importFileName ? (
+            <p className="text-sm text-muted-foreground">Arquivo selecionado: {selectedFile?.name ?? importFileName}</p>
+          ) : null}
+          <DialogFooter>
+            <Button variant="secondary" type="button" onClick={() => onOpenChange(false)} disabled={loading}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={!card || !selectedFile || loading}>
+              {loading ? "Lendo JSON..." : "Revisar importação"}
+            </Button>
+          </DialogFooter>
+        </form>
+        {children}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CreditCardTransactionImportReviewDialog({
+  open,
+  card,
+  drafts,
+  summary,
+  error,
+  loading,
+  categories,
+  universes,
+  projects,
+  onOpenChange,
+  onDraftChange,
+  onAddDraft,
+  onRemoveDraft,
+  onConfirm,
+}: {
+  open: boolean;
+  card: CreditCardAccount | null;
+  drafts: ImportedCreditCardTransactionDraft[];
+  summary: CreditCardTransactionImportSummary;
+  error: string | null;
+  loading: boolean;
+  categories: FinanceCategory[];
+  universes: { id: string; name: string }[];
+  projects: { id: string; name: string; universeId: string }[];
+  onOpenChange: (open: boolean) => void;
+  onDraftChange: (localId: string, field: EditableImportedTransactionField, value: string) => void;
+  onAddDraft: () => void;
+  onRemoveDraft: (localId: string) => void;
+  onConfirm: () => Promise<void>;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[92vh] w-[min(98vw,98rem)] max-w-none flex-col overflow-hidden p-0">
+        <div className="border-b border-border/60 px-6 py-5">
+          <DialogHeader className="space-y-2">
+            <DialogTitle>Revisar importação</DialogTitle>
+            <DialogDescription>
+              {card
+                ? `Confira, ajuste e confirme as compras que serão inseridas no cartão ${card.name}.`
+                : "Confira, ajuste e confirme as compras importadas."}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+          {error ? <Notice tone="danger">{error}</Notice> : null}
+          {summary.invalidCount > 0 ? (
+            <Notice tone="warning">
+              Corrija as linhas inválidas antes de concluir a importação. O lote é salvo por completo ou rejeitado por completo.
+            </Notice>
+          ) : null}
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <Card>
+              <CardContent className="p-4">
+                <InfoBlock label="Registros" value={String(summary.totalCount)} helper={`${summary.validCount} válidos`} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <InfoBlock label="Valor total" value={formatCurrency(summary.totalAmount, "R$ 0,00")} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <InfoBlock label="Linhas inválidas" value={String(summary.invalidCount)} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <InfoBlock label="Novas categorias" value={String(summary.newCategoryCount)} />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex flex-wrap justify-between gap-2">
+            <Button type="button" variant="secondary" onClick={onAddDraft}>
+              <Plus />
+              Adicionar linha
+            </Button>
+            <p className="text-sm text-muted-foreground">Todos os campos da compra podem ser ajustados antes do envio.</p>
+          </div>
+
+          {drafts.length === 0 ? (
+            <EmptyState
+              icon={<CreditCard className="size-5" />}
+              title="Nenhuma compra para revisar"
+              description="Adicione ao menos uma linha para continuar com a importação."
+            />
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-border/60">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
+                    <TableHead className="min-w-[180px]">Título</TableHead>
+                    <TableHead className="min-w-[150px]">Merchant</TableHead>
+                    <TableHead className="min-w-[130px]">Valor</TableHead>
+                    <TableHead className="min-w-[140px]">Data</TableHead>
+                    <TableHead className="min-w-[160px]">Categoria</TableHead>
+                    <TableHead className="min-w-[160px]">Universo</TableHead>
+                    <TableHead className="min-w-[160px]">Projeto</TableHead>
+                    <TableHead className="min-w-[180px]">Origem externa</TableHead>
+                    <TableHead className="min-w-[180px]">Referência externa</TableHead>
+                    <TableHead className="min-w-[220px]">ImportedAt</TableHead>
+                    <TableHead className="min-w-[220px]">Observações</TableHead>
+                    <TableHead className="min-w-[220px]">Status</TableHead>
+                    <TableHead className="w-24 text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {drafts.map((draft, index) => (
+                    <TableRow key={draft.localId}>
+                      <TableCell>
+                        <Input value={draft.title} onChange={(event) => onDraftChange(draft.localId, "title", event.target.value)} aria-label={`Título da linha ${index + 1}`} />
+                      </TableCell>
+                      <TableCell>
+                        <Input value={draft.merchant} onChange={(event) => onDraftChange(draft.localId, "merchant", event.target.value)} aria-label={`Merchant da linha ${index + 1}`} />
+                      </TableCell>
+                      <TableCell>
+                        <Input value={draft.amount} onChange={(event) => onDraftChange(draft.localId, "amount", event.target.value)} aria-label={`Valor da linha ${index + 1}`} />
+                      </TableCell>
+                      <TableCell>
+                        <Input type="date" value={draft.purchasedOn} onChange={(event) => onDraftChange(draft.localId, "purchasedOn", event.target.value)} aria-label={`Data da compra da linha ${index + 1}`} />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          list="finance-import-categories"
+                          value={draft.categoryName}
+                          onChange={(event) => onDraftChange(draft.localId, "categoryName", event.target.value)}
+                          aria-label={`Categoria da linha ${index + 1}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          list="finance-import-universes"
+                          value={draft.universeName}
+                          onChange={(event) => onDraftChange(draft.localId, "universeName", event.target.value)}
+                          aria-label={`Universo da linha ${index + 1}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          list="finance-import-projects"
+                          value={draft.projectName}
+                          onChange={(event) => onDraftChange(draft.localId, "projectName", event.target.value)}
+                          aria-label={`Projeto da linha ${index + 1}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input value={draft.externalSource} onChange={(event) => onDraftChange(draft.localId, "externalSource", event.target.value)} aria-label={`Origem externa da linha ${index + 1}`} />
+                      </TableCell>
+                      <TableCell>
+                        <Input value={draft.externalReference} onChange={(event) => onDraftChange(draft.localId, "externalReference", event.target.value)} aria-label={`Referência externa da linha ${index + 1}`} />
+                      </TableCell>
+                      <TableCell>
+                        <Input value={draft.importedAt} onChange={(event) => onDraftChange(draft.localId, "importedAt", event.target.value)} placeholder="2026-07-08T12:00:00Z" aria-label={`ImportedAt da linha ${index + 1}`} />
+                      </TableCell>
+                      <TableCell>
+                        <Input value={draft.notes} onChange={(event) => onDraftChange(draft.localId, "notes", event.target.value)} aria-label={`Observações da linha ${index + 1}`} />
+                      </TableCell>
+                      <TableCell className="align-top">
+                        {draft.errors.length === 0 ? (
+                          <span className="text-sm font-medium text-success">Pronta para importar</span>
+                        ) : (
+                          <div className="space-y-1 text-sm text-danger">
+                            {draft.errors.map((draftError) => (
+                              <p key={`${draft.localId}:${draftError.field}:${draftError.message}`}>{draftError.message}</p>
+                            ))}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => onRemoveDraft(draft.localId)}>
+                          <Trash2 />
+                          Remover
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+
+        <datalist id="finance-import-categories">
+          {categories.map((category) => (
+            <option key={category.id} value={category.name} />
+          ))}
+        </datalist>
+        <datalist id="finance-import-universes">
+          {universes.map((universe) => (
+            <option key={universe.id} value={universe.name} />
+          ))}
+        </datalist>
+        <datalist id="finance-import-projects">
+          {projects.map((project) => (
+            <option key={project.id} value={project.name} />
+          ))}
+        </datalist>
+
+        <DialogFooter className="border-t border-border/60 px-6 py-4">
+          <Button variant="secondary" type="button" onClick={() => onOpenChange(false)} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button type="button" onClick={() => void onConfirm()} disabled={loading || drafts.length === 0 || summary.invalidCount > 0}>
+            {loading ? "Importando..." : "Confirmar importação"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

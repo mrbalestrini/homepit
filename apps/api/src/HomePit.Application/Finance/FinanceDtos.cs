@@ -280,6 +280,22 @@ public sealed record CreateCreditCardTransactionRequest(
     string? ExternalReference,
     DateTimeOffset? ImportedAt);
 
+public sealed record ImportCreditCardTransactionItem(
+    string Title,
+    string? Merchant,
+    decimal Amount,
+    DateOnly PurchasedOn,
+    string? Notes,
+    string? CategoryName,
+    string? UniverseName,
+    string? ProjectName,
+    string? ExternalSource,
+    string? ExternalReference,
+    DateTimeOffset? ImportedAt);
+
+public sealed record ImportCreditCardTransactionsRequest(
+    IReadOnlyCollection<ImportCreditCardTransactionItem> Transactions);
+
 public sealed record UpdateCreditCardTransactionRequest(
     string Title,
     string? Merchant,
@@ -317,6 +333,12 @@ public sealed record CreditCardTransactionDto(
     DateTimeOffset UpdatedAt,
     bool CanEdit,
     bool CanDelete);
+
+public sealed record ImportCreditCardTransactionsResponse(
+    int TotalCount,
+    decimal TotalAmount,
+    int CreatedCategoryCount,
+    IReadOnlyCollection<CreditCardTransactionDto> CreatedTransactions);
 
 public sealed record CreateCreditCardStatementRequest(
     DateOnly ClosingDate,

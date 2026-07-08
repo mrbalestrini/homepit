@@ -19,6 +19,8 @@ import type {
   FinanceRecurrence,
   Household,
   HouseholdMember,
+  ImportCreditCardTransactionItem,
+  ImportCreditCardTransactionsResponse,
   Project,
   Universe,
 } from "@/lib/api";
@@ -147,6 +149,45 @@ export type CreditCardStatementFormInput = {
   transactionIds: string[];
   externalSource?: string;
   externalReference?: string;
+};
+
+export type ImportedCreditCardTransactionDraftError = {
+  field:
+    | "title"
+    | "amount"
+    | "purchasedOn"
+    | "categoryName"
+    | "universeName"
+    | "projectName"
+    | "externalSource"
+    | "externalReference"
+    | "importedAt"
+    | "json";
+  message: string;
+};
+
+export type ImportedCreditCardTransactionDraft = {
+  localId: string;
+  title: string;
+  merchant: string;
+  amount: string;
+  purchasedOn: string;
+  notes: string;
+  categoryName: string;
+  universeName: string;
+  projectName: string;
+  externalSource: string;
+  externalReference: string;
+  importedAt: string;
+  errors: ImportedCreditCardTransactionDraftError[];
+};
+
+export type CreditCardTransactionImportSummary = {
+  totalCount: number;
+  validCount: number;
+  invalidCount: number;
+  totalAmount: number;
+  newCategoryCount: number;
 };
 
 function isAppTheme(value: string | null): value is WorkspaceTheme {
@@ -1685,6 +1726,34 @@ export function useFinanceDashboard() {
     }
   }
 
+  async function importCreditCardTransactions(items: ImportCreditCardTransactionItem[]) {
+    if (!session || !activeHouseholdId || !selectedCreditCardId || items.length === 0) {
+      return null;
+    }
+
+    try {
+      const response = await apiFetch<ImportCreditCardTransactionsResponse>(
+        `/api/finance/credit-cards/${selectedCreditCardId}/transactions/import`,
+        {
+          method: "POST",
+          token: session.accessToken,
+          householdId: activeHouseholdId,
+          body: JSON.stringify({ transactions: items }),
+        },
+      );
+      await refreshWorkspace();
+      toast.success(
+        response.totalCount === 1
+          ? "1 compra importada no cartão."
+          : `${response.totalCount} compras importadas no cartão.`,
+      );
+      return response;
+    } catch (exception) {
+      reportError(exception, "Não foi possível importar as compras do cartão.");
+      throw exception;
+    }
+  }
+
   async function updateCreditCardTransaction(transactionId: string, input: CreditCardTransactionFormInput, options?: FinanceMutationOptions) {
     if (!session || !activeHouseholdId || !selectedCreditCardId) {
       return;
@@ -2099,6 +2168,7 @@ export function useFinanceDashboard() {
     updateCreditCardAccount,
     deleteCreditCardAccount,
     createCreditCardTransaction,
+    importCreditCardTransactions,
     updateCreditCardTransaction,
     deleteCreditCardTransaction,
     deleteCreditCardTransactions,

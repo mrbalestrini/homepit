@@ -737,6 +737,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreditCardTransaction"
+  /api/finance/credit-cards/{id}/transactions/import:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportCreditCardTransactionsRequest"
+      responses:
+        "200":
+          description: Credit card transactions imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportCreditCardTransactionsResponse"
   /api/finance/credit-cards/{id}/transactions/{transactionId}:
     put:
       parameters:
@@ -2754,6 +2772,51 @@ components:
           type: string
           format: date-time
           nullable: true
+    ImportCreditCardTransactionItem:
+      type: object
+      required: [title, amount, purchasedOn]
+      properties:
+        title:
+          type: string
+        merchant:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        purchasedOn:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        categoryName:
+          type: string
+          nullable: true
+        universeName:
+          type: string
+          nullable: true
+        projectName:
+          type: string
+          nullable: true
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ImportCreditCardTransactionsRequest:
+      type: object
+      required: [transactions]
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportCreditCardTransactionItem"
     UpdateCreditCardTransactionRequest:
       type: object
       required: [title, amount, purchasedOn]
@@ -2881,6 +2944,21 @@ components:
           type: boolean
         canDelete:
           type: boolean
+    ImportCreditCardTransactionsResponse:
+      type: object
+      required: [totalCount, totalAmount, createdCategoryCount, createdTransactions]
+      properties:
+        totalCount:
+          type: integer
+        totalAmount:
+          type: number
+          format: decimal
+        createdCategoryCount:
+          type: integer
+        createdTransactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditCardTransaction"
     CreateCreditCardStatementRequest:
       type: object
       required: [closingDate, dueDate, transactionIds]

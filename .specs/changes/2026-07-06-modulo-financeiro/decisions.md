@@ -35,3 +35,10 @@
     com `Caixa` como aba inicial e sem persistência em `localStorage` ou na URL.
 19. `Patrimônio` permanece sempre visível abaixo das abas, independentemente da seção
     ativa.
+20. A importação em lote de compras de cartão usará o formato oficial
+    `{"transactions":[...]}` com campos legíveis por nome e o cartão selecionado como
+    contexto fixo da importação.
+21. A revisão da importação poderá criar categorias novas por nome dentro do próprio fluxo,
+    mas universos e projetos continuarão limitados aos registros já existentes.
+22. A gravação final da importação em lote será `tudo ou nada`: qualquer falha invalida o
+    lote inteiro e impede inserções parciais.

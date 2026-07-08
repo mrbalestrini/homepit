@@ -623,4 +623,98 @@ describe("useFinanceDashboard", () => {
 
     unmount();
   });
+
+  it("imports card transactions through the batch endpoint and refreshes the workspace", async () => {
+    const session = buildSession();
+    mockedReadSession.mockReturnValue(session);
+    mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
+
+    mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { householdId?: string }) => {
+      if (path === "/api/households/members") {
+        return [];
+      }
+
+      if (path === "/api/universes") {
+        return [{ id: "universe-1", name: "Casa" }];
+      }
+
+      if (path === "/api/projects") {
+        return [{ id: "project-1", universeId: "universe-1", universeName: "Casa", name: "Moradia" }];
+      }
+
+      if (path === "/api/finance/categories") {
+        return buildCategories();
+      }
+
+      if (path === "/api/finance/periods") {
+        return [{ id: "period-1", year: 2026, month: 7, totalIncome: 5000, totalExpense: 700, cashBalance: 4300, entryCount: 1 }];
+      }
+
+      if (path === "/api/finance/periods/2026/7") {
+        return buildPeriodDetail({ cardTransactions: [buildTransaction()] });
+      }
+
+      if (path === "/api/finance/recurring-templates" || path === "/api/finance/assets") {
+        return [];
+      }
+
+      if (path === "/api/finance/credit-cards") {
+        return [buildCard()];
+      }
+
+      if (path === "/api/finance/credit-cards/card-1/transactions") {
+        return [buildTransaction()];
+      }
+
+      if (path === "/api/finance/credit-cards/card-1/statements") {
+        return [];
+      }
+
+      if (path === "/api/finance/credit-cards/card-1/transactions/import" && options?.method === "POST") {
+        return {
+          totalCount: 1,
+          totalAmount: 220.9,
+          createdCategoryCount: 1,
+          createdTransactions: [buildTransaction()],
+        };
+      }
+
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const { result } = renderHook(() => useFinanceDashboard());
+
+    await flushDashboardEffects();
+    await flushDashboardEffects();
+
+    await act(async () => {
+      await result.current.importCreditCardTransactions([
+        {
+          title: "Supermercado",
+          merchant: "Mercado",
+          amount: 220.9,
+          purchasedOn: "2026-07-06",
+          notes: null,
+          categoryName: "Mercado",
+          universeName: "Casa",
+          projectName: "Moradia",
+          externalSource: "JSON",
+          externalReference: "json-1",
+          importedAt: null,
+        },
+      ]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockedApiFetch).toHaveBeenCalledWith(
+      "/api/finance/credit-cards/card-1/transactions/import",
+      expect.objectContaining({
+        method: "POST",
+        householdId: "household-1",
+      }),
+    );
+    expect(mockedToast.success).toHaveBeenCalledWith("1 compra importada no cartão.");
+    expect(result.current.creditCardTransactions).toEqual([expect.objectContaining({ id: "tx-1", title: "Supermercado" })]);
+  });
 });

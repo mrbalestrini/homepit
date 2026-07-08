@@ -277,6 +277,12 @@ function createDashboard(overrides: Partial<FinanceDashboardController> = {}): F
     updateCreditCardAccount: vi.fn(async () => undefined),
     deleteCreditCardAccount: vi.fn(async () => undefined),
     createCreditCardTransaction: vi.fn(async () => undefined),
+    importCreditCardTransactions: vi.fn(async () => ({
+      totalCount: 1,
+      totalAmount: 220.9,
+      createdCategoryCount: 0,
+      createdTransactions: [],
+    })),
     updateCreditCardTransaction: vi.fn(async () => undefined),
     deleteCreditCardTransaction: vi.fn(async () => undefined),
     deleteCreditCardTransactions: vi.fn(async () => undefined),
@@ -762,6 +768,131 @@ describe("FinanceDashboardWorkspace", () => {
 
     await waitFor(() => {
       expect(dashboard.deleteCreditCardTransactions).toHaveBeenCalledWith(["tx-1", "tx-2"]);
+    });
+  });
+
+  it("rejects malformed JSON in the import dialog", async () => {
+    const dashboard = createDashboard();
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Cartões" }));
+    fireEvent.click(screen.getByRole("button", { name: "Importar JSON" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Importar compras por JSON" });
+    const fileInput = within(dialog).getByLabelText("Arquivo JSON");
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["{ invalid"], "compras.json", { type: "application/json" })],
+      },
+    });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Revisar importação" }));
+
+    expect(await within(dialog).findByText("O arquivo não contém um JSON válido.")).toBeInTheDocument();
+  });
+
+  it("recalculates the import review summary in real time and confirms the batch", async () => {
+    const dashboard = createDashboard();
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Cartões" }));
+    fireEvent.click(screen.getByRole("button", { name: "Importar JSON" }));
+
+    const importDialog = await screen.findByRole("dialog", { name: "Importar compras por JSON" });
+    const fileInput = within(importDialog).getByLabelText("Arquivo JSON");
+    fireEvent.change(fileInput, {
+      target: {
+        files: [
+          new File(
+            [
+              JSON.stringify({
+                transactions: [
+                  {
+                    title: "Supermercado",
+                    merchant: "Mercado",
+                    amount: 10,
+                    purchasedOn: "2026-07-06",
+                    categoryName: "Mercado",
+                    universeName: "Casa",
+                    projectName: "Moradia",
+                    externalSource: "JSON",
+                    externalReference: "json-1",
+                  },
+                  {
+                    title: "Farmácia",
+                    merchant: "Drogaria",
+                    amount: 20,
+                    purchasedOn: "2026-07-07",
+                    externalSource: "JSON",
+                    externalReference: "json-2",
+                  },
+                ],
+              }),
+            ],
+            "compras.json",
+            { type: "application/json" },
+          ),
+        ],
+      },
+    });
+
+    fireEvent.click(within(importDialog).getByRole("button", { name: "Revisar importação" }));
+
+    const reviewDialog = await screen.findByRole("dialog", { name: "Revisar importação" });
+    const confirmButton = within(reviewDialog).getByRole("button", { name: "Confirmar importação" });
+    expect(within(reviewDialog).getByText("R$ 30,00")).toBeInTheDocument();
+
+    fireEvent.change(within(reviewDialog).getByLabelText("Valor da linha 1"), { target: { value: "25" } });
+    await waitFor(() => {
+      expect(within(reviewDialog).getByText("R$ 45,00")).toBeInTheDocument();
+    });
+
+    fireEvent.click(within(reviewDialog).getByRole("button", { name: "Adicionar linha" }));
+    fireEvent.change(within(reviewDialog).getByLabelText("Título da linha 3"), { target: { value: "Streaming" } });
+    fireEvent.change(within(reviewDialog).getByLabelText("Valor da linha 3"), { target: { value: "15" } });
+    fireEvent.change(within(reviewDialog).getByLabelText("Data da compra da linha 3"), { target: { value: "2026-07-08" } });
+    await waitFor(() => {
+      expect(within(reviewDialog).getByText("R$ 60,00")).toBeInTheDocument();
+    });
+
+    fireEvent.click(within(reviewDialog).getAllByRole("button", { name: "Remover" })[1]!);
+    await waitFor(() => {
+      expect(within(reviewDialog).getByText("R$ 40,00")).toBeInTheDocument();
+    });
+
+    fireEvent.click(within(reviewDialog).getByRole("button", { name: "Confirmar importação" }));
+
+    await waitFor(() => {
+      expect(dashboard.importCreditCardTransactions).toHaveBeenCalledWith([
+        {
+          title: "Supermercado",
+          merchant: "Mercado",
+          amount: 25,
+          purchasedOn: "2026-07-06",
+          notes: null,
+          categoryName: "Mercado",
+          universeName: "Casa",
+          projectName: "Moradia",
+          externalSource: "JSON",
+          externalReference: "json-1",
+          importedAt: null,
+        },
+        {
+          title: "Streaming",
+          merchant: null,
+          amount: 15,
+          purchasedOn: "2026-07-08",
+          notes: null,
+          categoryName: null,
+          universeName: null,
+          projectName: null,
+          externalSource: null,
+          externalReference: null,
+          importedAt: null,
+        },
+      ]);
     });
   });
 });
