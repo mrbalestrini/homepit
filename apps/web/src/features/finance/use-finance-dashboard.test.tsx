@@ -120,11 +120,14 @@ function buildPeriodDetail(overrides: Partial<FinancePeriodDetail> = {}): Financ
       totalExpense: 700,
       cashBalance: 4300,
       analyticalExpenseTotal: 820.9,
-      verifiedEntries: 1,
+      verifiedEntries: 2,
       pendingVerificationEntries: 0,
       cardPurchaseCount: 1,
     },
-    entries: [buildEntry({ id: "entry-1", title: "Condominio", amount: 700, verified: true })],
+    entries: [
+      buildEntry({ id: "entry-1", title: "Condominio", amount: 700, verified: true }),
+      buildEntry({ id: "entry-2", title: "Fatura Nubank", amount: 220.9, origin: "CreditCardStatement", verified: true }),
+    ],
     cardTransactions: [],
     statements: [],
     ...overrides,
@@ -317,8 +320,8 @@ describe("useFinanceDashboard", () => {
                   totalExpense: 920.9,
                   cashBalance: 4079.1,
                   analyticalExpenseTotal: 920.9,
-                  verifiedEntries: 1,
-                  pendingVerificationEntries: 1,
+                  verifiedEntries: 2,
+                  pendingVerificationEntries: 0,
                   cardPurchaseCount: 1,
                 },
                 entries: [
@@ -329,6 +332,7 @@ describe("useFinanceDashboard", () => {
                     amount: 220.9,
                     origin: "CreditCardStatement",
                     creditCardStatementId: "statement-1",
+                    verified: true,
                   }),
                 ],
                 cardTransactions: [buildTransaction({ creditCardStatementId: "statement-1" })],
@@ -390,9 +394,12 @@ describe("useFinanceDashboard", () => {
           title: "Fatura Nubank - 07/2026",
           origin: "CreditCardStatement",
           creditCardStatementId: "statement-1",
+          verified: true,
         }),
       ]),
     );
+    expect(result.current.periodDetail?.summary.verifiedEntries).toBe(2);
+    expect(result.current.periodDetail?.summary.pendingVerificationEntries).toBe(0);
     expect(result.current.creditCardStatements).toEqual([
       expect.objectContaining({ id: "statement-1", totalAmount: 220.9 }),
     ]);
@@ -464,16 +471,25 @@ describe("useFinanceDashboard", () => {
       await Promise.resolve();
     });
 
-    expect(result.current.periodDetail?.entries).toEqual([
-      expect.objectContaining({
-        id: "entry-1",
-        title: "Condominio atualizado",
-        amount: 850,
-        verified: false,
-      }),
-    ]);
-    expect(result.current.periodDetail?.summary.totalExpense).toBe(850);
-    expect(result.current.periodDetail?.summary.cashBalance).toBe(-850);
+    expect(result.current.periodDetail?.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "entry-1",
+          title: "Condominio atualizado",
+          amount: 850,
+          verified: false,
+        }),
+        expect.objectContaining({
+          id: "entry-2",
+          title: "Fatura Nubank",
+          amount: 220.9,
+          verified: true,
+          origin: "CreditCardStatement",
+        }),
+      ]),
+    );
+    expect(result.current.periodDetail?.summary.totalExpense).toBe(1070.9);
+    expect(result.current.periodDetail?.summary.cashBalance).toBe(-1070.9);
     expect(result.current.periodDetail?.summary.pendingVerificationEntries).toBe(1);
 
     await act(async () => {
@@ -481,16 +497,25 @@ describe("useFinanceDashboard", () => {
       await expect(updatePromise).rejects.toThrow("Falha simulada");
     });
 
-    expect(result.current.periodDetail?.entries).toEqual([
-      expect.objectContaining({
-        id: "entry-1",
-        title: "Condominio",
-        amount: 700,
-        verified: true,
-      }),
-    ]);
-    expect(result.current.periodDetail?.summary.totalExpense).toBe(700);
-    expect(result.current.periodDetail?.summary.cashBalance).toBe(-700);
+    expect(result.current.periodDetail?.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "entry-1",
+          title: "Condominio",
+          amount: 700,
+          verified: true,
+        }),
+        expect.objectContaining({
+          id: "entry-2",
+          title: "Fatura Nubank",
+          amount: 220.9,
+          verified: true,
+          origin: "CreditCardStatement",
+        }),
+      ]),
+    );
+    expect(result.current.periodDetail?.summary.totalExpense).toBe(920.9);
+    expect(result.current.periodDetail?.summary.cashBalance).toBe(-920.9);
     expect(mockedToast.error).toHaveBeenCalledWith("Falha simulada");
 
     unmount();

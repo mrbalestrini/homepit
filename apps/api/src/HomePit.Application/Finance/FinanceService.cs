@@ -103,8 +103,8 @@ public sealed class FinanceService(
                 totalExpense,
                 totalIncome - totalExpense,
                 analyticalExpenseTotal,
-                entries.Count(entry => entry.Verified),
-                entries.Count(entry => !entry.Verified),
+                entries.Count(IsVerifiedEntry),
+                entries.Count(entry => !IsVerifiedEntry(entry)),
                 transactions.Length),
             entryDtos,
             transactionDtos,
@@ -1262,6 +1262,7 @@ public sealed class FinanceService(
             generatedEntry.Notes = statement.Notes;
             generatedEntry.Amount = statement.TotalAmount;
             generatedEntry.Type = FinanceEntryType.Saida;
+            generatedEntry.Verified = true;
             generatedEntry.ReferenceDate = statement.DueDate;
             generatedEntry.Origin = FinanceEntryOrigin.CreditCardStatement;
         }
@@ -1782,7 +1783,7 @@ public sealed class FinanceService(
             entry.Notes,
             entry.Amount,
             entry.Type,
-            entry.Verified,
+            IsVerifiedEntry(entry),
             entry.ReferenceDate,
             entry.Origin,
             entry.RecurringTemplateId,
@@ -1873,6 +1874,9 @@ public sealed class FinanceService(
             canManage,
             canManage);
     }
+
+    private static bool IsVerifiedEntry(FinanceEntry entry)
+        => entry.Verified || entry.Origin == FinanceEntryOrigin.CreditCardStatement;
 
     private static FinanceCategoryDto ToCategoryDto(
         FinanceCategory category,

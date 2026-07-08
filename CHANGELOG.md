@@ -12,6 +12,7 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 ### Changed
 - A área central do módulo financeiro passou a alternar entre `Caixa` e `Cartões` por abas locais, mantendo `Patrimônio` sempre visível abaixo da navegação.
 - A importação em lote de compras de cartão passou a validar universo e projeto por nome antes do envio e só grava o lote inteiro quando todas as linhas estiverem válidas.
+- Faturas fechadas do cartão passaram a ser tratadas como verificadas no caixa mensal, inclusive no lançamento consolidado e no resumo do período.
 - Uploads comuns de imagem agora são normalizados no backend para `WEBP`, com limite máximo de `2000 px` por lado e rejeição de animações em foto de perfil, universo, atividade, prompt e imagens institucionais não SEO.
 
 ## [1.7.1] - 2026-07-07

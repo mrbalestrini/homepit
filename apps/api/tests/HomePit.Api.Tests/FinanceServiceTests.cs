@@ -206,6 +206,7 @@ public sealed class FinanceServiceTests
             julyAfterCreate.Entries,
             entry => entry.Origin == FinanceEntryOrigin.CreditCardStatement);
         Assert.Equal(120m, generatedJulyEntry.Amount);
+        Assert.True(generatedJulyEntry.Verified);
         Assert.Equal(createdStatement.FinanceEntryId, generatedJulyEntry.Id);
 
         var updatedStatement = await service.UpdateCreditCardStatementAsync(
@@ -230,6 +231,7 @@ public sealed class FinanceServiceTests
             augustAfterUpdate.Entries,
             entry => entry.Origin == FinanceEntryOrigin.CreditCardStatement);
         Assert.Equal(200m, generatedAugustEntry.Amount);
+        Assert.True(generatedAugustEntry.Verified);
         Assert.Equal(new DateOnly(2026, 8, 5), generatedAugustEntry.ReferenceDate);
         Assert.Equal("Fatura Nubank - 08/2026", generatedAugustEntry.Title);
     }

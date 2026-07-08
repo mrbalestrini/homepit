@@ -42,3 +42,5 @@
     mas universos e projetos continuarão limitados aos registros já existentes.
 22. A gravação final da importação em lote será `tudo ou nada`: qualquer falha invalida o
     lote inteiro e impede inserções parciais.
+23. A fatura consolidada de cartão passa a ser tratada como verificada no caixa mensal,
+    inclusive nos lançamentos já persistidos e no resumo do período.

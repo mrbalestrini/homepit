@@ -51,11 +51,11 @@ function buildPeriodDetail(overrides: Partial<FinancePeriodDetail> = {}): Financ
     exists: true,
     summary: {
       totalIncome: 5000,
-      totalExpense: 900,
-      cashBalance: 4100,
-      analyticalExpenseTotal: 1120.9,
-      verifiedEntries: 1,
-      pendingVerificationEntries: 1,
+      totalExpense: 920.9,
+      cashBalance: 4079.1,
+      analyticalExpenseTotal: 920.9,
+      verifiedEntries: 2,
+      pendingVerificationEntries: 0,
       cardPurchaseCount: 1,
     },
     entries: [
@@ -75,6 +75,7 @@ function buildPeriodDetail(overrides: Partial<FinancePeriodDetail> = {}): Financ
         id: "entry-2",
         title: "Fatura Nubank",
         amount: 220.9,
+        verified: true,
         origin: "CreditCardStatement",
         projectId: "project-2",
         projectName: "Viagem",
@@ -492,6 +493,10 @@ describe("FinanceDashboardWorkspace", () => {
         { silentSuccess: true },
       );
     });
+
+    const statementRow = screen.getAllByRole("row").find((row) => row.textContent?.includes("Fatura Nubank"));
+    expect(statementRow).not.toBeNull();
+    expect(statementRow?.textContent).toContain("Sim");
 
     fireEvent.change(screen.getByPlaceholderText("Buscar lançamento"), { target: { value: "nubank" } });
     await waitFor(() => {
