@@ -4,6 +4,12 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.9.0] - 2026-07-09
+
+### Changed
+- A seção de compras do cartão ganhou um filtro textual compatível com os principais campos exibidos na linha, e o selecionar todos passou a atuar apenas sobre os itens visíveis no filtro.
+- O fechamento de fatura passou a oferecer uma ação explícita para selecionar ou desmarcar todas as compras disponíveis de uma vez.
+
 ## [1.8.0] - 2026-07-08
 
 ### Added

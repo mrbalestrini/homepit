@@ -17,6 +17,8 @@
 - PostgreSQL e acessado por EF Core/Npgsql; o schema padrao e `homepit`.
 - O frontend usa App Router, paginas finas, hooks-controladores por feature e cliente HTTP
   centralizado em `src/lib/api.ts`.
+- O workspace interno agora possui um modulo dedicado `/finance`, com hook-controlador
+  proprio e navegacao local entre caixa, cartoes e patrimonio.
 - O workspace interno agora possui um modulo dedicado `/gsm`, com hook-controlador proprio
   e navegacao lateral compartilhada com os demais modulos da casa.
 - A rota `/` renderiza uma pagina institucional publica a partir da API, enquanto

@@ -43,6 +43,35 @@ function buildEntry(overrides: Partial<FinanceEntry> & Pick<FinanceEntry, "id" |
   };
 }
 
+function buildTransaction(overrides: Partial<CreditCardTransaction> & Pick<CreditCardTransaction, "id" | "title">): CreditCardTransaction {
+  return {
+    id: overrides.id,
+    creditCardAccountId: "card-1",
+    creditCardAccountName: "Nubank",
+    creditCardStatementId: null,
+    title: overrides.title,
+    merchant: null,
+    amount: 0,
+    purchasedOn: "2026-07-06",
+    notes: null,
+    categoryId: null,
+    categoryName: null,
+    universeId: null,
+    universeName: null,
+    projectId: null,
+    projectName: null,
+    externalSource: null,
+    externalReference: null,
+    importedAt: null,
+    createdByMemberId: "member-1",
+    createdAt: "2026-07-06T12:00:00.000Z",
+    updatedAt: "2026-07-06T12:00:00.000Z",
+    canEdit: true,
+    canDelete: true,
+    ...overrides,
+  };
+}
+
 function buildPeriodDetail(overrides: Partial<FinancePeriodDetail> = {}): FinancePeriodDetail {
   return {
     id: "period-1",
@@ -773,6 +802,73 @@ describe("FinanceDashboardWorkspace", () => {
 
     await waitFor(() => {
       expect(dashboard.deleteCreditCardTransactions).toHaveBeenCalledWith(["tx-1", "tx-2"]);
+    });
+  });
+
+  it("filters card purchases and selects only visible rows when selecting all", async () => {
+    const dashboard = createDashboard({
+      periodDetail: buildPeriodDetail({
+        cardTransactions: [
+          buildTransaction({ id: "tx-1", title: "Supermercado", merchant: "Mercado", amount: 220.9 }),
+          buildTransaction({ id: "tx-2", title: "Farmácia", merchant: "Drogaria", amount: 80, purchasedOn: "2026-07-07" }),
+        ],
+        statements: [],
+      }),
+    });
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Cartões" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Filtrar compras do cartão" }), {
+      target: { value: "drogaria" },
+    });
+
+    expect(screen.queryByRole("checkbox", { name: "Selecionar compra Supermercado" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Selecionar compras visíveis do cartão" }));
+
+    expect(screen.getByRole("checkbox", { name: "Selecionar compra Farmácia" })).toBeChecked();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Filtrar compras do cartão" }), {
+      target: { value: "" },
+    });
+
+    expect(screen.getByRole("checkbox", { name: "Selecionar compra Farmácia" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Selecionar compra Supermercado" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Selecionar compras visíveis do cartão" })).not.toBeChecked();
+  });
+
+  it("selects all purchases at once when closing a statement", async () => {
+    const dashboard = createDashboard({
+      periodDetail: buildPeriodDetail({
+        cardTransactions: [
+          buildTransaction({ id: "tx-1", title: "Supermercado", merchant: "Mercado", amount: 220.9 }),
+          buildTransaction({ id: "tx-2", title: "Farmácia", merchant: "Drogaria", amount: 80, purchasedOn: "2026-07-07" }),
+        ],
+        statements: [],
+      }),
+    });
+
+    render(<FinanceDashboardWorkspace dashboard={dashboard} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Cartões" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fechar fatura" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Fechar fatura" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Selecionar todas" }));
+
+    expect(within(dialog).getByRole("button", { name: "Desmarcar todas" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("checkbox", { name: /Supermercado.*06\/07\/2026/ })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: /Farmácia.*07\/07\/2026/ })).toBeChecked();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar fatura" }));
+
+    await waitFor(() => {
+      expect(dashboard.createCreditCardStatement).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transactionIds: ["tx-1", "tx-2"],
+        }),
+      );
     });
   });
 

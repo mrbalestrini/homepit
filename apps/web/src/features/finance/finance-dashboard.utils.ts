@@ -154,6 +154,35 @@ export function filterFinanceEntries(entries: FinanceEntry[], filters: FinanceEn
   });
 }
 
+export function filterCreditCardTransactions(transactions: CreditCardTransaction[], search: string) {
+  const normalizedSearch = normalizeText(search.trim());
+  if (!normalizedSearch) {
+    return transactions;
+  }
+
+  return transactions.filter((transaction) => {
+    const haystack = normalizeText(
+      [
+        transaction.title,
+        transaction.merchant ?? "",
+        transaction.purchasedOn,
+        formatDateOnlyPtBr(transaction.purchasedOn, ""),
+        transaction.categoryName ?? "",
+        transaction.universeName ?? "",
+        transaction.projectName ?? "",
+        transaction.creditCardStatementId ? "fechada" : "em aberto",
+        transaction.amount.toFixed(2),
+        formatCurrency(transaction.amount, ""),
+        transaction.externalSource ?? "",
+        transaction.externalReference ?? "",
+        transaction.importedAt ?? "",
+      ].join(" "),
+    );
+
+    return haystack.includes(normalizedSearch);
+  });
+}
+
 export function groupFinanceEntries(entries: FinanceEntry[], groupBy: FinanceEntryGroupBy) {
   if (groupBy === "none") {
     return [{ key: "all", label: "Todos os lançamentos", entries }];

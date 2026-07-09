@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CreditCardTransaction, FinanceEntry } from "@/lib/api";
 import {
+  filterCreditCardTransactions,
   filterFinanceEntries,
   getCurrentPeriodParts,
   groupFinanceEntries,
@@ -102,6 +103,32 @@ describe("finance dashboard utils", () => {
 
     expect(filtered).toHaveLength(1);
     expect(filtered[0]?.id).toBe("entry-2");
+  });
+
+  it("filters credit card transactions across text fields and values", () => {
+    const transactions = [
+      buildTransaction({
+        id: "tx-1",
+        title: "Supermercado",
+        merchant: "Mercado da esquina",
+        amount: 220.9,
+        categoryName: "Alimentação",
+        universeName: "Casa",
+        projectName: "Moradia",
+        externalReference: "NF-123",
+      }),
+      buildTransaction({
+        id: "tx-2",
+        title: "Farmácia",
+        merchant: "Drogaria",
+        amount: 80,
+        creditCardStatementId: "statement-1",
+      }),
+    ];
+
+    expect(filterCreditCardTransactions(transactions, "drogaria")).toHaveLength(1);
+    expect(filterCreditCardTransactions(transactions, "220,90")[0]?.id).toBe("tx-1");
+    expect(filterCreditCardTransactions(transactions, "fechada")[0]?.id).toBe("tx-2");
   });
 
   it("groups entries by project and keeps a fallback label when there is no project", () => {

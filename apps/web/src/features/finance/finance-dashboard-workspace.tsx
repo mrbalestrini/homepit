@@ -67,6 +67,7 @@ import type {
   ImportedCreditCardTransactionDraft,
 } from "./use-finance-dashboard";
 import {
+  filterCreditCardTransactions,
   filterFinanceEntries,
   formatCurrency,
   formatDateOnlyInputValue,
@@ -922,13 +923,12 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
   >(null);
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<string[]>([]);
+  const [creditCardTransactionSearch, setCreditCardTransactionSearch] = useState("");
   const [savingRows, setSavingRows] = useState<Record<string, boolean>>({});
 
   const entries = dashboard.periodDetail?.entries ?? [];
   const filteredEntries = useMemo(() => filterFinanceEntries(entries, filters), [entries, filters]);
   const groupedEntries = useMemo(() => groupFinanceEntries(filteredEntries, filters.groupBy), [filteredEntries, filters.groupBy]);
-  const visibleCount = activeSection === "cash" ? filteredEntries.length : dashboard.creditCardTransactions.length;
-  const visibleLabel = activeSection === "cash" ? "lançamentos" : "compras";
 
   const periodSummary = dashboard.periodDetail?.summary;
   const headerStats = [
@@ -948,6 +948,12 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
   }, [dashboard.activeYear, dashboard.financePeriods]);
 
   const selectedCard = dashboard.creditCardAccounts.find((card) => card.id === dashboard.selectedCreditCardId) ?? null;
+  const filteredCreditCardTransactions = useMemo(
+    () => filterCreditCardTransactions(dashboard.creditCardTransactions, creditCardTransactionSearch),
+    [creditCardTransactionSearch, dashboard.creditCardTransactions],
+  );
+  const visibleCount = activeSection === "cash" ? filteredEntries.length : filteredCreditCardTransactions.length;
+  const visibleLabel = activeSection === "cash" ? "lançamentos" : "compras";
   const importReviewDrafts = useMemo(
     () => validateImportedTransactionDrafts(importDrafts, dashboard.categories, dashboard.universes, dashboard.projects),
     [dashboard.categories, dashboard.projects, dashboard.universes, importDrafts],
@@ -964,6 +970,9 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
   const selectedVisibleEntryIds = filteredEntries.filter((entry) => selectedEntryIds.includes(entry.id)).map((entry) => entry.id);
   const selectedVisibleTransactionIds = dashboard.creditCardTransactions
     .filter((transaction) => selectedTransactionIds.includes(transaction.id))
+    .map((transaction) => transaction.id);
+  const visibleSelectableTransactionIds = filteredCreditCardTransactions
+    .filter((transaction) => transaction.canDelete)
     .map((transaction) => transaction.id);
 
   useEffect(() => {
@@ -982,6 +991,10 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
 
   useEffect(() => {
     setSelectedTransactionIds((current) => (current.length === 0 ? current : []));
+  }, [dashboard.selectedCreditCardId]);
+
+  useEffect(() => {
+    setCreditCardTransactionSearch("");
   }, [dashboard.selectedCreditCardId]);
 
   useEffect(() => {
@@ -1851,192 +1864,199 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                             </Button>
                           </div>
                         </CardHeader>
-                        <CardContent className="p-0">
+                        <CardContent className="space-y-4 p-4">
                           {dashboard.cardDetailsLoading ? (
-                            <div className="p-4">
-                              <LoadingState title="Carregando compras" description="Buscando as compras e as faturas do cartão selecionado." icon={<CreditCard className="size-5 animate-pulse" />} />
-                            </div>
+                            <LoadingState
+                              title="Carregando compras"
+                              description="Buscando as compras e as faturas do cartão selecionado."
+                              icon={<CreditCard className="size-5 animate-pulse" />}
+                            />
                           ) : (
-                            <div className="overflow-x-auto">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
-                                    <TableHead className="w-12">
-                                      <input
-                                        type="checkbox"
-                                        checked={
-                                          dashboard.creditCardTransactions.filter((transaction) => transaction.canDelete).length > 0 &&
-                                          dashboard.creditCardTransactions
-                                            .filter((transaction) => transaction.canDelete)
-                                            .every((transaction) => selectedTransactionIds.includes(transaction.id))
-                                        }
-                                        onChange={() =>
-                                          toggleAllTransactions(
-                                            dashboard.creditCardTransactions.filter((transaction) => transaction.canDelete).map((transaction) => transaction.id),
-                                          )
-                                        }
-                                        aria-label="Selecionar compras do cartão"
-                                      />
-                                    </TableHead>
-                                    <TableHead className="min-w-[180px]">Compra</TableHead>
-                                    <TableHead>Data</TableHead>
-                                    <TableHead>Categoria</TableHead>
-                                    <TableHead>Classificação</TableHead>
-                                    <TableHead>Fatura</TableHead>
-                                    <TableHead>Valor</TableHead>
-                                    <TableHead className="min-w-[200px] text-right">Ações</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                {dashboard.creditCardTransactions.length === 0 ? (
-                                  <TableRow>
-                                    <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
-                                      Nenhuma compra registrada neste cartão.
-                                    </TableCell>
-                                  </TableRow>
-                                ) : (
-                                    dashboard.creditCardTransactions.map((transaction) => {
-                                      const rowKey = `transaction:${transaction.id}`;
-                                      const rowBusy = isRowSaving(rowKey);
+                            <>
+                              <Input
+                                value={creditCardTransactionSearch}
+                                onChange={(event) => setCreditCardTransactionSearch(event.target.value)}
+                                placeholder="Filtrar por título, comerciante, categoria, classificação, fatura ou valor"
+                                aria-label="Filtrar compras do cartão"
+                              />
+                              <div className="overflow-x-auto">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
+                                      <TableHead className="w-12">
+                                        <input
+                                          type="checkbox"
+                                          checked={
+                                            visibleSelectableTransactionIds.length > 0 &&
+                                            visibleSelectableTransactionIds.every((transactionId) => selectedTransactionIds.includes(transactionId))
+                                          }
+                                          onChange={() => toggleAllTransactions(visibleSelectableTransactionIds)}
+                                          disabled={visibleSelectableTransactionIds.length === 0}
+                                          aria-label="Selecionar compras visíveis do cartão"
+                                        />
+                                      </TableHead>
+                                      <TableHead className="min-w-[180px]">Compra</TableHead>
+                                      <TableHead>Data</TableHead>
+                                      <TableHead>Categoria</TableHead>
+                                      <TableHead>Classificação</TableHead>
+                                      <TableHead>Fatura</TableHead>
+                                      <TableHead>Valor</TableHead>
+                                      <TableHead className="min-w-[200px] text-right">Ações</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {filteredCreditCardTransactions.length === 0 ? (
+                                      <TableRow>
+                                        <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                                          {creditCardTransactionSearch.trim()
+                                            ? "Nenhuma compra corresponde ao filtro."
+                                            : "Nenhuma compra registrada neste cartão."}
+                                        </TableCell>
+                                      </TableRow>
+                                    ) : (
+                                      filteredCreditCardTransactions.map((transaction) => {
+                                        const rowKey = `transaction:${transaction.id}`;
+                                        const rowBusy = isRowSaving(rowKey);
 
-                                      return (
-                                        <TableRow key={transaction.id}>
-                                          <TableCell>
-                                            <input
-                                              type="checkbox"
-                                              checked={selectedTransactionIds.includes(transaction.id)}
-                                              onChange={() => toggleTransactionSelection(transaction.id)}
-                                              disabled={!transaction.canDelete || rowBusy}
-                                              aria-label={`Selecionar compra ${transaction.title}`}
-                                            />
-                                          </TableCell>
-                                          <TableCell>
-                                            <div className="space-y-1">
+                                        return (
+                                          <TableRow key={transaction.id}>
+                                            <TableCell>
+                                              <input
+                                                type="checkbox"
+                                                checked={selectedTransactionIds.includes(transaction.id)}
+                                                onChange={() => toggleTransactionSelection(transaction.id)}
+                                                disabled={!transaction.canDelete || rowBusy}
+                                                aria-label={`Selecionar compra ${transaction.title}`}
+                                              />
+                                            </TableCell>
+                                            <TableCell>
+                                              <div className="space-y-1">
+                                                <InlineInputCell
+                                                  value={transaction.title}
+                                                  displayValue={transaction.title}
+                                                  ariaLabel={`Editar título da compra ${transaction.title}`}
+                                                  canEdit={transaction.canEdit}
+                                                  rowBusy={rowBusy}
+                                                  isSyncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
+                                                  toDraft={(current) => current}
+                                                  fromDraft={(draft) => {
+                                                    const trimmed = draft.trim();
+                                                    return trimmed ? { value: trimmed } : { value: draft, error: "Informe o título da compra." };
+                                                  }}
+                                                  onSave={(title) =>
+                                                    runRowSave(rowKey, async () => {
+                                                      await dashboard.updateCreditCardTransaction(
+                                                        transaction.id,
+                                                        buildTransactionInput(transaction, { title }),
+                                                        { silentSuccess: true },
+                                                      );
+                                                    })
+                                                  }
+                                                />
+                                                {transaction.merchant ? <p className="px-2 text-sm text-muted-foreground">{transaction.merchant}</p> : null}
+                                              </div>
+                                            </TableCell>
+                                            <TableCell>
                                               <InlineInputCell
-                                                value={transaction.title}
-                                                displayValue={transaction.title}
-                                                ariaLabel={`Editar título da compra ${transaction.title}`}
+                                                value={transaction.purchasedOn}
+                                                displayValue={formatDateOnlyPtBr(transaction.purchasedOn)}
+                                                ariaLabel={`Editar data da compra ${transaction.title}`}
                                                 canEdit={transaction.canEdit}
                                                 rowBusy={rowBusy}
                                                 isSyncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
+                                                inputType="date"
                                                 toDraft={(current) => current}
-                                                fromDraft={(draft) => {
-                                                  const trimmed = draft.trim();
-                                                  return trimmed ? { value: trimmed } : { value: draft, error: "Informe o título da compra." };
-                                                }}
-                                                onSave={(title) =>
+                                                fromDraft={(draft) => (draft ? { value: draft } : { value: draft, error: "Informe a data da compra." })}
+                                                onSave={(purchasedOn) =>
                                                   runRowSave(rowKey, async () => {
                                                     await dashboard.updateCreditCardTransaction(
                                                       transaction.id,
-                                                      buildTransactionInput(transaction, { title }),
+                                                      buildTransactionInput(transaction, { purchasedOn }),
                                                       { silentSuccess: true },
                                                     );
                                                   })
                                                 }
                                               />
-                                              {transaction.merchant ? <p className="px-2 text-sm text-muted-foreground">{transaction.merchant}</p> : null}
-                                            </div>
-                                          </TableCell>
-                                          <TableCell>
-                                            <InlineInputCell
-                                              value={transaction.purchasedOn}
-                                              displayValue={formatDateOnlyPtBr(transaction.purchasedOn)}
-                                              ariaLabel={`Editar data da compra ${transaction.title}`}
-                                              canEdit={transaction.canEdit}
-                                              rowBusy={rowBusy}
-                                              isSyncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
-                                              inputType="date"
-                                              toDraft={(current) => current}
-                                              fromDraft={(draft) => (draft ? { value: draft } : { value: draft, error: "Informe a data da compra." })}
-                                              onSave={(purchasedOn) =>
-                                                runRowSave(rowKey, async () => {
-                                                  await dashboard.updateCreditCardTransaction(
-                                                    transaction.id,
-                                                    buildTransactionInput(transaction, { purchasedOn }),
-                                                    { silentSuccess: true },
-                                                  );
-                                                })
-                                              }
-                                            />
-                                          </TableCell>
-                                          <TableCell>
-                                            <InlineSelectCell
-                                              value={transaction.categoryId ?? "none"}
-                                              displayValue={transaction.categoryName ?? "Sem categoria"}
-                                              ariaLabel={`Editar categoria da compra ${transaction.title}`}
-                                              canEdit={transaction.canEdit}
-                                              rowBusy={rowBusy}
-                                              isSyncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
-                                              options={[
-                                                { value: "none", label: "Sem categoria" },
-                                                ...dashboard.categories.map((category) => ({ value: category.id, label: category.name })),
-                                              ]}
-                                              onSave={(categoryId) =>
-                                                runRowSave(rowKey, async () => {
-                                                  await dashboard.updateCreditCardTransaction(
-                                                    transaction.id,
-                                                    buildTransactionInput(transaction, { categoryId: categoryId === "none" ? null : categoryId }),
-                                                    { silentSuccess: true },
-                                                  );
-                                                })
-                                              }
-                                            />
-                                          </TableCell>
-                                          <TableCell>{transaction.projectName ?? transaction.universeName ?? "Sem classificação"}</TableCell>
-                                          <TableCell>{transaction.creditCardStatementId ? "Fechada" : "Em aberto"}</TableCell>
-                                          <TableCell className="font-medium text-foreground">
-                                            <InlineInputCell
-                                              value={transaction.amount}
-                                              displayValue={formatCurrency(transaction.amount)}
-                                              ariaLabel={`Editar valor da compra ${transaction.title}`}
-                                              canEdit={transaction.canEdit}
-                                              rowBusy={rowBusy}
-                                              isSyncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
-                                              placeholder="R$ 0,00"
-                                              toDraft={(current) => formatCurrency(current)}
-                                              fromDraft={(draft) => {
-                                                const parsed = parseCurrencyInput(draft);
-                                                if (parsed == null || parsed <= 0) {
-                                                  return { value: transaction.amount, error: "Informe um valor positivo para a compra." };
+                                            </TableCell>
+                                            <TableCell>
+                                              <InlineSelectCell
+                                                value={transaction.categoryId ?? "none"}
+                                                displayValue={transaction.categoryName ?? "Sem categoria"}
+                                                ariaLabel={`Editar categoria da compra ${transaction.title}`}
+                                                canEdit={transaction.canEdit}
+                                                rowBusy={rowBusy}
+                                                isSyncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
+                                                options={[
+                                                  { value: "none", label: "Sem categoria" },
+                                                  ...dashboard.categories.map((category) => ({ value: category.id, label: category.name })),
+                                                ]}
+                                                onSave={(categoryId) =>
+                                                  runRowSave(rowKey, async () => {
+                                                    await dashboard.updateCreditCardTransaction(
+                                                      transaction.id,
+                                                      buildTransactionInput(transaction, { categoryId: categoryId === "none" ? null : categoryId }),
+                                                      { silentSuccess: true },
+                                                    );
+                                                  })
                                                 }
+                                              />
+                                            </TableCell>
+                                            <TableCell>{transaction.projectName ?? transaction.universeName ?? "Sem classificação"}</TableCell>
+                                            <TableCell>{transaction.creditCardStatementId ? "Fechada" : "Em aberto"}</TableCell>
+                                            <TableCell className="font-medium text-foreground">
+                                              <InlineInputCell
+                                                value={transaction.amount}
+                                                displayValue={formatCurrency(transaction.amount)}
+                                                ariaLabel={`Editar valor da compra ${transaction.title}`}
+                                                canEdit={transaction.canEdit}
+                                                rowBusy={rowBusy}
+                                                isSyncing={dashboard.syncingSections.cardTransactions || dashboard.syncingSections.cardStatements}
+                                                placeholder="R$ 0,00"
+                                                toDraft={(current) => formatCurrency(current)}
+                                                fromDraft={(draft) => {
+                                                  const parsed = parseCurrencyInput(draft);
+                                                  if (parsed == null || parsed <= 0) {
+                                                    return { value: transaction.amount, error: "Informe um valor positivo para a compra." };
+                                                  }
 
-                                                return { value: parsed };
-                                              }}
-                                              onSave={(amount) =>
-                                                runRowSave(rowKey, async () => {
-                                                  await dashboard.updateCreditCardTransaction(
-                                                    transaction.id,
-                                                    buildTransactionInput(transaction, { amount }),
-                                                    { silentSuccess: true },
-                                                  );
-                                                })
-                                              }
-                                            />
-                                          </TableCell>
-                                          <TableCell className="text-right">
-                                            <div className="flex flex-wrap justify-end gap-2">
-                                              <Button variant="secondary" size="sm" onClick={() => setTransactionDialog(transaction)} disabled={!transaction.canEdit || rowBusy}>
-                                                <Pencil />
-                                                Editar
-                                              </Button>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setDeleteTarget({ kind: "transaction", id: transaction.id, name: transaction.title })}
-                                                disabled={!transaction.canDelete || rowBusy}
-                                              >
-                                                <Trash2 />
-                                                Excluir
-                                              </Button>
-                                            </div>
-                                          </TableCell>
-                                        </TableRow>
-                                      );
-                                    })
-                                  )}
-                                </TableBody>
-                              </Table>
-                            </div>
+                                                  return { value: parsed };
+                                                }}
+                                                onSave={(amount) =>
+                                                  runRowSave(rowKey, async () => {
+                                                    await dashboard.updateCreditCardTransaction(
+                                                      transaction.id,
+                                                      buildTransactionInput(transaction, { amount }),
+                                                      { silentSuccess: true },
+                                                    );
+                                                  })
+                                                }
+                                              />
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                              <div className="flex flex-wrap justify-end gap-2">
+                                                <Button variant="secondary" size="sm" onClick={() => setTransactionDialog(transaction)} disabled={!transaction.canEdit || rowBusy}>
+                                                  <Pencil />
+                                                  Editar
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() => setDeleteTarget({ kind: "transaction", id: transaction.id, name: transaction.title })}
+                                                  disabled={!transaction.canDelete || rowBusy}
+                                                >
+                                                  <Trash2 />
+                                                  Excluir
+                                                </Button>
+                                              </div>
+                                            </TableCell>
+                                          </TableRow>
+                                        );
+                                      })
+                                    )}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </>
                           )}
                         </CardContent>
                       </Card>
@@ -4205,9 +4225,25 @@ function CreditCardStatementDialog({
     setSaving(false);
   }, [availableTransactions, open, statement]);
 
+  const allAvailableTransactionIds = useMemo(() => availableTransactions.map((transaction) => transaction.id), [availableTransactions]);
+  const allAvailableTransactionsSelected =
+    allAvailableTransactionIds.length > 0 && allAvailableTransactionIds.every((transactionId) => transactionIds.includes(transactionId));
+
   function toggleTransaction(transactionId: string) {
     setTransactionIds((current) =>
       current.includes(transactionId) ? current.filter((item) => item !== transactionId) : [...current, transactionId],
+    );
+  }
+
+  function toggleAllTransactions() {
+    if (allAvailableTransactionIds.length === 0) {
+      return;
+    }
+
+    setTransactionIds((current) =>
+      allAvailableTransactionsSelected
+        ? current.filter((transactionId) => !allAvailableTransactionIds.includes(transactionId))
+        : Array.from(new Set([...current, ...allAvailableTransactionIds])),
     );
   }
 
@@ -4265,7 +4301,12 @@ function CreditCardStatementDialog({
             </Field>
           </div>
           <div className="space-y-2 rounded-[18px] border border-border/70 p-4">
-            <p className="text-sm font-semibold text-foreground">Compras da fatura</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-foreground">Compras da fatura</p>
+              <Button type="button" variant="secondary" size="sm" onClick={toggleAllTransactions} disabled={allAvailableTransactionIds.length === 0}>
+                {allAvailableTransactionsSelected ? "Desmarcar todas" : "Selecionar todas"}
+              </Button>
+            </div>
             {availableTransactions.length === 0 ? (
               <p className="text-sm text-muted-foreground">Não há compras disponíveis para esta fatura.</p>
             ) : (
