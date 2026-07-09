@@ -21,3 +21,12 @@
 - O upload novo nao e bloqueado por excesso; o sistema degrada as imagens mais antigas fora
   da janela de retencao em qualidade original.
 - Foto de perfil, universo e imagens institucionais ficam fora da cota nesta entrega.
+
+## 2026-07-09 - conteúdo visível orientado à pessoa usuária
+
+- Textos de interface devem informar apenas o que ajuda a pessoa a entender, decidir ou
+  concluir a ação atual.
+- Detalhes de implementação, arquitetura e evolução planejada não devem aparecer na UI,
+  exceto quando alterarem uma decisão ou consequência relevante para a pessoa.
+- A diretriz compartilhada está em `.specs/shared/ui-ux-copy.md` e é obrigatória para
+  mudanças de conteúdo visível no frontend.

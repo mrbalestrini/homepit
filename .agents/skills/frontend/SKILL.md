@@ -19,6 +19,7 @@ description: Use for frontend Next.js, React, TypeScript, Tailwind, UI component
 - `.specs/memory/commands.md`
 - `.specs/shared/domain-rules.md`
 - `.specs/shared/technical-patterns.md`
+- `.specs/shared/ui-ux-copy.md` quando criar ou alterar qualquer conteúdo visível na UI.
 - A spec ativa em `.specs/changes/`, se existir.
 
 ## Responsabilidades
@@ -30,6 +31,8 @@ description: Use for frontend Next.js, React, TypeScript, Tailwind, UI component
 - Nao introduzir framework de UI ou estado sem evidencia.
 - Nao expor dados privados ou contornar permissoes da API.
 - Nao inventar endpoints.
+- Para copy visível, seguir `.specs/shared/ui-ux-copy.md`: priorizar orientação útil à
+  pessoa usuária e excluir frases genéricas, técnicas ou sobre implementação e roadmap.
 
 ## Procedimento padrão
 1. Entender a tarefa.
