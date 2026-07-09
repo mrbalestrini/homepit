@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Camera, Loader2, ShieldAlert, Sparkles } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,10 +18,12 @@ import { Input } from "@/components/ui/input";
 import { AccountStateGate } from "@/features/workspace/account-state-gate";
 import { HomePitAuth } from "@/features/workspace/homepit-auth";
 import { HomePitWorkspaceShell, Notice } from "@/features/workspace/homepit-workspace-shell";
-import { AvatarCircle, ProtectedUserAvatar } from "@/features/workspace/protected-user-avatar";
-import { COMMON_IMAGE_ACCEPT, COMMON_IMAGE_HELP_TEXT } from "@/lib/image-upload";
+import { ProtectedUserAvatar } from "@/features/workspace/protected-user-avatar";
 import { type AuthResponse, type DeleteOwnAccountResult, apiFetch, clearSession, updateStoredSession } from "@/lib/api";
 import { useProjectDashboard } from "@/features/projects/use-project-dashboard";
+import { COMMON_IMAGE_ACCEPT } from "@/lib/image-upload";
+import { ProfilePhotoCropDialog, type ProfilePhotoCropDraft } from "@/features/profile/profile-photo-crop-dialog";
+import { cropProfilePhotoFile } from "@/features/profile/profile-photo-utils";
 
 export function ProfilePage() {
   const dashboard = useProjectDashboard();
@@ -42,14 +44,6 @@ function ProfileWorkspace({ dashboard }: { dashboard: ReturnType<typeof useProje
   if (!session) {
     return null;
   }
-
-  const profileKey = [
-    session.user.id,
-    session.user.displayName,
-    session.user.phoneNumber ?? "",
-    session.user.profilePhotoUpdatedAt ?? "",
-    session.user.hasProfilePhoto ? "1" : "0",
-  ].join(":");
 
   return (
     <HomePitWorkspaceShell
@@ -93,7 +87,7 @@ function ProfileWorkspace({ dashboard }: { dashboard: ReturnType<typeof useProje
       ]}
       requireHousehold={false}
     >
-      <ProfilePanel key={profileKey} dashboard={dashboard} />
+      <ProfilePanel key={session.user.id} dashboard={dashboard} />
     </HomePitWorkspaceShell>
   );
 }
@@ -102,25 +96,22 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   const session = dashboard.session!;
   const user = session.user;
   const token = session.accessToken;
-  const householdId = dashboard.activeHouseholdId || undefined;
   const ownedHouseholdCount = session.households.filter((household) => household.role === "Owner").length;
+  const profilePhotoInputRef = useRef<HTMLInputElement | null>(null);
 
   const [displayName, setDisplayName] = useState(user.displayName);
   const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber ?? "");
-  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
-  const previewUrl = useObjectUrl(profilePhoto);
   const [savingProfile, setSavingProfile] = useState(false);
   const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [photoCropDraft, setPhotoCropDraft] = useState<ProfilePhotoCropDraft | null>(null);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSavingProfile(true);
 
-    let profileSaved = false;
-
     try {
-      let updatedUser = await apiFetch<AuthResponse["user"]>("/api/users/me", {
+      const updatedUser = await apiFetch<AuthResponse["user"]>("/api/users/me", {
         method: "PUT",
         token,
         body: JSON.stringify({
@@ -128,29 +119,10 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
           phoneNumber: phoneNumber || null,
         }),
       });
-      profileSaved = true;
       applyUpdatedUser(updatedUser);
-
-      if (profilePhoto) {
-        const formData = new FormData();
-        formData.append("file", profilePhoto);
-        updatedUser = await apiFetch<AuthResponse["user"]>("/api/users/me/profile-photo", {
-          method: "POST",
-          token,
-          body: formData,
-        });
-        applyUpdatedUser(updatedUser);
-      }
-
-      toast.success(profilePhoto ? "Perfil e foto atualizados." : "Perfil atualizado.");
+      toast.success("Perfil atualizado.");
     } catch (exception) {
-      toast.error(
-        exception instanceof Error
-          ? exception.message
-          : profileSaved
-            ? "Os dados do perfil foram salvos, mas não foi possível concluir o envio da foto."
-            : "Não foi possível atualizar o perfil.",
-      );
+      toast.error(exception instanceof Error ? exception.message : "Não foi possível atualizar o perfil.");
     } finally {
       setSavingProfile(false);
     }
@@ -205,6 +177,24 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
     );
   }
 
+  function openPhotoPicker() {
+    profilePhotoInputRef.current?.click();
+  }
+
+  function handlePhotoSelection(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setPhotoCropDraft({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    });
+  }
+
   const pendingCopy = useMemo(() => {
     if (ownedHouseholdCount === 0) {
       return "Se você excluir a conta agora, o acesso será encerrado imediatamente. Para voltar ao sistema no futuro, será necessário criar uma nova conta.";
@@ -212,6 +202,14 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
 
     return `Você é proprietário de ${ownedHouseholdCount} casa(s). Ao continuar, sua conta será desativada agora e apagada automaticamente em 30 dias com essas casa(s) e todos os vínculos delas, caso o cancelamento não seja desfeito.`;
   }, [ownedHouseholdCount]);
+
+  useEffect(() => {
+    return () => {
+      if (photoCropDraft) {
+        URL.revokeObjectURL(photoCropDraft.previewUrl);
+      }
+    };
+  }, [photoCropDraft]);
 
   return (
     <div className="space-y-4">
@@ -243,13 +241,6 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
               className="rounded-full border border-border/70 px-4 py-2 text-sm font-semibold text-muted-foreground"
               disabled
             >
-              Segurança
-            </button>
-            <button
-              type="button"
-              className="rounded-full border border-border/70 px-4 py-2 text-sm font-semibold text-muted-foreground"
-              disabled
-            >
               Preferências
             </button>
           </div>
@@ -260,16 +251,35 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
         <Card className="overflow-hidden">
           <CardContent className="space-y-5 p-6">
             <div className="rounded-[26px] border border-border/70 bg-surface-muted p-5">
-              <div className="flex items-start justify-between gap-3">
-                {previewUrl ? (
-                  <AvatarCircle name={displayName || user.displayName} imageUrl={previewUrl} className="size-24 text-xl" />
-                ) : (
-                  <ProtectedUserAvatar user={user} token={token} householdId={householdId} className="size-24 text-xl" />
-                )}
-                <div className="rounded-full border border-border/70 bg-background p-2 text-muted-foreground">
-                  <Camera className="size-4" />
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-3">
+                  <div className="relative">
+                    <ProtectedUserAvatar user={user} token={token} className="size-24 text-xl" />
+                    <button
+                      type="button"
+                      className="absolute -bottom-1 -right-1 grid size-10 place-items-center rounded-full border border-border/70 bg-background text-muted-foreground shadow-sm transition hover:bg-surface-muted hover:text-foreground"
+                      onClick={openPhotoPicker}
+                      aria-label="Alterar foto de perfil"
+                      title="Alterar foto de perfil"
+                    >
+                      <Camera className="size-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Clique no ícone da câmera para escolher uma nova foto. O recorte é aplicado na hora.
+                  </p>
+                </div>
+                <div className="rounded-[16px] border border-border/70 bg-background px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Foto
                 </div>
               </div>
+              <input
+                ref={profilePhotoInputRef}
+                className="hidden"
+                type="file"
+                accept={COMMON_IMAGE_ACCEPT}
+                onChange={handlePhotoSelection}
+              />
               <div className="mt-4 space-y-1">
                 <p className="text-xl font-semibold text-foreground">{user.displayName}</p>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
@@ -299,9 +309,6 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
             </CardHeader>
             <CardContent>
               <form className="grid gap-5" onSubmit={saveProfile}>
-                <Field label="Foto de perfil" description={COMMON_IMAGE_HELP_TEXT}>
-                  <Input type="file" accept={COMMON_IMAGE_ACCEPT} onChange={(event) => setProfilePhoto(event.target.files?.[0] ?? null)} />
-                </Field>
                 <div className="grid gap-5 lg:grid-cols-2">
                   <Field label="Nome" description="Nome exibido nos módulos e interações da casa.">
                     <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
@@ -351,6 +358,34 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
           )}
         </div>
       </div>
+
+      <ProfilePhotoCropDialog
+        key={photoCropDraft?.previewUrl ?? "profile-crop-closed"}
+        draft={photoCropDraft}
+        onCancel={() => setPhotoCropDraft(null)}
+        onConfirm={async (crop) => {
+          if (!photoCropDraft) {
+            return;
+          }
+
+          try {
+            const croppedFile = await cropProfilePhotoFile(photoCropDraft.file, crop);
+            const formData = new FormData();
+            formData.append("file", croppedFile);
+            const updatedUser = await apiFetch<AuthResponse["user"]>("/api/users/me/profile-photo", {
+              method: "POST",
+              token,
+              body: formData,
+            });
+
+            applyUpdatedUser(updatedUser);
+            toast.success("Foto de perfil atualizada.");
+            setPhotoCropDraft(null);
+          } catch (exception) {
+            toast.error(exception instanceof Error ? exception.message : "Não foi possível atualizar a foto de perfil.");
+          }
+        }}
+      />
 
       <Dialog open={dangerDialogOpen} onOpenChange={setDangerDialogOpen}>
         <DialogContent>
@@ -403,18 +438,4 @@ function Metric({ label, value }: { label: string; value: number }) {
       <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
     </div>
   );
-}
-
-function useObjectUrl(file: File | null) {
-  const objectUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
-
-  useEffect(() => {
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [objectUrl]);
-
-  return objectUrl;
 }

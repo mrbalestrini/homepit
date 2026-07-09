@@ -637,7 +637,7 @@ function MemberAvatarPill({
             <Button asChild variant="secondary" size="sm" className="w-full">
               <Link href="/profile">
                 <Pencil />
-                Editar perfil
+                Perfil
               </Link>
             </Button>
           </div>
@@ -690,7 +690,7 @@ function SidebarUserMenu({
         <DropdownMenuItem asChild>
           <Link href="/profile">
             <Pencil className="size-4" />
-            Editar perfil
+            Perfil
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
