@@ -8,6 +8,7 @@ using HomePit.Application.Finance;
 using HomePit.Application.Gsm;
 using HomePit.Application.Households;
 using HomePit.Application.Institutional;
+using HomePit.Application.Plans;
 using HomePit.Application.Prompts;
 using HomePit.Application.Projects;
 using HomePit.Infrastructure;
@@ -200,6 +201,8 @@ api.MapDelete("/users/me", async (AuthService service, CancellationToken cancell
     Results.Ok(await service.DeleteOwnAccountAsync(cancellationToken)));
 api.MapPost("/users/me/reactivate", async (AuthService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.ReactivateOwnAccountAsync(cancellationToken)));
+api.MapGet("/users/me/plan", async (CommercialPlanService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetCurrentUserPlanAsync(cancellationToken)));
 api.MapPost("/users/me/profile-photo", async (
     HttpRequest request,
     AuthService service,
@@ -259,6 +262,27 @@ api.MapDelete("/admin/users/{id:guid}", async (
     await service.DeleteUserAsSuperAdminAsync(id, cancellationToken);
     return Results.NoContent();
 });
+api.MapGet("/admin/platform/plans", async (CommercialPlanService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListPlansAsync(cancellationToken)));
+api.MapPut("/admin/platform/plans/{id:guid}", async (
+    Guid id,
+    UpdatePlanDefinitionRequest request,
+    CommercialPlanService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdatePlanAsync(id, request, cancellationToken)));
+api.MapGet("/admin/platform/subscriptions", async (CommercialPlanService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListSubscriptionsAsync(cancellationToken)));
+api.MapPost("/admin/platform/subscriptions", async (
+    CreateUserSubscriptionRequest request,
+    CommercialPlanService service,
+    CancellationToken cancellationToken) =>
+        Results.Created("/api/admin/platform/subscriptions", await service.CreateSubscriptionAsync(request, cancellationToken)));
+api.MapPut("/admin/platform/subscriptions/{id:guid}", async (
+    Guid id,
+    UpdateUserSubscriptionRequest request,
+    CommercialPlanService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateSubscriptionAsync(id, request, cancellationToken)));
 var finance = api.MapGroup("/finance");
 
 finance.MapGet("/periods", async (FinanceService service, CancellationToken cancellationToken) =>

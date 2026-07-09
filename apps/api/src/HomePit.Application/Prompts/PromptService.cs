@@ -1,7 +1,9 @@
 using HomePit.Application.Common;
 using HomePit.Application.Images;
+using HomePit.Application.Plans;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
+using HomePit.Domain.Plans;
 using HomePit.Domain.Prompts;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,7 +14,8 @@ public sealed class PromptService(
     IUserContext userContext,
     IObjectStorage objectStorage,
     IImageUploadProcessor imageUploadProcessor,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    ManagedImageQuotaService managedImageQuotaService)
 {
     private const int DefaultPageSize = 12;
     private const int MaxPageSize = 48;
@@ -220,6 +223,7 @@ public sealed class PromptService(
             await objectStorage.DeleteAsync(prompt.ImageObjectKey, cancellationToken);
         }
 
+        await managedImageQuotaService.DeleteManagedImageAsync(PlanImageAssetModule.Prompt, prompt.Id, cancellationToken);
         db.Prompts.Remove(prompt);
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -269,6 +273,13 @@ public sealed class PromptService(
         prompt.ImageContentType = preparedImage.ContentType;
         prompt.ImageUpdatedAt = timeProvider.GetUtcNow();
         await db.SaveChangesAsync(cancellationToken);
+        await managedImageQuotaService.RegisterManagedImageAsync(
+            userContext.UserId,
+            PlanImageAssetModule.Prompt,
+            prompt.Id,
+            objectKey,
+            preparedImage.ContentType,
+            cancellationToken);
 
         return ToPromptDetailDto(prompt, currentMember);
     }
@@ -312,6 +323,7 @@ public sealed class PromptService(
         prompt.ImageContentType = null;
         prompt.ImageUpdatedAt = null;
         await db.SaveChangesAsync(cancellationToken);
+        await managedImageQuotaService.DeleteManagedImageAsync(PlanImageAssetModule.Prompt, prompt.Id, cancellationToken);
 
         return ToPromptDetailDto(prompt, currentMember);
     }

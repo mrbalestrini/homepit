@@ -1,4 +1,6 @@
 export type AccountState = "Active" | "PendingSelfDeletion" | "DisabledBySuperAdmin";
+export type BillingCycle = "Monthly" | "Annual" | "Custom";
+export type UserSubscriptionStatus = "Scheduled" | "Active" | "Expired" | "Cancelled";
 
 export type Household = {
   id: string;
@@ -49,6 +51,57 @@ export type AdminUserListItem = {
   ownedHouseholdCount: number;
   membershipCount: number;
   isProtected: boolean;
+  effectivePlanSlug: string;
+  effectivePlanName: string;
+  activeSubscriptionStartsAt?: string | null;
+  activeSubscriptionEndsAt?: string | null;
+  activeSubscriptionBillingCycle?: BillingCycle | null;
+  activeSubscriptionAmountPaid?: number | null;
+  activeSubscriptionCurrencyCode?: string | null;
+  activeSubscriptionStatus?: UserSubscriptionStatus | null;
+};
+
+export type PlanDefinition = {
+  id: string;
+  slug: string;
+  name: string;
+  currencyCode: string;
+  monthlyPrice: number;
+  annualPrice: number;
+  maxOwnedHouseholds: number;
+  maxUniversesPerHousehold: number;
+  maxProjectsPerUniverse: number;
+  maxOriginalImages: number;
+  imagePolicyDescription: string;
+};
+
+export type UserSubscription = {
+  id: string;
+  userId: string;
+  userDisplayName: string;
+  userEmail: string;
+  planDefinitionId: string;
+  planSlug: string;
+  planName: string;
+  billingCycle: BillingCycle;
+  startsAt: string;
+  endsAt: string;
+  amountPaid: number;
+  currencyCode: string;
+  status: UserSubscriptionStatus;
+  adminNote?: string | null;
+};
+
+export type PlanUsageSummary = {
+  ownedHouseholdCount: number;
+  managedOriginalImageCount: number;
+  activeHouseholdUniverseCount?: number | null;
+};
+
+export type CurrentUserPlanSummary = {
+  plan: PlanDefinition;
+  activeSubscription?: UserSubscription | null;
+  usage: PlanUsageSummary;
 };
 
 export type AuthResponse = {

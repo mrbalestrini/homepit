@@ -318,6 +318,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
+  /api/users/me/plan:
+    get:
+      responses:
+        "200":
+          description: Current user's effective plan, active subscription and usage summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserPlanSummary"
   /api/admin/users:
     get:
       responses:
@@ -364,6 +373,86 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserListItem"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/plans:
+    get:
+      responses:
+        "200":
+          description: Editable commercial plan catalog for superadmin
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanDefinition"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/plans/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanDefinitionRequest"
+      responses:
+        "200":
+          description: Commercial plan updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanDefinition"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/subscriptions:
+    get:
+      responses:
+        "200":
+          description: Manual subscription history for superadmin
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserSubscription"
+        "403":
+          description: SuperAdmin role required
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserSubscriptionRequest"
+      responses:
+        "201":
+          description: Manual subscription created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSubscription"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/subscriptions/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserSubscriptionRequest"
+      responses:
+        "200":
+          description: Manual subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSubscription"
         "403":
           description: SuperAdmin role required
   /api/finance/periods:
@@ -2032,6 +2121,12 @@ components:
     AccountState:
       type: string
       enum: [Active, PendingSelfDeletion, DisabledBySuperAdmin]
+    BillingCycle:
+      type: string
+      enum: [Monthly, Annual, Custom]
+    UserSubscriptionStatus:
+      type: string
+      enum: [Scheduled, Active, Expired, Cancelled]
     DeleteOwnAccountResult:
       type: object
       required: [deletedImmediately]
@@ -2045,7 +2140,7 @@ components:
     AdminUserListItem:
       type: object
       required:
-        [id, email, displayName, systemRole, accountState, ownedHouseholdCount, membershipCount, isProtected]
+        [id, email, displayName, systemRole, accountState, ownedHouseholdCount, membershipCount, isProtected, effectivePlanSlug, effectivePlanName]
       properties:
         id:
           type: string
@@ -2076,6 +2171,193 @@ components:
           type: integer
         isProtected:
           type: boolean
+        effectivePlanSlug:
+          type: string
+        effectivePlanName:
+          type: string
+        activeSubscriptionStartsAt:
+          type: string
+          format: date-time
+          nullable: true
+        activeSubscriptionEndsAt:
+          type: string
+          format: date-time
+          nullable: true
+        activeSubscriptionBillingCycle:
+          $ref: "#/components/schemas/BillingCycle"
+          nullable: true
+        activeSubscriptionAmountPaid:
+          type: number
+          nullable: true
+        activeSubscriptionCurrencyCode:
+          type: string
+          nullable: true
+        activeSubscriptionStatus:
+          $ref: "#/components/schemas/UserSubscriptionStatus"
+          nullable: true
+    PlanDefinition:
+      type: object
+      required:
+        [id, slug, name, currencyCode, monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniversesPerHousehold, maxProjectsPerUniverse, maxOriginalImages, imagePolicyDescription]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        currencyCode:
+          type: string
+        monthlyPrice:
+          type: number
+        annualPrice:
+          type: number
+        maxOwnedHouseholds:
+          type: integer
+        maxUniversesPerHousehold:
+          type: integer
+        maxProjectsPerUniverse:
+          type: integer
+        maxOriginalImages:
+          type: integer
+        imagePolicyDescription:
+          type: string
+    UpdatePlanDefinitionRequest:
+      type: object
+      required:
+        [monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniversesPerHousehold, maxProjectsPerUniverse, maxOriginalImages]
+      properties:
+        monthlyPrice:
+          type: number
+        annualPrice:
+          type: number
+        maxOwnedHouseholds:
+          type: integer
+        maxUniversesPerHousehold:
+          type: integer
+        maxProjectsPerUniverse:
+          type: integer
+        maxOriginalImages:
+          type: integer
+    UserSubscription:
+      type: object
+      required:
+        [id, userId, userDisplayName, userEmail, planDefinitionId, planSlug, planName, billingCycle, startsAt, endsAt, amountPaid, currencyCode, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        userDisplayName:
+          type: string
+        userEmail:
+          type: string
+          format: email
+        planDefinitionId:
+          type: string
+          format: uuid
+        planSlug:
+          type: string
+        planName:
+          type: string
+        billingCycle:
+          $ref: "#/components/schemas/BillingCycle"
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        amountPaid:
+          type: number
+        currencyCode:
+          type: string
+        status:
+          $ref: "#/components/schemas/UserSubscriptionStatus"
+        adminNote:
+          type: string
+          nullable: true
+    CreateUserSubscriptionRequest:
+      type: object
+      required:
+        [userId, planDefinitionId, billingCycle, startsAt, endsAt, amountPaid, currencyCode, status]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        planDefinitionId:
+          type: string
+          format: uuid
+        billingCycle:
+          $ref: "#/components/schemas/BillingCycle"
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        amountPaid:
+          type: number
+        currencyCode:
+          type: string
+        status:
+          $ref: "#/components/schemas/UserSubscriptionStatus"
+        adminNote:
+          type: string
+          nullable: true
+    UpdateUserSubscriptionRequest:
+      type: object
+      required:
+        [userId, planDefinitionId, billingCycle, startsAt, endsAt, amountPaid, currencyCode, status]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        planDefinitionId:
+          type: string
+          format: uuid
+        billingCycle:
+          $ref: "#/components/schemas/BillingCycle"
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        amountPaid:
+          type: number
+        currencyCode:
+          type: string
+        status:
+          $ref: "#/components/schemas/UserSubscriptionStatus"
+        adminNote:
+          type: string
+          nullable: true
+    PlanUsageSummary:
+      type: object
+      required: [ownedHouseholdCount, managedOriginalImageCount]
+      properties:
+        ownedHouseholdCount:
+          type: integer
+        managedOriginalImageCount:
+          type: integer
+        activeHouseholdUniverseCount:
+          type: integer
+          nullable: true
+    CurrentUserPlanSummary:
+      type: object
+      required: [plan, usage]
+      properties:
+        plan:
+          $ref: "#/components/schemas/PlanDefinition"
+        activeSubscription:
+          $ref: "#/components/schemas/UserSubscription"
+          nullable: true
+        usage:
+          $ref: "#/components/schemas/PlanUsageSummary"
     Household:
       type: object
       required: [id, name, role, createdAt]

@@ -1,0 +1,222 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using HomePit.Application.Common;
+using HomePit.Application.Storage;
+using HomePit.Domain.Households;
+using HomePit.Infrastructure.Data;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Xunit;
+
+namespace HomePit.IntegrationTests;
+
+public sealed class CommercialPlanEndpointsTests
+{
+    [Fact]
+    public async Task Free_user_cannot_create_household()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+
+        var registerResponse = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            email = "free@homepit.dev",
+            password = "free-secret",
+            displayName = "Free User",
+            phoneNumber = (string?)null
+        });
+
+        registerResponse.EnsureSuccessStatusCode();
+        var auth = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(auth);
+
+        var createHouseholdResponse = await SendAuthorizedAsync(
+            client,
+            auth.AccessToken,
+            householdId: null,
+            HttpMethod.Post,
+            "/api/households",
+            JsonContent.Create(new { name = "Casa Bloqueada" }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, createHouseholdResponse.StatusCode);
+        var error = await createHouseholdResponse.Content.ReadFromJsonAsync<ProblemDetailsResponse>(JsonSerializerOptions.Web);
+        Assert.Equal("O plano Free não permite criar casas próprias.", error?.Detail);
+    }
+
+    [Fact]
+    public async Task Superadmin_can_manage_plans_and_subscriptions()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+        var seed = await SeedUserAsync(factory);
+
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email = "superadmin@homepit.dev",
+            password = "super-secret"
+        });
+
+        loginResponse.EnsureSuccessStatusCode();
+        var superAdminAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(superAdminAuth);
+
+        var plansResponse = await SendAuthorizedAsync(client, superAdminAuth.AccessToken, null, HttpMethod.Get, "/api/admin/platform/plans");
+        plansResponse.EnsureSuccessStatusCode();
+        var plans = await plansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PlanDefinitionResponse>>(JsonSerializerOptions.Web);
+        Assert.NotNull(plans);
+        Assert.Equal(5, plans.Count);
+
+        var standardPlan = Assert.Single(plans, item => item.Slug == "standard");
+        var updatePlanResponse = await SendAuthorizedAsync(
+            client,
+            superAdminAuth.AccessToken,
+            null,
+            HttpMethod.Put,
+            $"/api/admin/platform/plans/{standardPlan.Id}",
+            JsonContent.Create(new
+            {
+                monthlyPrice = 11.90m,
+                annualPrice = 119.00m,
+                maxOwnedHouseholds = 1,
+                maxUniversesPerHousehold = 4,
+                maxProjectsPerUniverse = 4,
+                maxOriginalImages = 35
+            }));
+
+        updatePlanResponse.EnsureSuccessStatusCode();
+
+        var createSubscriptionResponse = await SendAuthorizedAsync(
+            client,
+            superAdminAuth.AccessToken,
+            null,
+            HttpMethod.Post,
+            "/api/admin/platform/subscriptions",
+            JsonContent.Create(new
+            {
+                userId = seed.UserId,
+                planDefinitionId = standardPlan.Id,
+                billingCycle = "Monthly",
+                startsAt = DateTimeOffset.UtcNow.AddDays(-1),
+                endsAt = DateTimeOffset.UtcNow.AddDays(29),
+                amountPaid = 0m,
+                currencyCode = "BRL",
+                status = "Active",
+                adminNote = "voucher"
+            }));
+
+        createSubscriptionResponse.EnsureSuccessStatusCode();
+
+        var usersResponse = await SendAuthorizedAsync(client, superAdminAuth.AccessToken, null, HttpMethod.Get, "/api/admin/users");
+        usersResponse.EnsureSuccessStatusCode();
+        var users = await usersResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<AdminUserListItemResponse>>(JsonSerializerOptions.Web);
+        var seededUser = Assert.Single(users!, item => item.Id == seed.UserId);
+        Assert.Equal("Standard", seededUser.EffectivePlanName);
+        Assert.Equal("Active", seededUser.ActiveSubscriptionStatus);
+    }
+
+    private static async Task<SeedUserResult> SeedUserAsync(HomePitApiFactory factory)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<HomePitDbContext>();
+
+        var user = new AppUser
+        {
+            Email = "standard@homepit.dev",
+            PasswordHash = "hash",
+            DisplayName = "Standard User",
+            SystemRole = SystemRole.User
+        };
+
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        return new SeedUserResult(user.Id);
+    }
+
+    private static async Task<HttpResponseMessage> SendAuthorizedAsync(
+        HttpClient client,
+        string accessToken,
+        Guid? householdId,
+        HttpMethod method,
+        string path,
+        HttpContent? content = null)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        if (householdId.HasValue)
+        {
+            request.Headers.Add("X-Household-Id", householdId.Value.ToString());
+        }
+
+        request.Content = content;
+        return await client.SendAsync(request);
+    }
+
+    private sealed record SeedUserResult(Guid UserId);
+
+    private sealed record AuthResponse(string AccessToken, AuthUserResponse User);
+    private sealed record AuthUserResponse(string Id, string Email, string DisplayName, string SystemRole);
+    private sealed record ProblemDetailsResponse(string? Detail);
+    private sealed record PlanDefinitionResponse(Guid Id, string Slug, string Name);
+    private sealed record AdminUserListItemResponse(Guid Id, string EffectivePlanName, string? ActiveSubscriptionStatus);
+
+    private sealed class HomePitApiFactory : WebApplicationFactory<Program>, IAsyncDisposable
+    {
+        private readonly string databaseName = Guid.NewGuid().ToString("N");
+        private readonly FakeObjectStorage storage = new();
+
+        protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
+        {
+            builder.UseSetting(Microsoft.AspNetCore.Hosting.WebHostDefaults.EnvironmentKey, "Development");
+            builder.ConfigureAppConfiguration((_, configuration) =>
+            {
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Database:ApplyMigrationsOnStartup"] = "false",
+                    ["Notifications:DailyDigestEnabled"] = "false",
+                    ["ObjectStorage:CreateBucketOnStartup"] = "true",
+                    ["SuperAdmin:Email"] = "superadmin@homepit.dev",
+                    ["SuperAdmin:Password"] = "super-secret",
+                    ["SuperAdmin:DisplayName"] = "SuperAdmin"
+                });
+            });
+
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<DbContextOptions<HomePitDbContext>>();
+                services.RemoveAll<IDbContextOptionsConfiguration<HomePitDbContext>>();
+                services.RemoveAll<HomePitDbContext>();
+                services.RemoveAll<IHomePitDbContext>();
+                services.RemoveAll<IObjectStorage>();
+
+                services.AddDbContext<HomePitDbContext>(options => options.UseInMemoryDatabase(databaseName));
+                services.AddScoped<IHomePitDbContext>(provider => provider.GetRequiredService<HomePitDbContext>());
+                services.AddSingleton<IObjectStorage>(storage);
+            });
+        }
+
+        public new async ValueTask DisposeAsync()
+        {
+            await base.DisposeAsync();
+        }
+    }
+
+    private sealed class FakeObjectStorage : IObjectStorage
+    {
+        public Task EnsureBucketExistsAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<StoredObject> GetAsync(string objectKey, CancellationToken cancellationToken) =>
+            throw new NotFoundException("Arquivo não encontrado.");
+
+        public Task PutAsync(ObjectStoragePutRequest request, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task DeleteAsync(string objectKey, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+}

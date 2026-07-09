@@ -1,5 +1,6 @@
 using HomePit.Application.Common;
 using HomePit.Application.Households;
+using HomePit.Application.Plans;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Domain.Notifications;
@@ -99,10 +100,15 @@ public sealed class HouseholdServiceTests
 
     private static HouseholdService CreateService(HomePitDbContext context, Guid userId, Guid householdId)
     {
+        var userContext = new TestUserContext(userId, householdId);
+        var storage = new FakeObjectStorage();
+        var commercialPlanService = new CommercialPlanService(context, userContext, TimeProvider.System);
+
         return new HouseholdService(
             context,
-            new TestUserContext(userId, householdId),
-            new HomePitDataPurgeService(context, new FakeObjectStorage()));
+            userContext,
+            new HomePitDataPurgeService(context, storage),
+            commercialPlanService);
     }
 
     private static async Task<HouseholdFixture> SeedFixtureAsync(HomePitDbContext context, bool includeSecondOwner = true)

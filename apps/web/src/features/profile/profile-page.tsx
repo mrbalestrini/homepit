@@ -19,7 +19,14 @@ import { AccountStateGate } from "@/features/workspace/account-state-gate";
 import { HomePitAuth } from "@/features/workspace/homepit-auth";
 import { HomePitWorkspaceShell, Notice } from "@/features/workspace/homepit-workspace-shell";
 import { ProtectedUserAvatar } from "@/features/workspace/protected-user-avatar";
-import { type AuthResponse, type DeleteOwnAccountResult, apiFetch, clearSession, updateStoredSession } from "@/lib/api";
+import {
+  type AuthResponse,
+  type CurrentUserPlanSummary,
+  type DeleteOwnAccountResult,
+  apiFetch,
+  clearSession,
+  updateStoredSession,
+} from "@/lib/api";
 import { useProjectDashboard } from "@/features/projects/use-project-dashboard";
 import { COMMON_IMAGE_ACCEPT } from "@/lib/image-upload";
 import { ProfilePhotoCropDialog, type ProfilePhotoCropDraft } from "@/features/profile/profile-photo-crop-dialog";
@@ -105,6 +112,8 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [photoCropDraft, setPhotoCropDraft] = useState<ProfilePhotoCropDraft | null>(null);
+  const [planSummary, setPlanSummary] = useState<CurrentUserPlanSummary | null>(null);
+  const [planLoading, setPlanLoading] = useState(true);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -210,6 +219,40 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
       }
     };
   }, [photoCropDraft]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setPlanLoading(true);
+
+        try {
+          const nextSummary = await apiFetch<CurrentUserPlanSummary>("/api/users/me/plan", {
+            token,
+            householdId: dashboard.activeHouseholdId || undefined,
+          });
+
+          if (!cancelled) {
+            setPlanSummary(nextSummary);
+          }
+        } catch (exception) {
+          if (!cancelled) {
+            toast.error(exception instanceof Error ? exception.message : "Não foi possível carregar o plano.");
+          }
+        } finally {
+          if (!cancelled) {
+            setPlanLoading(false);
+          }
+        }
+      })();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [dashboard.activeHouseholdId, token]);
 
   return (
     <div className="space-y-4">
@@ -327,6 +370,58 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Plano</CardTitle>
+              <CardDescription>Limites e vigência comercial da sua conta no HomePit.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {planLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  Carregando plano...
+                </div>
+              ) : planSummary ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">{planSummary.plan.name}</Badge>
+                    <Badge variant="neutral">
+                      {formatCurrency(planSummary.plan.monthlyPrice, planSummary.plan.currencyCode)}/mês
+                    </Badge>
+                    <Badge variant="neutral">
+                      {formatCurrency(planSummary.plan.annualPrice, planSummary.plan.currencyCode)}/ano
+                    </Badge>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <Metric label="Casas próprias" value={planSummary.plan.maxOwnedHouseholds} />
+                    <Metric label="Universos/casa" value={planSummary.plan.maxUniversesPerHousehold} />
+                    <Metric label="Projetos/universo" value={planSummary.plan.maxProjectsPerUniverse} />
+                    <Metric label="Imagens originais" value={planSummary.plan.maxOriginalImages} />
+                  </div>
+                  <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4 text-sm leading-6 text-muted-foreground">
+                    {planSummary.plan.imagePolicyDescription}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <Metric label="Casas em uso" value={planSummary.usage.ownedHouseholdCount} />
+                    <Metric label="Imagens em uso" value={planSummary.usage.managedOriginalImageCount} />
+                    <Metric label="Universos da casa ativa" value={planSummary.usage.activeHouseholdUniverseCount ?? 0} />
+                  </div>
+                  {planSummary.activeSubscription ? (
+                    <div className="rounded-[18px] border border-border/70 bg-background px-4 py-3 text-sm leading-6 text-muted-foreground">
+                      Assinatura {formatSubscriptionStatus(planSummary.activeSubscription.status)} de{" "}
+                      {formatDateTime(planSummary.activeSubscription.startsAt)} até{" "}
+                      {formatDateTime(planSummary.activeSubscription.endsAt)}.
+                    </div>
+                  ) : (
+                    <Notice tone="warning">Sem assinatura ativa no momento. Sua conta usa o plano padrão atual.</Notice>
+                  )}
+                </>
+              ) : (
+                <Notice tone="warning">Não foi possível carregar os dados do plano.</Notice>
+              )}
+            </CardContent>
+          </Card>
+
           {user.systemRole !== "SuperAdmin" ? (
             <Card className="border-danger/30">
               <CardHeader>
@@ -438,4 +533,33 @@ function Metric({ label, value }: { label: string; value: number }) {
       <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
     </div>
   );
+}
+
+function formatCurrency(value: number, currencyCode: string) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: currencyCode,
+  }).format(value);
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function formatSubscriptionStatus(value: "Scheduled" | "Active" | "Expired" | "Cancelled") {
+  switch (value) {
+    case "Active":
+      return "ativa";
+    case "Scheduled":
+      return "agendada";
+    case "Expired":
+      return "expirada";
+    case "Cancelled":
+      return "cancelada";
+    default:
+      return value;
+  }
 }

@@ -10,11 +10,18 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - Nova página `/profile` substituindo a antiga modal de edição, com layout preparado para futuras abas e uma área sensível para cancelamento da conta.
 - Nova área global `/admin/users` para o `SuperAdmin` listar, desativar, reativar e excluir usuários comuns da plataforma.
 - O ciclo de vida da conta agora expõe estados explícitos de conta, data agendada de exclusão e tela intermediária para contas desativadas.
+- Novo hub global `/admin/platform` para o `SuperAdmin`, com abas de `Usuários`, `Planos` e `Assinaturas`, além de edição manual do catálogo comercial e do histórico de assinaturas.
+- Novo domínio comercial persistido para planos globais, assinaturas manuais por usuário e ledger de imagens privadas governadas por cota.
 
 ### Changed
 - O cadastro deixou de aceitar criação imediata de casa, mantendo o fluxo de conta sem casa para que a primeira casa seja criada depois do login.
 - A seção de compras do cartão ganhou um filtro textual compatível com os principais campos exibidos na linha, e o selecionar todos passou a atuar apenas sobre os itens visíveis no filtro.
 - O fechamento de fatura passou a oferecer uma ação explícita para selecionar ou desmarcar todas as compras disponíveis de uma vez.
+- Todo usuário novo passa a operar comercialmente no plano `Free`, com bloqueio para criar casas próprias e fallback automático para esse plano quando não há assinatura ativa.
+- A criação de casas, universos e projetos agora respeita os limites configuráveis do plano efetivo do usuário.
+- O perfil do usuário passou a exibir plano efetivo, vigência da assinatura ativa, uso atual das cotas e a política dinâmica de degradação de imagens.
+- Uploads privados governados por plano agora preservam apenas a cota mais recente em qualidade original e rebaixam imagens antigas para `WEBP` com até `300 px` e qualidade `30%`.
+- A navegação lateral do `SuperAdmin` passou a concentrar a gestão global em `Plataforma`, mantendo `/admin/users` apenas como redirecionamento compatível.
 
 ## [1.8.0] - 2026-07-08
 

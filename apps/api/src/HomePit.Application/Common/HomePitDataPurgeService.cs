@@ -1,4 +1,5 @@
 using HomePit.Application.Storage;
+using HomePit.Domain.Plans;
 using Microsoft.EntityFrameworkCore;
 
 namespace HomePit.Application.Common;
@@ -37,7 +38,33 @@ public sealed class HomePitDataPurgeService(
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
+        var managedActivityIds = await db.Activities
+            .AsNoTracking()
+            .Where(item => item.HouseholdId == householdId && item.ImageObjectKey != null)
+            .Select(item => item.Id)
+            .ToArrayAsync(cancellationToken);
+
+        var managedPromptIds = await db.Prompts
+            .AsNoTracking()
+            .Where(item => item.HouseholdId == householdId && item.ImageObjectKey != null)
+            .Select(item => item.Id)
+            .ToArrayAsync(cancellationToken);
+
         await DeleteObjectKeysAsync(objectKeys, cancellationToken);
+
+        if (managedActivityIds.Length > 0 || managedPromptIds.Length > 0)
+        {
+            var managedImageAssets = await db.UserPlanImageAssets
+                .Where(item =>
+                    (item.Module == PlanImageAssetModule.Activity && managedActivityIds.Contains(item.EntityId)) ||
+                    (item.Module == PlanImageAssetModule.Prompt && managedPromptIds.Contains(item.EntityId)))
+                .ToArrayAsync(cancellationToken);
+
+            if (managedImageAssets.Length > 0)
+            {
+                db.UserPlanImageAssets.RemoveRange(managedImageAssets);
+            }
+        }
 
         await db.ActivityComments
             .Where(comment => comment.HouseholdId == householdId)

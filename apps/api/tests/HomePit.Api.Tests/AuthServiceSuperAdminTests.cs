@@ -1,5 +1,6 @@
 using HomePit.Application.Auth;
 using HomePit.Application.Common;
+using HomePit.Application.Plans;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Infrastructure.Data;
@@ -100,17 +101,20 @@ public sealed class AuthServiceSuperAdminTests
     private static AuthService CreateService(HomePitDbContext db, SuperAdminOptions options)
     {
         var storage = new FakeObjectStorage();
+        var userContext = new TestUserContext();
+        var commercialPlanService = new CommercialPlanService(db, userContext, TimeProvider.System);
 
         return new AuthService(
             db,
             new StubPasswordHasher(),
             new StubTokenService(),
             TimeProvider.System,
-            new TestUserContext(),
+            userContext,
             storage,
             new ImageSharpImageUploadProcessor(),
             new HomePitDataPurgeService(db, storage),
-            options);
+            options,
+            commercialPlanService);
     }
 
     private static void SeedHouseholds(HomePitDbContext db, params string[] names)

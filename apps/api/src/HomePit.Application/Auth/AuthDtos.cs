@@ -1,4 +1,5 @@
 using HomePit.Domain.Households;
+using HomePit.Domain.Plans;
 
 namespace HomePit.Application.Auth;
 
@@ -29,7 +30,15 @@ public sealed record AdminUserListItemDto(
     DateTimeOffset? DeactivatedAt,
     int OwnedHouseholdCount,
     int MembershipCount,
-    bool IsProtected);
+    bool IsProtected,
+    string EffectivePlanSlug,
+    string EffectivePlanName,
+    DateTimeOffset? ActiveSubscriptionStartsAt,
+    DateTimeOffset? ActiveSubscriptionEndsAt,
+    BillingCycle? ActiveSubscriptionBillingCycle,
+    decimal? ActiveSubscriptionAmountPaid,
+    string? ActiveSubscriptionCurrencyCode,
+    UserSubscriptionStatus? ActiveSubscriptionStatus);
 
 public sealed record AuthResponse(
     string AccessToken,

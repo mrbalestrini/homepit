@@ -1,5 +1,6 @@
 using HomePit.Application.Auth;
 using HomePit.Application.Common;
+using HomePit.Application.Plans;
 using HomePit.Domain.Finance;
 using HomePit.Domain.Households;
 using HomePit.Domain.Notifications;
@@ -29,7 +30,8 @@ public sealed record HouseholdMemberDto(
 public sealed class HouseholdService(
     IHomePitDbContext db,
     IUserContext userContext,
-    HomePitDataPurgeService dataPurgeService)
+    HomePitDataPurgeService dataPurgeService,
+    CommercialPlanService commercialPlanService)
 {
     private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
@@ -55,6 +57,7 @@ public sealed class HouseholdService(
     public async Task<HouseholdDto> CreateAsync(CreateHouseholdRequest request, CancellationToken cancellationToken)
     {
         EnsureWritable();
+        await commercialPlanService.EnsureCanCreateHouseholdAsync(userContext.UserId, cancellationToken);
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new ValidationException("Informe o nome da casa.");

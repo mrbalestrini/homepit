@@ -1,6 +1,6 @@
 # Active Change
 
 status: active
-change: 2026-07-08-normalizacao-imagens-webp
-updated: 2026-07-08
-summary: Padronizacao compartilhada de uploads de imagem comuns para WEBP com limite de 2000 px
+change: 2026-07-09-planos-globais-assinaturas
+updated: 2026-07-09
+summary: Catalogo global de planos, assinaturas manuais e limites comerciais com degradacao de imagens

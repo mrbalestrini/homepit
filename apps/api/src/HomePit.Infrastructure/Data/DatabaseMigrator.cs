@@ -1,3 +1,4 @@
+using HomePit.Application.Plans;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -35,6 +36,9 @@ public static class DatabaseMigrator
 
         await db.Database.MigrateAsync(cancellationToken);
 
+        var commercialPlanService = scope.ServiceProvider.GetRequiredService<CommercialPlanService>();
+        await commercialPlanService.EnsurePlanCatalogAsync(cancellationToken);
+
         logger.LogInformation("HomePit database migrations applied successfully.");
     }
 
@@ -56,6 +60,8 @@ public static class DatabaseMigrator
 
         if (pending.Length == 0)
         {
+            var commercialPlanService = scope.ServiceProvider.GetRequiredService<CommercialPlanService>();
+            await commercialPlanService.EnsurePlanCatalogAsync(cancellationToken);
             logger.LogInformation("HomePit database is up to date. No pending migrations were found.");
             return;
         }

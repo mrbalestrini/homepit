@@ -8,6 +8,7 @@ using HomePit.Application.Common;
 using HomePit.Application.Storage;
 using HomePit.Domain.Finance;
 using HomePit.Domain.Households;
+using HomePit.Domain.Plans;
 using HomePit.Domain.Projects;
 using HomePit.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -814,6 +815,21 @@ public sealed class FinanceEndpointsTests
         await db.SaveChangesAsync();
 
         db.FinanceCategories.AddRange(FinanceCategoryCatalog.CreateDefaults(household.Id, ownerMember.Id));
+        await db.SaveChangesAsync();
+
+        var standardPlan = await db.PlanDefinitions.SingleAsync(item => item.Slug == PlanDefinitionCatalog.BronzeSlug);
+        db.UserSubscriptions.Add(new UserSubscription
+        {
+            UserId = ownerUser.Id,
+            PlanDefinitionId = standardPlan.Id,
+            BillingCycle = BillingCycle.Monthly,
+            StartsAt = DateTimeOffset.UtcNow.AddDays(-1),
+            EndsAt = DateTimeOffset.UtcNow.AddDays(30),
+            AmountPaid = 0m,
+            CurrencyCode = "BRL",
+            Status = UserSubscriptionStatus.Active,
+            AdminNote = "Seed de teste para permitir a segunda casa."
+        });
         await db.SaveChangesAsync();
 
         var universe = new Universe

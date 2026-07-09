@@ -1,5 +1,6 @@
 using HomePit.Application.Auth;
 using HomePit.Application.Common;
+using HomePit.Application.Plans;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Infrastructure.Images;
@@ -108,6 +109,7 @@ public sealed class AuthServiceProfilePhotoTests
         var timeProvider = new FakeTimeProvider(DateTimeOffset.Parse("2026-06-01T10:00:00+00:00"));
         var userContext = new FakeUserContext(user.Id);
         var storage = new FakeObjectStorage();
+        var commercialPlanService = new CommercialPlanService(db, userContext, timeProvider);
 
         var service = new AuthService(
             db,
@@ -118,7 +120,8 @@ public sealed class AuthServiceProfilePhotoTests
             storage,
             new ImageSharpImageUploadProcessor(),
             new HomePitDataPurgeService(db, storage),
-            new SuperAdminOptions());
+            new SuperAdminOptions(),
+            commercialPlanService);
 
         return new TestContext(db, service, storage, timeProvider, user.Id);
     }

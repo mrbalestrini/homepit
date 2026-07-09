@@ -1,7 +1,9 @@
 using HomePit.Application.Common;
 using HomePit.Application.Images;
+using HomePit.Application.Plans;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
+using HomePit.Domain.Plans;
 using HomePit.Domain.Projects;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,7 +14,9 @@ public sealed class ProjectService(
     IUserContext userContext,
     IObjectStorage objectStorage,
     IImageUploadProcessor imageUploadProcessor,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    CommercialPlanService commercialPlanService,
+    ManagedImageQuotaService managedImageQuotaService)
 {
     private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
@@ -56,6 +60,7 @@ public sealed class ProjectService(
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        await commercialPlanService.EnsureCanCreateUniverseAsync(userContext.UserId, currentMember.HouseholdId, cancellationToken);
         var name = RequiredText(request.Name, "Informe o nome do universo.");
 
         var universe = new Universe
@@ -202,12 +207,12 @@ public sealed class ProjectService(
             .Where(prompt => prompt.HouseholdId == currentMember.HouseholdId && prompt.UniverseId == universe.Id)
             .ToArrayAsync(cancellationToken);
 
-        var activityImageKeys = await db.Projects
+        var activityImageSnapshots = await db.Projects
             .AsNoTracking()
             .Where(project => project.UniverseId == universe.Id)
             .SelectMany(project => project.Activities)
             .Where(activity => !string.IsNullOrWhiteSpace(activity.ImageObjectKey))
-            .Select(activity => activity.ImageObjectKey)
+            .Select(activity => new { activity.Id, activity.ImageObjectKey })
             .ToArrayAsync(cancellationToken);
 
         foreach (var prompt in prompts)
@@ -215,7 +220,11 @@ public sealed class ProjectService(
             prompt.UniverseId = null;
         }
 
-        await DeleteObjectKeysAsync(activityImageKeys, cancellationToken);
+        await DeleteObjectKeysAsync(activityImageSnapshots.Select(item => item.ImageObjectKey), cancellationToken);
+        await managedImageQuotaService.DeleteManagedImagesAsync(
+            PlanImageAssetModule.Activity,
+            activityImageSnapshots.Select(item => item.Id).ToArray(),
+            cancellationToken);
         if (!string.IsNullOrWhiteSpace(universe.ImageObjectKey))
         {
             await objectStorage.DeleteAsync(universe.ImageObjectKey, cancellationToken);
@@ -254,6 +263,7 @@ public sealed class ProjectService(
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
+        await commercialPlanService.EnsureCanCreateProjectAsync(userContext.UserId, request.UniverseId, cancellationToken);
         var universe = await db.Universes
             .FirstOrDefaultAsync(item => item.Id == request.UniverseId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Universo não encontrado.");
@@ -315,13 +325,17 @@ public sealed class ProjectService(
 
         EnsureCanManageEntity(currentMember, project.CreatedByMemberId, "Você não pode excluir um projeto criado por outra pessoa.");
 
-        var activityImageKeys = await db.Activities
+        var activityImageSnapshots = await db.Activities
             .AsNoTracking()
             .Where(activity => activity.ProjectId == project.Id && !string.IsNullOrWhiteSpace(activity.ImageObjectKey))
-            .Select(activity => activity.ImageObjectKey)
+            .Select(activity => new { activity.Id, activity.ImageObjectKey })
             .ToArrayAsync(cancellationToken);
 
-        await DeleteObjectKeysAsync(activityImageKeys, cancellationToken);
+        await DeleteObjectKeysAsync(activityImageSnapshots.Select(item => item.ImageObjectKey), cancellationToken);
+        await managedImageQuotaService.DeleteManagedImagesAsync(
+            PlanImageAssetModule.Activity,
+            activityImageSnapshots.Select(item => item.Id).ToArray(),
+            cancellationToken);
         db.Projects.Remove(project);
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -457,6 +471,7 @@ public sealed class ProjectService(
         EnsureCanManageEntity(currentMember, activity.CreatedByMemberId, "Você não pode excluir uma atividade criada por outra pessoa.");
 
         await DeleteObjectKeysAsync([activity.ImageObjectKey], cancellationToken);
+        await managedImageQuotaService.DeleteManagedImageAsync(PlanImageAssetModule.Activity, activity.Id, cancellationToken);
         db.Activities.Remove(activity);
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -493,6 +508,13 @@ public sealed class ProjectService(
         activity.ImageContentType = preparedImage.ContentType;
         activity.ImageUpdatedAt = timeProvider.GetUtcNow();
         await db.SaveChangesAsync(cancellationToken);
+        await managedImageQuotaService.RegisterManagedImageAsync(
+            userContext.UserId,
+            PlanImageAssetModule.Activity,
+            activity.Id,
+            objectKey,
+            preparedImage.ContentType,
+            cancellationToken);
 
         var updated = await FindActivityForOutputAsync(currentMember.HouseholdId, activity.Id, cancellationToken);
         return ToActivityDto(updated, currentMember);
@@ -534,6 +556,7 @@ public sealed class ProjectService(
         activity.ImageContentType = null;
         activity.ImageUpdatedAt = null;
         await db.SaveChangesAsync(cancellationToken);
+        await managedImageQuotaService.DeleteManagedImageAsync(PlanImageAssetModule.Activity, activity.Id, cancellationToken);
 
         var updated = await FindActivityForOutputAsync(currentMember.HouseholdId, activity.Id, cancellationToken);
         return ToActivityDto(updated, currentMember);

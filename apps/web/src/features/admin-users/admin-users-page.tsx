@@ -70,7 +70,7 @@ function AdminUsersWorkspace({ dashboard }: { dashboard: ReturnType<typeof usePr
         deleteHousehold: dashboard.deleteHousehold,
         shareHousehold: dashboard.shareHousehold,
       }}
-      activeModule="admin-users"
+      activeModule="platform"
       subtitle="Gestão global de contas, desativações e exclusões definitivas"
       visibleCount={session.households.length}
       visibleLabel="casas visíveis"

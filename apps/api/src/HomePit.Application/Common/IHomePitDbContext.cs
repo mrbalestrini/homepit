@@ -3,6 +3,7 @@ using HomePit.Domain.Institutional;
 using HomePit.Domain.Finance;
 using HomePit.Domain.Gsm;
 using HomePit.Domain.Notifications;
+using HomePit.Domain.Plans;
 using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
 using Microsoft.EntityFrameworkCore;
@@ -36,9 +37,12 @@ public interface IHomePitDbContext
     DbSet<Activity> Activities { get; }
     DbSet<ActivityComment> ActivityComments { get; }
     DbSet<PendingItem> PendingItems { get; }
+    DbSet<PlanDefinition> PlanDefinitions { get; }
     DbSet<Prompt> Prompts { get; }
     DbSet<PromptCategory> PromptCategories { get; }
     DbSet<PromptCategoryAssignment> PromptCategoryAssignments { get; }
+    DbSet<UserPlanImageAsset> UserPlanImageAssets { get; }
+    DbSet<UserSubscription> UserSubscriptions { get; }
     DbSet<NotificationPreference> NotificationPreferences { get; }
     DbSet<NotificationRun> NotificationRuns { get; }
 

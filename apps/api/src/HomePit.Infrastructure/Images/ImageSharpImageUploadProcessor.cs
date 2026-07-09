@@ -8,11 +8,6 @@ namespace HomePit.Infrastructure.Images;
 
 public sealed class ImageSharpImageUploadProcessor : IImageUploadProcessor
 {
-    private static readonly WebpEncoder WebpEncoder = new()
-    {
-        Quality = 75
-    };
-
     public async Task<PreparedImageUpload> PrepareAsync(
         Stream content,
         long contentLength,
@@ -128,8 +123,16 @@ public sealed class ImageSharpImageUploadProcessor : IImageUploadProcessor
         EnsureRequiredDimensions(image.Width, image.Height, policy, messages);
 
         await using var output = new MemoryStream();
-        await image.SaveAsWebpAsync(output, WebpEncoder, cancellationToken);
+        await image.SaveAsWebpAsync(output, BuildWebpEncoder(policy), cancellationToken);
         return new PreparedImageUpload(output.ToArray(), "image/webp", image.Width, image.Height);
+    }
+
+    private static WebpEncoder BuildWebpEncoder(ImageUploadPolicy policy)
+    {
+        return new WebpEncoder
+        {
+            Quality = policy.WebpQuality ?? 75
+        };
     }
 
     private static (int Width, int Height)? CalculateResize(int width, int height, int maxWidth, int maxHeight)

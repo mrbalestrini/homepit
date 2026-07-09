@@ -5,6 +5,7 @@ using HomePit.Domain.Gsm;
 using HomePit.Domain.Households;
 using HomePit.Domain.Institutional;
 using HomePit.Domain.Notifications;
+using HomePit.Domain.Plans;
 using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
 using Microsoft.EntityFrameworkCore;
@@ -39,9 +40,12 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<ActivityComment> ActivityComments => Set<ActivityComment>();
     public DbSet<PendingItem> PendingItems => Set<PendingItem>();
+    public DbSet<PlanDefinition> PlanDefinitions => Set<PlanDefinition>();
     public DbSet<Prompt> Prompts => Set<Prompt>();
     public DbSet<PromptCategory> PromptCategories => Set<PromptCategory>();
     public DbSet<PromptCategoryAssignment> PromptCategoryAssignments => Set<PromptCategoryAssignment>();
+    public DbSet<UserPlanImageAsset> UserPlanImageAssets => Set<UserPlanImageAsset>();
+    public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
     public DbSet<NotificationRun> NotificationRuns => Set<NotificationRun>();
 
@@ -53,6 +57,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
         ConfigureFinance(modelBuilder);
         ConfigureGsm(modelBuilder);
         ConfigureInstitutional(modelBuilder);
+        ConfigurePlans(modelBuilder);
         ConfigureProjects(modelBuilder);
         ConfigurePrompts(modelBuilder);
         ConfigureNotifications(modelBuilder);
@@ -187,6 +192,54 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.HasOne(token => token.User)
                 .WithMany(user => user.RefreshTokens)
                 .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigurePlans(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<PlanDefinition>(builder =>
+        {
+            builder.ToTable("plan_definitions");
+            builder.Property(item => item.Slug).HasMaxLength(40).IsRequired();
+            builder.Property(item => item.Name).HasMaxLength(80).IsRequired();
+            builder.Property(item => item.CurrencyCode).HasMaxLength(3).IsRequired();
+            builder.Property(item => item.MonthlyPrice).HasPrecision(10, 2);
+            builder.Property(item => item.AnnualPrice).HasPrecision(10, 2);
+            builder.HasIndex(item => item.Slug).IsUnique();
+        });
+
+        modelBuilder.Entity<UserSubscription>(builder =>
+        {
+            builder.ToTable("user_subscriptions");
+            builder.Property(item => item.BillingCycle).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.AmountPaid).HasPrecision(10, 2);
+            builder.Property(item => item.CurrencyCode).HasMaxLength(3).IsRequired();
+            builder.Property(item => item.Status).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.AdminNote).HasMaxLength(4000);
+            builder.HasIndex(item => new { item.UserId, item.StartsAt });
+            builder.HasIndex(item => new { item.UserId, item.EndsAt });
+            builder.HasOne(item => item.User)
+                .WithMany(user => user.Subscriptions)
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.PlanDefinition)
+                .WithMany(plan => plan.Subscriptions)
+                .HasForeignKey(item => item.PlanDefinitionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<UserPlanImageAsset>(builder =>
+        {
+            builder.ToTable("user_plan_image_assets");
+            builder.Property(item => item.Module).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.ObjectKey).HasMaxLength(512).IsRequired();
+            builder.Property(item => item.ContentType).HasMaxLength(120).IsRequired();
+            builder.HasIndex(item => new { item.Module, item.EntityId }).IsUnique();
+            builder.HasIndex(item => new { item.UserId, item.UploadedAt });
+            builder.HasOne(item => item.User)
+                .WithMany(user => user.PlanImageAssets)
+                .HasForeignKey(item => item.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

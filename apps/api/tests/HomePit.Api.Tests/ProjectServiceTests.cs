@@ -1,4 +1,5 @@
 using HomePit.Application.Common;
+using HomePit.Application.Plans;
 using HomePit.Application.Projects;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
@@ -185,12 +186,25 @@ public sealed class ProjectServiceTests
         Guid householdId,
         InMemoryObjectStorage? storage = null)
     {
+        var userContext = new TestUserContext(userId, householdId);
+        var resolvedStorage = storage ?? new InMemoryObjectStorage();
+        var imageUploadProcessor = new ImageSharpImageUploadProcessor();
+        var commercialPlanService = new CommercialPlanService(context, userContext, TimeProvider.System);
+        var managedImageQuotaService = new ManagedImageQuotaService(
+            context,
+            resolvedStorage,
+            imageUploadProcessor,
+            commercialPlanService,
+            TimeProvider.System);
+
         return new ProjectService(
             context,
-            new TestUserContext(userId, householdId),
-            storage ?? new InMemoryObjectStorage(),
-            new ImageSharpImageUploadProcessor(),
-            TimeProvider.System);
+            userContext,
+            resolvedStorage,
+            imageUploadProcessor,
+            TimeProvider.System,
+            commercialPlanService,
+            managedImageQuotaService);
     }
 
     private static async Task<ProjectFixture> SeedFixtureAsync(HomePitDbContext context)

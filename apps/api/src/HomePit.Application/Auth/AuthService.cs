@@ -1,5 +1,6 @@
 using HomePit.Application.Common;
 using HomePit.Application.Images;
+using HomePit.Application.Plans;
 using HomePit.Application.Storage;
 using HomePit.Domain.Finance;
 using HomePit.Domain.Households;
@@ -19,7 +20,8 @@ public sealed class AuthService(
     IObjectStorage objectStorage,
     IImageUploadProcessor imageUploadProcessor,
     HomePitDataPurgeService dataPurgeService,
-    SuperAdminOptions superAdminOptions)
+    SuperAdminOptions superAdminOptions,
+    CommercialPlanService commercialPlanService)
 {
     private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
     private static readonly TimeSpan PendingDeletionWindow = TimeSpan.FromDays(30);
@@ -109,24 +111,21 @@ public sealed class AuthService(
     public async Task<IReadOnlyCollection<AdminUserListItemDto>> ListAdminUsersAsync(CancellationToken cancellationToken)
     {
         EnsureSuperAdmin();
-        return await db.Users
+        var users = await db.Users
             .AsNoTracking()
+            .Include(user => user.HouseholdMembers)
             .Where(user => user.IsActive)
             .OrderByDescending(user => user.SystemRole == SystemRole.SuperAdmin)
             .ThenBy(user => user.DisplayName)
-            .Select(user => new AdminUserListItemDto(
-                user.Id,
-                user.Email,
-                user.DisplayName,
-                user.PhoneNumber,
-                user.SystemRole,
-                user.AccountState,
-                user.ScheduledDeletionAt,
-                user.DeactivatedAt,
-                user.HouseholdMembers.Count(member => member.IsActive && member.Role == HouseholdRole.Owner),
-                user.HouseholdMembers.Count(member => member.IsActive),
-                user.SystemRole == SystemRole.SuperAdmin))
             .ToArrayAsync(cancellationToken);
+
+        var results = new List<AdminUserListItemDto>(users.Length);
+        foreach (var user in users)
+        {
+            results.Add(await BuildAdminUserAsync(user, cancellationToken));
+        }
+
+        return results;
     }
 
     public async Task<AdminUserListItemDto> DeactivateUserAsSuperAdminAsync(Guid userId, CancellationToken cancellationToken)
@@ -583,22 +582,39 @@ public sealed class AuthService(
 
     private async Task<AdminUserListItemDto> BuildAdminUserAsync(Guid userId, CancellationToken cancellationToken)
     {
-        return await db.Users
+        var user = await db.Users
             .AsNoTracking()
-            .Where(user => user.Id == userId && user.IsActive)
-            .Select(user => new AdminUserListItemDto(
-                user.Id,
-                user.Email,
-                user.DisplayName,
-                user.PhoneNumber,
-                user.SystemRole,
-                user.AccountState,
-                user.ScheduledDeletionAt,
-                user.DeactivatedAt,
-                user.HouseholdMembers.Count(member => member.IsActive && member.Role == HouseholdRole.Owner),
-                user.HouseholdMembers.Count(member => member.IsActive),
-                user.SystemRole == SystemRole.SuperAdmin))
-            .SingleAsync(cancellationToken);
+            .Include(item => item.HouseholdMembers)
+            .FirstOrDefaultAsync(user => user.Id == userId && user.IsActive, cancellationToken)
+            ?? throw new NotFoundException("Usuário não encontrado.");
+
+        return await BuildAdminUserAsync(user, cancellationToken);
+    }
+
+    private async Task<AdminUserListItemDto> BuildAdminUserAsync(AppUser user, CancellationToken cancellationToken)
+    {
+        var commercialSummary = await commercialPlanService.GetAdminUserCommercialSummaryAsync(user.Id, cancellationToken);
+
+        return new AdminUserListItemDto(
+            user.Id,
+            user.Email,
+            user.DisplayName,
+            user.PhoneNumber,
+            user.SystemRole,
+            user.AccountState,
+            user.ScheduledDeletionAt,
+            user.DeactivatedAt,
+            user.HouseholdMembers.Count(member => member.IsActive && member.Role == HouseholdRole.Owner),
+            user.HouseholdMembers.Count(member => member.IsActive),
+            user.SystemRole == SystemRole.SuperAdmin,
+            commercialSummary.EffectivePlanSlug,
+            commercialSummary.EffectivePlanName,
+            commercialSummary.ActiveSubscriptionStartsAt,
+            commercialSummary.ActiveSubscriptionEndsAt,
+            commercialSummary.ActiveSubscriptionBillingCycle,
+            commercialSummary.ActiveSubscriptionAmountPaid,
+            commercialSummary.ActiveSubscriptionCurrencyCode,
+            commercialSummary.ActiveSubscriptionStatus);
     }
 
     private async Task<AppUser> EnsureSuperAdminUserAsync(CancellationToken cancellationToken)

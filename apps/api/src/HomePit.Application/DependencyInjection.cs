@@ -4,6 +4,7 @@ using HomePit.Application.Finance;
 using HomePit.Application.Gsm;
 using HomePit.Application.Households;
 using HomePit.Application.Institutional;
+using HomePit.Application.Plans;
 using HomePit.Application.Prompts;
 using HomePit.Application.Projects;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,8 @@ public static class DependencyInjection
         services.AddScoped<GsmNumberService>();
         services.AddScoped<HouseholdService>();
         services.AddScoped<InstitutionalPageService>();
+        services.AddScoped<CommercialPlanService>();
+        services.AddScoped<ManagedImageQuotaService>();
         services.AddScoped<ProjectService>();
         services.AddScoped<PromptService>();
 

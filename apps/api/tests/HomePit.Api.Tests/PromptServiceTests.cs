@@ -1,4 +1,5 @@
 using HomePit.Application.Common;
+using HomePit.Application.Plans;
 using HomePit.Application.Prompts;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
@@ -306,12 +307,24 @@ public sealed class PromptServiceTests
 
     private static PromptService CreateService(HomePitDbContext context, Guid userId, Guid? householdId, SystemRole systemRole = SystemRole.User)
     {
+        var userContext = new TestUserContext(userId, householdId, systemRole);
+        var storage = new InMemoryObjectStorage();
+        var imageUploadProcessor = new ImageSharpImageUploadProcessor();
+        var commercialPlanService = new CommercialPlanService(context, userContext, TimeProvider.System);
+        var managedImageQuotaService = new ManagedImageQuotaService(
+            context,
+            storage,
+            imageUploadProcessor,
+            commercialPlanService,
+            TimeProvider.System);
+
         return new PromptService(
             context,
-            new TestUserContext(userId, householdId, systemRole),
-            new InMemoryObjectStorage(),
-            new ImageSharpImageUploadProcessor(),
-            TimeProvider.System);
+            userContext,
+            storage,
+            imageUploadProcessor,
+            TimeProvider.System,
+            managedImageQuotaService);
     }
 
     private static async Task<PromptFixture> SeedFixtureAsync(HomePitDbContext context)

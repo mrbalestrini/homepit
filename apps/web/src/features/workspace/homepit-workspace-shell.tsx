@@ -58,7 +58,7 @@ import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 import { HouseholdMemberAvatar, ProtectedUserAvatar } from "./protected-user-avatar";
 
 type WorkspaceTheme = "cozy" | "earthy" | "dark";
-type ActiveModule = "projects" | "prompts" | "household" | "gsm" | "finance" | "profile" | "admin-users";
+type ActiveModule = "projects" | "prompts" | "household" | "gsm" | "finance" | "profile" | "platform";
 
 type ThemeOption = { value: WorkspaceTheme; label: string };
 
@@ -104,7 +104,7 @@ const moduleIcons = {
   household: ShieldCheck,
   gsm: Smartphone,
   profile: UserRound,
-  "admin-users": Users,
+  platform: Users,
   market: ShoppingCart,
   finance: Wallet,
   routines: Repeat2,
@@ -118,7 +118,7 @@ const modules = [
   { key: "gsm", label: "GSM", href: "/gsm", state: "active" as const, superAdminOnly: false },
   { key: "profile", label: "Perfil", href: "/profile", state: "active" as const, superAdminOnly: false },
   { key: "institutional", label: "Site institucional", href: "/admin/institutional", state: "active" as const, superAdminOnly: true },
-  { key: "admin-users", label: "Usuários", href: "/admin/users", state: "active" as const, superAdminOnly: true },
+  { key: "platform", label: "Plataforma", href: "/admin/platform", state: "active" as const, superAdminOnly: true },
   { key: "market", label: "Mercado", href: "#", state: "roadmap" as const, superAdminOnly: false },
   { key: "finance", label: "Financeiro", href: "/finance", state: "active" as const, superAdminOnly: false },
   { key: "routines", label: "Rotinas", href: "#", state: "roadmap" as const, superAdminOnly: false },

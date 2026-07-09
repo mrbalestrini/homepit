@@ -1,5 +1,5 @@
-import { AdminUsersPage } from "@/features/admin-users/admin-users-page";
+import { redirect } from "next/navigation";
 
 export default function AdminUsersRoute() {
-  return <AdminUsersPage />;
+  redirect("/admin/platform");
 }

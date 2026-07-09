@@ -1,4 +1,5 @@
 using HomePit.Domain.Common;
+using HomePit.Domain.Plans;
 
 namespace HomePit.Domain.Households;
 
@@ -21,4 +22,6 @@ public sealed class AppUser : AuditableEntity
     public ICollection<HouseholdMember> HouseholdMembers { get; } = new List<HouseholdMember>();
     public ICollection<RefreshToken> RefreshTokens { get; } = new List<RefreshToken>();
     public ICollection<AppUser> DeactivatedUsers { get; } = new List<AppUser>();
+    public ICollection<UserSubscription> Subscriptions { get; } = new List<UserSubscription>();
+    public ICollection<UserPlanImageAsset> PlanImageAssets { get; } = new List<UserPlanImageAsset>();
 }

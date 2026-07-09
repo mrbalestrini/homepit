@@ -8,7 +8,8 @@ public sealed record ImageUploadPolicy(
     int? MaxHeight,
     int? RequiredWidth,
     int? RequiredHeight,
-    bool RejectAnimated);
+    bool RejectAnimated,
+    int? WebpQuality = null);
 
 public sealed record ImageUploadValidationMessages(
     string EmptyContent,
@@ -42,6 +43,7 @@ public static class ImageUploadPolicies
 {
     public const long CommonMaxBytes = 5 * 1024 * 1024;
     public const int CommonMaxDimension = 2000;
+    public const int DegradedMaxDimension = 300;
     public const long SeoMaxBytes = 600 * 1024;
     public const int SeoWidth = 1200;
     public const int SeoHeight = 630;
@@ -68,7 +70,19 @@ public static class ImageUploadPolicies
         MaxHeight: CommonMaxDimension,
         RequiredWidth: null,
         RequiredHeight: null,
-        RejectAnimated: true);
+        RejectAnimated: true,
+        WebpQuality: 75);
+
+    public static readonly ImageUploadPolicy Degraded = new(
+        CommonAllowedContentTypes,
+        CommonMaxBytes,
+        ConvertToWebp: true,
+        MaxWidth: DegradedMaxDimension,
+        MaxHeight: DegradedMaxDimension,
+        RequiredWidth: null,
+        RequiredHeight: null,
+        RejectAnimated: true,
+        WebpQuality: 30);
 
     public static readonly ImageUploadPolicy Seo = new(
         SeoAllowedContentTypes,
@@ -78,5 +92,6 @@ public static class ImageUploadPolicies
         MaxHeight: null,
         RequiredWidth: SeoWidth,
         RequiredHeight: SeoHeight,
-        RejectAnimated: false);
+        RejectAnimated: false,
+        WebpQuality: null);
 }
