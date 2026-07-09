@@ -25,10 +25,11 @@ import {
   Trash2,
   UserPlus,
   Users,
+  UserRound,
   Wallet,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 import type { AuthResponse, Household, HouseholdMember, User } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,13 +53,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { COMMON_IMAGE_ACCEPT, COMMON_IMAGE_HELP_TEXT } from "@/lib/image-upload";
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
-import { AvatarCircle, HouseholdMemberAvatar, ProtectedUserAvatar } from "./protected-user-avatar";
+import { HouseholdMemberAvatar, ProtectedUserAvatar } from "./protected-user-avatar";
 
 type WorkspaceTheme = "cozy" | "earthy" | "dark";
-type ActiveModule = "projects" | "prompts" | "household" | "gsm" | "finance";
+type ActiveModule = "projects" | "prompts" | "household" | "gsm" | "finance" | "profile" | "admin-users";
 
 type ThemeOption = { value: WorkspaceTheme; label: string };
 
@@ -91,7 +91,6 @@ export type HomePitWorkspaceController = {
   updateHousehold: (householdId: string, name: string) => Promise<void>;
   deleteHousehold: (household: Household) => Promise<void>;
   shareHousehold: (input: { email: string; role: "Admin" | "Member" }) => Promise<void>;
-  updateProfile: (input: { displayName: string; phoneNumber?: string; profilePhoto?: File | null }) => Promise<void>;
 };
 
 export type HeaderStatItem = {
@@ -104,6 +103,8 @@ const moduleIcons = {
   prompts: Sparkles,
   household: ShieldCheck,
   gsm: Smartphone,
+  profile: UserRound,
+  "admin-users": Users,
   market: ShoppingCart,
   finance: Wallet,
   routines: Repeat2,
@@ -115,7 +116,9 @@ const modules = [
   { key: "prompts", label: "Prompts", href: "/prompts", state: "active" as const, superAdminOnly: false },
   { key: "household", label: "Casa", href: "/household", state: "active" as const, superAdminOnly: false },
   { key: "gsm", label: "GSM", href: "/gsm", state: "active" as const, superAdminOnly: false },
+  { key: "profile", label: "Perfil", href: "/profile", state: "active" as const, superAdminOnly: false },
   { key: "institutional", label: "Site institucional", href: "/admin/institutional", state: "active" as const, superAdminOnly: true },
+  { key: "admin-users", label: "Usuários", href: "/admin/users", state: "active" as const, superAdminOnly: true },
   { key: "market", label: "Mercado", href: "#", state: "roadmap" as const, superAdminOnly: false },
   { key: "finance", label: "Financeiro", href: "/finance", state: "active" as const, superAdminOnly: false },
   { key: "routines", label: "Rotinas", href: "#", state: "roadmap" as const, superAdminOnly: false },
@@ -146,6 +149,7 @@ export function HomePitWorkspaceShell({
   visibleCount,
   visibleLabel = "visíveis",
   headerStats,
+  requireHousehold = true,
   children,
 }: {
   controller: HomePitWorkspaceController;
@@ -154,10 +158,10 @@ export function HomePitWorkspaceShell({
   visibleCount: number;
   visibleLabel?: string;
   headerStats: HeaderStatItem[];
+  requireHousehold?: boolean;
   children: React.ReactNode;
 }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [deleteHouseholdId, setDeleteHouseholdId] = useState<string | null>(null);
   const householdToDelete =
     deleteHouseholdId && deleteHouseholdId === controller.activeHousehold?.id ? controller.activeHousehold : null;
@@ -174,7 +178,6 @@ export function HomePitWorkspaceShell({
           controller={controller}
           collapsed={controller.sidebarCollapsed}
           activeModule={activeModule}
-          onOpenProfile={() => setProfileDialogOpen(true)}
           onRequestDeleteHousehold={() => setDeleteHouseholdId(controller.activeHousehold?.id ?? null)}
         />
       </aside>
@@ -188,7 +191,6 @@ export function HomePitWorkspaceShell({
           visibleLabel={visibleLabel}
           headerStats={headerStats}
           onOpenSidebar={() => setMobileSidebarOpen(true)}
-          onOpenProfile={() => setProfileDialogOpen(true)}
         />
 
         <main className="flex flex-1 flex-col gap-3 p-3 sm:p-4">
@@ -201,7 +203,7 @@ export function HomePitWorkspaceShell({
             </div>
           ) : null}
 
-          {!controller.activeHouseholdId ? (
+          {requireHousehold && !controller.activeHouseholdId ? (
             <NoHouseholdState
               loading={controller.loading}
               onCreateHousehold={controller.openCreateHousehold}
@@ -219,7 +221,6 @@ export function HomePitWorkspaceShell({
           controller={controller}
           collapsed={false}
           activeModule={activeModule}
-          onOpenProfile={() => setProfileDialogOpen(true)}
           onRequestDeleteHousehold={() => setDeleteHouseholdId(controller.activeHousehold?.id ?? null)}
         />
         </SheetContent>
@@ -247,18 +248,6 @@ export function HomePitWorkspaceShell({
         onOpenChange={(open) => !open && controller.closeCommonModal()}
         onShare={controller.shareHousehold}
       />
-
-      {controller.session ? (
-        <ProfileDialog
-          key={`profile-${controller.session.user.id}-${controller.session.user.displayName}-${controller.session.user.phoneNumber ?? ""}-${controller.session.user.hasProfilePhoto ? "photo" : "no-photo"}-${controller.session.user.profilePhotoUpdatedAt ?? "none"}-${profileDialogOpen ? "open" : "closed"}`}
-          open={profileDialogOpen}
-          user={controller.session.user}
-          token={controller.session.accessToken}
-          householdId={controller.activeHouseholdId}
-          onOpenChange={setProfileDialogOpen}
-          onSave={controller.updateProfile}
-        />
-      ) : null}
 
       <DeleteConfirmationDialog
         key={`household-delete-${deleteHouseholdId ?? "none"}-${householdToDelete?.id ?? "none"}`}
@@ -295,13 +284,11 @@ function SidebarContent({
   controller,
   collapsed,
   activeModule,
-  onOpenProfile,
   onRequestDeleteHousehold,
 }: {
   controller: HomePitWorkspaceController;
   collapsed: boolean;
   activeModule: ActiveModule;
-  onOpenProfile: () => void;
   onRequestDeleteHousehold: () => void;
 }) {
   return (
@@ -473,7 +460,6 @@ function SidebarContent({
             collapsed={collapsed}
             theme={controller.theme}
             onChangeTheme={controller.setTheme}
-            onOpenProfile={onOpenProfile}
             onLogout={controller.handleLogout}
           />
         </div>
@@ -490,7 +476,6 @@ function TopBar({
   visibleLabel,
   headerStats,
   onOpenSidebar,
-  onOpenProfile,
 }: {
   controller: HomePitWorkspaceController;
   activeModule: ActiveModule;
@@ -499,7 +484,6 @@ function TopBar({
   visibleLabel: string;
   headerStats: HeaderStatItem[];
   onOpenSidebar: () => void;
-  onOpenProfile: () => void;
 }) {
   return (
     <header className="sticky top-0 z-10 border-b border-border/70 bg-surface-strong backdrop-blur-md">
@@ -537,7 +521,6 @@ function TopBar({
               currentUser={controller.session.user}
               token={controller.session.accessToken}
               householdId={controller.activeHouseholdId}
-              onOpenProfile={onOpenProfile}
             />
             <Button
               variant="secondary"
@@ -585,13 +568,11 @@ function MembersBar({
   currentUser,
   token,
   householdId,
-  onOpenProfile,
 }: {
   members: HouseholdMember[];
   currentUser: User;
   token: string;
   householdId?: string;
-  onOpenProfile: () => void;
 }) {
   if (members.length === 0) {
     return null;
@@ -609,7 +590,6 @@ function MembersBar({
           currentUser={currentUser}
           token={token}
           householdId={householdId}
-          onOpenProfile={onOpenProfile}
         />
       ))}
       {remainingCount > 0 ? <Badge variant="neutral">+{remainingCount}</Badge> : null}
@@ -622,13 +602,11 @@ function MemberAvatarPill({
   currentUser,
   token,
   householdId,
-  onOpenProfile,
 }: {
   member: HouseholdMember;
   currentUser: User;
   token: string;
   householdId?: string;
-  onOpenProfile: () => void;
 }) {
   return (
     <div className="group relative">
@@ -656,9 +634,11 @@ function MemberAvatarPill({
         </div>
         {member.isCurrentUser ? (
           <div className="mt-3">
-            <Button variant="secondary" size="sm" className="w-full" onClick={onOpenProfile}>
-              <Pencil />
-              Editar perfil
+            <Button asChild variant="secondary" size="sm" className="w-full">
+              <Link href="/profile">
+                <Pencil />
+                Editar perfil
+              </Link>
             </Button>
           </div>
         ) : null}
@@ -674,7 +654,6 @@ function SidebarUserMenu({
   collapsed,
   theme,
   onChangeTheme,
-  onOpenProfile,
   onLogout,
 }: {
   user: User;
@@ -683,7 +662,6 @@ function SidebarUserMenu({
   collapsed: boolean;
   theme: WorkspaceTheme;
   onChangeTheme: (theme: WorkspaceTheme) => void;
-  onOpenProfile: () => void;
   onLogout: () => void;
 }) {
   return (
@@ -709,9 +687,11 @@ function SidebarUserMenu({
       <DropdownMenuContent align={collapsed ? "center" : "end"}>
         <DropdownMenuLabel>{user.displayName}</DropdownMenuLabel>
         <div className="px-3 pb-2 text-xs text-muted-foreground">{user.email}</div>
-        <DropdownMenuItem onClick={onOpenProfile}>
-          <Pencil className="size-4" />
-          Editar perfil
+        <DropdownMenuItem asChild>
+          <Link href="/profile">
+            <Pencil className="size-4" />
+            Editar perfil
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Tema</DropdownMenuLabel>
@@ -828,108 +808,6 @@ function HouseholdDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-export function ProfileDialog({
-  open,
-  user,
-  token,
-  householdId,
-  onOpenChange,
-  onSave,
-}: {
-  open: boolean;
-  user: User;
-  token: string;
-  householdId?: string;
-  onOpenChange: (open: boolean) => void;
-  onSave: (input: { displayName: string; phoneNumber?: string; profilePhoto?: File | null }) => Promise<void>;
-}) {
-  const [displayName, setDisplayName] = useState(user.displayName);
-  const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber ?? "");
-  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
-  const previewUrl = useObjectUrl(profilePhoto);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setSaving(true);
-
-    try {
-      await onSave({ displayName, phoneNumber, profilePhoto });
-      onOpenChange(false);
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Não foi possível salvar o perfil.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Editar perfil</DialogTitle>
-          <DialogDescription>Atualize o nome visível e o telefone usado no seu contexto da casa.</DialogDescription>
-        </DialogHeader>
-        <form className="space-y-4" onSubmit={submit}>
-          {error ? <Notice tone="danger">{error}</Notice> : null}
-          <Field label="Foto de perfil">
-            <div className="flex items-center gap-3 rounded-[16px] border border-border/60 bg-surface-muted p-3">
-              {previewUrl ? (
-                <AvatarCircle name={displayName || user.displayName} imageUrl={previewUrl} className="size-14" />
-              ) : (
-                <ProtectedUserAvatar user={user} token={token} householdId={householdId} className="size-14" />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">
-                  {profilePhoto ? "Nova foto selecionada" : "Sua foto atual"}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {profilePhoto ? profilePhoto.name : COMMON_IMAGE_HELP_TEXT}
-                </p>
-              </div>
-            </div>
-            <Input
-              type="file"
-              accept={COMMON_IMAGE_ACCEPT}
-              onChange={(event) => setProfilePhoto(event.target.files?.[0] ?? null)}
-            />
-          </Field>
-          <Field label="Nome">
-            <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoFocus required />
-          </Field>
-          <Field label="WhatsApp">
-            <Input value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} />
-          </Field>
-          <DialogFooter>
-            <Button variant="secondary" type="button" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving}>
-              Salvar perfil
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function useObjectUrl(file: File | null) {
-  const objectUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
-
-  useEffect(() => {
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [objectUrl]);
-
-  return objectUrl;
 }
 
 function ShareDialog({

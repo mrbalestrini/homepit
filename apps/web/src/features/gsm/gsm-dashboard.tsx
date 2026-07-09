@@ -1,5 +1,6 @@
 "use client";
 
+import { AccountStateGate } from "@/features/workspace/account-state-gate";
 import { HomePitAuth } from "@/features/workspace/homepit-auth";
 import { GsmDashboardWorkspace } from "./gsm-dashboard-workspace";
 import { useGsmDashboard } from "./use-gsm-dashboard";
@@ -11,5 +12,9 @@ export function GsmDashboard() {
     return <HomePitAuth onAuthenticated={dashboard.handleAuthenticated} />;
   }
 
-  return <GsmDashboardWorkspace dashboard={dashboard} />;
+  return (
+    <AccountStateGate session={dashboard.session}>
+      <GsmDashboardWorkspace dashboard={dashboard} />
+    </AccountStateGate>
+  );
 }

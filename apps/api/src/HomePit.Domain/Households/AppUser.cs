@@ -11,8 +11,14 @@ public sealed class AppUser : AuditableEntity
     public string? ProfilePhotoObjectKey { get; set; }
     public DateTimeOffset? ProfilePhotoUpdatedAt { get; set; }
     public SystemRole SystemRole { get; set; } = SystemRole.User;
+    public AccountState AccountState { get; set; } = AccountState.Active;
+    public DateTimeOffset? ScheduledDeletionAt { get; set; }
+    public DateTimeOffset? DeactivatedAt { get; set; }
+    public Guid? DeactivatedByUserId { get; set; }
+    public AppUser? DeactivatedByUser { get; set; }
     public bool IsActive { get; set; } = true;
 
     public ICollection<HouseholdMember> HouseholdMembers { get; } = new List<HouseholdMember>();
     public ICollection<RefreshToken> RefreshTokens { get; } = new List<RefreshToken>();
+    public ICollection<AppUser> DeactivatedUsers { get; } = new List<AppUser>();
 }

@@ -72,6 +72,7 @@ app.UseHomePitErrors();
 app.UseCors("web");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseAccountStateGuard();
 
 var applyMigrationsOnStartup = app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true);
 if (applyMigrationsOnStartup)
@@ -195,6 +196,10 @@ api.MapDelete("/households/members/{id:guid}", async (
 });
 api.MapPut("/users/me", async (UpdateProfileRequest request, AuthService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.UpdateProfileAsync(request, cancellationToken)));
+api.MapDelete("/users/me", async (AuthService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.DeleteOwnAccountAsync(cancellationToken)));
+api.MapPost("/users/me/reactivate", async (AuthService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ReactivateOwnAccountAsync(cancellationToken)));
 api.MapPost("/users/me/profile-photo", async (
     HttpRequest request,
     AuthService service,
@@ -233,6 +238,26 @@ api.MapGet("/users/{userId:guid}/profile-photo", async (
     var photo = await service.GetProfilePhotoAsync(userId, cancellationToken);
     context.Response.Headers.CacheControl = "no-store";
     return Results.File(photo.Content, photo.ContentType);
+});
+api.MapGet("/admin/users", async (AuthService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListAdminUsersAsync(cancellationToken)));
+api.MapPost("/admin/users/{id:guid}/deactivate", async (
+    Guid id,
+    AuthService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.DeactivateUserAsSuperAdminAsync(id, cancellationToken)));
+api.MapPost("/admin/users/{id:guid}/reactivate", async (
+    Guid id,
+    AuthService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ReactivateUserAsSuperAdminAsync(id, cancellationToken)));
+api.MapDelete("/admin/users/{id:guid}", async (
+    Guid id,
+    AuthService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteUserAsSuperAdminAsync(id, cancellationToken);
+    return Results.NoContent();
 });
 var finance = api.MapGroup("/finance");
 

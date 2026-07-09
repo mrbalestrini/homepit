@@ -181,6 +181,7 @@ export function useGsmDashboard() {
   const activeHousehold = useMemo(() => {
     return session?.households.find((household) => household.id === activeHouseholdId) ?? null;
   }, [activeHouseholdId, session?.households]);
+  const isAccountActive = (session?.user.accountState ?? "Active") === "Active";
 
   const canShareHousehold = activeHousehold?.role === "Owner" || activeHousehold?.role === "Admin";
   const canManageHousehold = activeHousehold?.role === "Owner";
@@ -199,7 +200,7 @@ export function useGsmDashboard() {
 
   const loadWorkspace = useCallback(
     async (token = session?.accessToken, householdId = activeHouseholdId) => {
-      if (!token || !householdId) {
+      if (!token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
@@ -226,11 +227,11 @@ export function useGsmDashboard() {
         setLoading(false);
       }
     },
-    [activeHouseholdId, session?.accessToken],
+    [activeHouseholdId, session?.accessToken, session?.user],
   );
 
   useEffect(() => {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeHouseholdId || !isAccountActive) {
       return;
     }
 
@@ -239,7 +240,7 @@ export function useGsmDashboard() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeHouseholdId, loadWorkspace, session]);
+  }, [activeHouseholdId, isAccountActive, loadWorkspace, session]);
 
   const handleAuthenticated = useCallback((auth: AuthResponse) => {
     storeSession(auth);

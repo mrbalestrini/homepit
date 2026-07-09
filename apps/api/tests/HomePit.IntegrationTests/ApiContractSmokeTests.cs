@@ -59,4 +59,19 @@ public sealed class ApiContractSmokeTests
         Assert.Contains("enum: [Monthly, Annual]", contract);
         Assert.Contains("enum: [Property, Vehicle, Other]", contract);
     }
+
+    [Fact]
+    public void Openapi_contract_lists_account_lifecycle_and_admin_user_routes()
+    {
+        var contractPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "..", "contracts", "openapi", "homepit.v1.yaml"));
+        var contract = File.ReadAllText(contractPath);
+
+        Assert.Contains("/api/users/me/reactivate:", contract);
+        Assert.Contains("/api/admin/users:", contract);
+        Assert.Contains("/api/admin/users/{id}/deactivate:", contract);
+        Assert.Contains("/api/admin/users/{id}/reactivate:", contract);
+        Assert.Contains("enum: [Active, PendingSelfDeletion, DisabledBySuperAdmin]", contract);
+        Assert.Contains("scheduledDeletionAt:", contract);
+        Assert.DoesNotContain("householdName:", contract);
+    }
 }

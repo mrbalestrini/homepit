@@ -1,5 +1,6 @@
 using HomePit.Application.Common;
 using HomePit.Application.Households;
+using HomePit.Application.Storage;
 using HomePit.Domain.Households;
 using HomePit.Domain.Notifications;
 using HomePit.Infrastructure.Data;
@@ -98,7 +99,10 @@ public sealed class HouseholdServiceTests
 
     private static HouseholdService CreateService(HomePitDbContext context, Guid userId, Guid householdId)
     {
-        return new HouseholdService(context, new TestUserContext(userId, householdId));
+        return new HouseholdService(
+            context,
+            new TestUserContext(userId, householdId),
+            new HomePitDataPurgeService(context, new FakeObjectStorage()));
     }
 
     private static async Task<HouseholdFixture> SeedFixtureAsync(HomePitDbContext context, bool includeSecondOwner = true)
@@ -196,5 +200,17 @@ public sealed class HouseholdServiceTests
         public Guid UserId { get; } = userId;
         public SystemRole SystemRole => SystemRole.User;
         public Guid? HouseholdId { get; } = householdId;
+    }
+
+    private sealed class FakeObjectStorage : IObjectStorage
+    {
+        public Task EnsureBucketExistsAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task PutAsync(ObjectStoragePutRequest request, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<StoredObject> GetAsync(string objectKey, CancellationToken cancellationToken) =>
+            throw new NotFoundException("Arquivo não encontrado.");
+
+        public Task DeleteAsync(string objectKey, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

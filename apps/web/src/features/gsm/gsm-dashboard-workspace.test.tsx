@@ -92,7 +92,6 @@ describe("GsmDashboardWorkspace", () => {
       openShareHousehold: () => undefined,
       closeCommonModal: () => undefined,
       shareHousehold: async () => undefined,
-      updateProfile: async () => undefined,
       openCreateGsmNumber: vi.fn(),
       openEditGsmNumber: vi.fn(),
       closeModuleModal: () => undefined,

@@ -507,6 +507,7 @@ export function useFinanceDashboard() {
   const activeHousehold = useMemo(() => {
     return session?.households.find((household) => household.id === activeHouseholdId) ?? null;
   }, [activeHouseholdId, session?.households]);
+  const isAccountActive = (session?.user.accountState ?? "Active") === "Active";
 
   const canShareHousehold = activeHousehold?.role === "Owner" || activeHousehold?.role === "Admin";
   const canManageHousehold = activeHousehold?.role === "Owner";
@@ -569,7 +570,7 @@ export function useFinanceDashboard() {
 
   const loadCardDetails = useCallback(
     async (cardId: string, token = session?.accessToken, householdId = activeHouseholdId) => {
-      if (!cardId || !token || !householdId) {
+      if (!cardId || !token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
         setCreditCardTransactions([]);
         setCreditCardStatements([]);
         return;
@@ -591,7 +592,7 @@ export function useFinanceDashboard() {
         setCardDetailsLoading(false);
       }
     },
-    [activeHouseholdId, session?.accessToken],
+    [activeHouseholdId, session?.accessToken, session?.user],
   );
 
   const loadWorkspace = useCallback(
@@ -602,7 +603,7 @@ export function useFinanceDashboard() {
       month = activeMonth,
       preferredCardId = selectedCreditCardIdRef.current,
     ) => {
-      if (!token || !householdId) {
+      if (!token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
@@ -655,11 +656,11 @@ export function useFinanceDashboard() {
         setLoading(false);
       }
     },
-    [activeHouseholdId, activeMonth, activeYear, loadCardDetails, session?.accessToken],
+    [activeHouseholdId, activeMonth, activeYear, loadCardDetails, session?.accessToken, session?.user],
   );
 
   useEffect(() => {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeHouseholdId || !isAccountActive) {
       return;
     }
 
@@ -668,7 +669,7 @@ export function useFinanceDashboard() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeHouseholdId, activeMonth, activeYear, loadWorkspace, session]);
+  }, [activeHouseholdId, activeMonth, activeYear, isAccountActive, loadWorkspace, session]);
 
   const setSelectedCreditCardId = useCallback(
     (cardId: string) => {
@@ -879,8 +880,12 @@ export function useFinanceDashboard() {
   }, [session, updateSessionHouseholds]);
 
   const refreshWorkspace = useCallback(async () => {
+    if (!isAccountActive) {
+      return;
+    }
+
     await loadWorkspace();
-  }, [loadWorkspace]);
+  }, [isAccountActive, loadWorkspace]);
 
   const getCategoryName = useCallback(
     (categoryId?: string | null) => categories.find((category) => category.id === categoryId)?.name ?? null,

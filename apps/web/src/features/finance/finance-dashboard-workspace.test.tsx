@@ -283,7 +283,6 @@ function createDashboard(overrides: Partial<FinanceDashboardController> = {}): F
     updateHousehold: async () => undefined,
     deleteHousehold: async () => undefined,
     shareHousehold: async () => undefined,
-    updateProfile: async () => undefined,
     generatePeriod: vi.fn(async () => undefined),
     createCategory: vi.fn(async () => undefined),
     updateCategory: vi.fn(async () => undefined),

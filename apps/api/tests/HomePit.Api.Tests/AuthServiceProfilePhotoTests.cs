@@ -117,6 +117,7 @@ public sealed class AuthServiceProfilePhotoTests
             userContext,
             storage,
             new ImageSharpImageUploadProcessor(),
+            new HomePitDataPurgeService(db, storage),
             new SuperAdminOptions());
 
         return new TestContext(db, service, storage, timeProvider, user.Id);

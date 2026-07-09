@@ -260,6 +260,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
+    delete:
+      responses:
+        "200":
+          description: Current user deleted immediately or scheduled for deletion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteOwnAccountResult"
   /api/users/me/profile-photo:
     post:
       description: Upload the current user profile photo. Common uploads accept JPG, PNG, WEBP, GIF or BMP and are normalized to WEBP within 2000 x 2000 px.
@@ -301,6 +309,63 @@ paths:
                 format: binary
         "404":
           description: Profile photo not found
+  /api/users/me/reactivate:
+    post:
+      responses:
+        "200":
+          description: Self-cancelled account reactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+  /api/admin/users:
+    get:
+      responses:
+        "200":
+          description: Global user list for superadmin
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUserListItem"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/users/{id}:
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: User and all related links deleted
+        "403":
+          description: SuperAdmin role required
+  /api/admin/users/{id}/deactivate:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: User disabled by superadmin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserListItem"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/users/{id}/reactivate:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: User reactivated by superadmin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserListItem"
+        "403":
+          description: SuperAdmin role required
   /api/finance/periods:
     get:
       parameters:
@@ -1693,9 +1758,6 @@ components:
           minLength: 8
         displayName:
           type: string
-        householdName:
-          type: string
-          nullable: true
         phoneNumber:
           type: string
           nullable: true
@@ -1967,6 +2029,53 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Household"
+    AccountState:
+      type: string
+      enum: [Active, PendingSelfDeletion, DisabledBySuperAdmin]
+    DeleteOwnAccountResult:
+      type: object
+      required: [deletedImmediately]
+      properties:
+        deletedImmediately:
+          type: boolean
+        scheduledDeletionAt:
+          type: string
+          format: date-time
+          nullable: true
+    AdminUserListItem:
+      type: object
+      required:
+        [id, email, displayName, systemRole, accountState, ownedHouseholdCount, membershipCount, isProtected]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        phoneNumber:
+          type: string
+          nullable: true
+        systemRole:
+          enum: [User, Admin, SuperAdmin]
+        accountState:
+          $ref: "#/components/schemas/AccountState"
+        scheduledDeletionAt:
+          type: string
+          format: date-time
+          nullable: true
+        deactivatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        ownedHouseholdCount:
+          type: integer
+        membershipCount:
+          type: integer
+        isProtected:
+          type: boolean
     Household:
       type: object
       required: [id, name, role, createdAt]
@@ -3367,7 +3476,7 @@ components:
           nullable: true
     UserProfile:
       type: object
-      required: [id, email, displayName, systemRole, hasProfilePhoto]
+      required: [id, email, displayName, systemRole, accountState, hasProfilePhoto]
       properties:
         id:
           type: string
@@ -3382,6 +3491,16 @@ components:
           nullable: true
         systemRole:
           enum: [User, Admin, SuperAdmin]
+        accountState:
+          $ref: "#/components/schemas/AccountState"
+        scheduledDeletionAt:
+          type: string
+          format: date-time
+          nullable: true
+        supportEmail:
+          type: string
+          format: email
+          nullable: true
         hasProfilePhoto:
           type: boolean
         profilePhotoUpdatedAt:

@@ -52,7 +52,6 @@ describe("HomePitWorkspaceShell header", () => {
       updateHousehold: async () => undefined,
       deleteHousehold: async () => undefined,
       shareHousehold: async () => undefined,
-      updateProfile: async () => undefined,
     };
     const { rerender, unmount } = render(
       <HomePitWorkspaceShell
@@ -150,7 +149,6 @@ describe("HomePitWorkspaceShell header", () => {
           updateHousehold: async () => undefined,
           deleteHousehold: vi.fn(async () => undefined),
           shareHousehold: async () => undefined,
-          updateProfile: async () => undefined,
         }}
         activeModule="projects"
         subtitle="Escopo atual"
@@ -215,7 +213,6 @@ describe("HomePitWorkspaceShell header", () => {
           updateHousehold: async () => undefined,
           deleteHousehold,
           shareHousehold: async () => undefined,
-          updateProfile: async () => undefined,
         }}
         activeModule="projects"
         subtitle="Escopo atual"
@@ -309,7 +306,6 @@ describe("HomePitWorkspaceShell header", () => {
           updateHousehold: async () => undefined,
           deleteHousehold: async () => undefined,
           shareHousehold: async () => undefined,
-          updateProfile: async () => undefined,
         }}
         activeModule="projects"
         subtitle="Escopo atual"

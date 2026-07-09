@@ -18,7 +18,9 @@ public static class ErrorHandlingMiddleware
             {
                 var (status, title) = exception switch
                 {
+                    UnauthorizedException => (StatusCodes.Status401Unauthorized, "Sessão inválida"),
                     ValidationException => (StatusCodes.Status400BadRequest, "Requisição inválida"),
+                    LockedException => (StatusCodes.Status423Locked, "Conta desativada"),
                     ForbiddenException => (StatusCodes.Status403Forbidden, "Acesso negado"),
                     NotFoundException => (StatusCodes.Status404NotFound, "Não encontrado"),
                     ConflictException => (StatusCodes.Status409Conflict, "Conflito"),

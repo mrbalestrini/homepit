@@ -18,7 +18,6 @@ export function HomePitAuth({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [householdName, setHouseholdName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,7 +33,7 @@ export function HomePitAuth({
         body: JSON.stringify(
           mode === "login"
             ? { email, password }
-            : { email, password, displayName, householdName: householdName || null, phoneNumber: phoneNumber || null },
+            : { email, password, displayName, phoneNumber: phoneNumber || null },
         ),
       });
       onAuthenticated(auth);
@@ -111,12 +110,12 @@ export function HomePitAuth({
 
                 <div>
                   <h2 className="text-2xl font-semibold text-foreground">
-                    {mode === "login" ? "Acessar sua casa digital" : "Criar sua base inicial"}
+                    {mode === "login" ? "Acessar sua casa digital" : "Criar sua conta"}
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {mode === "login"
                       ? "Retome seus módulos e fluxos de onde parou."
-                      : "Cadastre-se e, se quiser, já crie a primeira casa do sistema."}
+                      : "Cadastre-se agora e crie sua primeira casa depois, quando entrar no sistema."}
                   </p>
                 </div>
               </div>
@@ -158,10 +157,6 @@ export function HomePitAuth({
                         autoComplete="name"
                         required
                       />
-                    </Field>
-
-                    <Field label="Casa inicial (opcional)">
-                      <Input value={householdName} onChange={(event) => setHouseholdName(event.target.value)} />
                     </Field>
 
                     <Field label="WhatsApp">

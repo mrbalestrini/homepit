@@ -6,7 +6,13 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ## [1.9.0] - 2026-07-09
 
+### Added
+- Nova página `/profile` substituindo a antiga modal de edição, com layout preparado para futuras abas e uma área sensível para cancelamento da conta.
+- Nova área global `/admin/users` para o `SuperAdmin` listar, desativar, reativar e excluir usuários comuns da plataforma.
+- O ciclo de vida da conta agora expõe estados explícitos de conta, data agendada de exclusão e tela intermediária para contas desativadas.
+
 ### Changed
+- O cadastro deixou de aceitar criação imediata de casa, mantendo o fluxo de conta sem casa para que a primeira casa seja criada depois do login.
 - A seção de compras do cartão ganhou um filtro textual compatível com os principais campos exibidos na linha, e o selecionar todos passou a atuar apenas sobre os itens visíveis no filtro.
 - O fechamento de fatura passou a oferecer uma ação explícita para selecionar ou desmarcar todas as compras disponíveis de uma vez.
 

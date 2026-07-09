@@ -113,7 +113,6 @@ export function GsmDashboardWorkspace({ dashboard }: { dashboard: GsmDashboardCo
           updateHousehold: dashboard.updateHousehold,
           deleteHousehold: dashboard.deleteHousehold,
           shareHousehold: dashboard.shareHousehold,
-          updateProfile: dashboard.updateProfile,
         }}
         activeModule="gsm"
         subtitle={dashboard.subtitle}

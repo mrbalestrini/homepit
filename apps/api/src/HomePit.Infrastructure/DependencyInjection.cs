@@ -27,6 +27,7 @@ public static class DependencyInjection
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<SuperAdminOptions>(configuration.GetSection(SuperAdminOptions.SectionName));
+        services.Configure<AccountDeletionWorkerOptions>(configuration.GetSection(AccountDeletionWorkerOptions.SectionName));
         services.Configure<EvolutionOptions>(configuration.GetSection(EvolutionOptions.SectionName));
         services.Configure<DailyDigestWorkerOptions>(configuration.GetSection(DailyDigestWorkerOptions.SectionName));
         services.Configure<ObjectStorageOptions>(configuration.GetSection(ObjectStorageOptions.SectionName));
@@ -51,6 +52,7 @@ public static class DependencyInjection
             return builder.Build();
         });
         services.AddSingleton<IObjectStorage, MinioObjectStorage>();
+        services.AddHostedService<AccountDeletionWorker>();
         services.AddHostedService<DailyDigestWorker>();
 
         return services;

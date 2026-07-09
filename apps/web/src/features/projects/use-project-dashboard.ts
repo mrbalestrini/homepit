@@ -255,6 +255,7 @@ export function useProjectDashboard() {
   const activeHousehold = useMemo(() => {
     return session?.households.find((household) => household.id === activeHouseholdId) ?? null;
   }, [activeHouseholdId, session?.households]);
+  const isAccountActive = (session?.user.accountState ?? "Active") === "Active";
 
   const canShareHousehold = activeHousehold?.role === "Owner" || activeHousehold?.role === "Admin";
   const canManageHousehold = activeHousehold?.role === "Owner";
@@ -367,7 +368,7 @@ export function useProjectDashboard() {
 
   const loadWorkspace = useCallback(
     async (token = session?.accessToken, householdId = activeHouseholdId) => {
-      if (!token || !householdId) {
+      if (!token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
@@ -391,12 +392,12 @@ export function useProjectDashboard() {
         setLoading(false);
       }
     },
-    [activeHouseholdId, session?.accessToken],
+    [activeHouseholdId, session?.accessToken, session?.user],
   );
 
   const loadComments = useCallback(
     async (activityId: string) => {
-      if (!session || !activeHouseholdId) {
+      if (!session || !activeHouseholdId || (session.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
@@ -429,7 +430,7 @@ export function useProjectDashboard() {
   }, []);
 
   useEffect(() => {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeHouseholdId || !isAccountActive) {
       return;
     }
 
@@ -438,7 +439,7 @@ export function useProjectDashboard() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [session, activeHouseholdId, loadWorkspace]);
+  }, [session, activeHouseholdId, isAccountActive, loadWorkspace]);
 
   const handleAuthenticated = useCallback((auth: AuthResponse) => {
     storeSession(auth);

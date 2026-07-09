@@ -18,9 +18,11 @@ public sealed class AuthService(
     IUserContext userContext,
     IObjectStorage objectStorage,
     IImageUploadProcessor imageUploadProcessor,
+    HomePitDataPurgeService dataPurgeService,
     SuperAdminOptions superAdminOptions)
 {
     private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
+    private static readonly TimeSpan PendingDeletionWindow = TimeSpan.FromDays(30);
 
     private static readonly ImageUploadValidationMessages ProfilePhotoImageMessages = new(
         "Envie uma imagem com conteúdo para a foto de perfil.",
@@ -52,35 +54,9 @@ public sealed class AuthService(
             SystemRole = systemRole
         };
 
-        var memberships = new List<HouseholdMember>();
-        var householdName = NormalizeOptional(request.HouseholdName);
-        if (householdName is not null)
-        {
-            var household = new Household { Name = householdName };
-            var member = new HouseholdMember
-            {
-                Household = household,
-                User = user,
-                Role = HouseholdRole.Owner
-            };
-
-            var preference = new NotificationPreference
-            {
-                Household = household,
-                HouseholdMember = member,
-                WhatsAppPhoneNumber = user.PhoneNumber
-            };
-
-            db.Households.Add(household);
-            db.HouseholdMembers.Add(member);
-            db.FinanceCategories.AddRange(FinanceCategoryCatalog.CreateDefaults(household.Id, member.Id));
-            db.NotificationPreferences.Add(preference);
-            memberships.Add(member);
-        }
-
         db.Users.Add(user);
 
-        var response = await IssueTokensAsync(user, memberships, cancellationToken);
+        var response = await IssueTokensAsync(user, Array.Empty<HouseholdMember>(), cancellationToken);
         db.RefreshTokens.Add(new RefreshToken
         {
             User = user,
@@ -90,6 +66,120 @@ public sealed class AuthService(
 
         await db.SaveChangesAsync(cancellationToken);
         return response;
+    }
+
+    public async Task<DeleteOwnAccountResult> DeleteOwnAccountAsync(CancellationToken cancellationToken)
+    {
+        EnsureWritableUser();
+        var user = await FindCurrentUserAsync(cancellationToken);
+        var ownedHouseholdCount = await db.HouseholdMembers.CountAsync(
+            member => member.UserId == user.Id && member.IsActive && member.Role == HouseholdRole.Owner,
+            cancellationToken);
+
+        if (ownedHouseholdCount == 0)
+        {
+            await dataPurgeService.DeleteUserAsync(user.Id, cancellationToken);
+            return new DeleteOwnAccountResult(true, null);
+        }
+
+        var scheduledDeletionAt = timeProvider.GetUtcNow().Add(PendingDeletionWindow);
+        user.AccountState = AccountState.PendingSelfDeletion;
+        user.ScheduledDeletionAt = scheduledDeletionAt;
+        user.DeactivatedAt = timeProvider.GetUtcNow();
+        user.DeactivatedByUserId = user.Id;
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new DeleteOwnAccountResult(false, scheduledDeletionAt);
+    }
+
+    public async Task<UserDto> ReactivateOwnAccountAsync(CancellationToken cancellationToken)
+    {
+        EnsureWritableUser();
+        var user = await FindCurrentUserAsync(cancellationToken);
+        if (user.AccountState != AccountState.PendingSelfDeletion)
+        {
+            throw new ValidationException("Somente contas com cancelamento pendente podem ser reativadas.");
+        }
+
+        ReactivateUser(user);
+        await db.SaveChangesAsync(cancellationToken);
+        return ToUserDto(user);
+    }
+
+    public async Task<IReadOnlyCollection<AdminUserListItemDto>> ListAdminUsersAsync(CancellationToken cancellationToken)
+    {
+        EnsureSuperAdmin();
+        return await db.Users
+            .AsNoTracking()
+            .Where(user => user.IsActive)
+            .OrderByDescending(user => user.SystemRole == SystemRole.SuperAdmin)
+            .ThenBy(user => user.DisplayName)
+            .Select(user => new AdminUserListItemDto(
+                user.Id,
+                user.Email,
+                user.DisplayName,
+                user.PhoneNumber,
+                user.SystemRole,
+                user.AccountState,
+                user.ScheduledDeletionAt,
+                user.DeactivatedAt,
+                user.HouseholdMembers.Count(member => member.IsActive && member.Role == HouseholdRole.Owner),
+                user.HouseholdMembers.Count(member => member.IsActive),
+                user.SystemRole == SystemRole.SuperAdmin))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<AdminUserListItemDto> DeactivateUserAsSuperAdminAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        EnsureSuperAdmin();
+        var user = await FindManagedUserAsync(userId, cancellationToken);
+        user.AccountState = AccountState.DisabledBySuperAdmin;
+        user.ScheduledDeletionAt = null;
+        user.DeactivatedAt = timeProvider.GetUtcNow();
+        user.DeactivatedByUserId = userContext.UserId;
+        await db.SaveChangesAsync(cancellationToken);
+        return await BuildAdminUserAsync(user.Id, cancellationToken);
+    }
+
+    public async Task<AdminUserListItemDto> ReactivateUserAsSuperAdminAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        EnsureSuperAdmin();
+        var user = await FindManagedUserAsync(userId, cancellationToken);
+        if (user.AccountState != AccountState.DisabledBySuperAdmin)
+        {
+            throw new ValidationException("Somente contas desativadas pelo superadmin podem ser reativadas aqui.");
+        }
+
+        ReactivateUser(user);
+        await db.SaveChangesAsync(cancellationToken);
+        return await BuildAdminUserAsync(user.Id, cancellationToken);
+    }
+
+    public async Task DeleteUserAsSuperAdminAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        EnsureSuperAdmin();
+        await FindManagedUserAsync(userId, cancellationToken);
+        await dataPurgeService.DeleteUserAsync(userId, cancellationToken);
+    }
+
+    public async Task<int> PurgeScheduledDeletionsAsync(CancellationToken cancellationToken)
+    {
+        var dueUserIds = await db.Users
+            .AsNoTracking()
+            .Where(user =>
+                user.IsActive &&
+                user.AccountState == AccountState.PendingSelfDeletion &&
+                user.ScheduledDeletionAt != null &&
+                user.ScheduledDeletionAt <= timeProvider.GetUtcNow())
+            .Select(user => user.Id)
+            .ToArrayAsync(cancellationToken);
+
+        foreach (var userId in dueUserIds)
+        {
+            await dataPurgeService.DeleteUserAsync(userId, cancellationToken);
+        }
+
+        return dueUserIds.Length;
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
@@ -386,7 +476,7 @@ public sealed class AuthService(
             ?? throw new ForbiddenException("Usuário não encontrado.");
     }
 
-    private static UserDto ToUserDto(AppUser user)
+    private UserDto ToUserDto(AppUser user)
     {
         return new UserDto(
             user.Id,
@@ -394,6 +484,9 @@ public sealed class AuthService(
             user.DisplayName,
             user.PhoneNumber,
             user.SystemRole,
+            user.AccountState,
+            user.ScheduledDeletionAt,
+            superAdminOptions.SupportEmail,
             !string.IsNullOrWhiteSpace(user.ProfilePhotoObjectKey),
             user.ProfilePhotoUpdatedAt);
     }
@@ -458,6 +551,56 @@ public sealed class AuthService(
         }
     }
 
+    private void EnsureSuperAdmin()
+    {
+        if (userContext.SystemRole != SystemRole.SuperAdmin)
+        {
+            throw new ForbiddenException("Somente o superadmin pode gerenciar usuários.");
+        }
+    }
+
+    private void ReactivateUser(AppUser user)
+    {
+        user.AccountState = AccountState.Active;
+        user.ScheduledDeletionAt = null;
+        user.DeactivatedAt = null;
+        user.DeactivatedByUserId = null;
+    }
+
+    private async Task<AppUser> FindManagedUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await db.Users
+            .FirstOrDefaultAsync(item => item.Id == userId && item.IsActive, cancellationToken)
+            ?? throw new NotFoundException("Usuário não encontrado.");
+
+        if (user.SystemRole == SystemRole.SuperAdmin)
+        {
+            throw new ForbiddenException("O usuário superadmin é protegido e não pode ser alterado aqui.");
+        }
+
+        return user;
+    }
+
+    private async Task<AdminUserListItemDto> BuildAdminUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await db.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId && user.IsActive)
+            .Select(user => new AdminUserListItemDto(
+                user.Id,
+                user.Email,
+                user.DisplayName,
+                user.PhoneNumber,
+                user.SystemRole,
+                user.AccountState,
+                user.ScheduledDeletionAt,
+                user.DeactivatedAt,
+                user.HouseholdMembers.Count(member => member.IsActive && member.Role == HouseholdRole.Owner),
+                user.HouseholdMembers.Count(member => member.IsActive),
+                user.SystemRole == SystemRole.SuperAdmin))
+            .SingleAsync(cancellationToken);
+    }
+
     private async Task<AppUser> EnsureSuperAdminUserAsync(CancellationToken cancellationToken)
     {
         if (!superAdminOptions.IsEnabled)
@@ -490,6 +633,7 @@ public sealed class AuthService(
                 PasswordHash = passwordHasher.Hash(superAdminOptions.Password!),
                 DisplayName = displayName,
                 SystemRole = SystemRole.SuperAdmin,
+                AccountState = AccountState.Active,
                 IsActive = true
             };
             db.Users.Add(superAdminUser);
@@ -500,6 +644,10 @@ public sealed class AuthService(
         superAdminUser.PasswordHash = passwordHasher.Hash(superAdminOptions.Password!);
         superAdminUser.DisplayName = displayName;
         superAdminUser.SystemRole = SystemRole.SuperAdmin;
+        superAdminUser.AccountState = AccountState.Active;
+        superAdminUser.ScheduledDeletionAt = null;
+        superAdminUser.DeactivatedAt = null;
+        superAdminUser.DeactivatedByUserId = null;
         superAdminUser.IsActive = true;
         return superAdminUser;
     }

@@ -1321,7 +1321,6 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
           updateHousehold: dashboard.updateHousehold,
           deleteHousehold: dashboard.deleteHousehold,
           shareHousehold: dashboard.shareHousehold,
-          updateProfile: dashboard.updateProfile,
         }}
         activeModule="finance"
         subtitle={dashboard.subtitle}

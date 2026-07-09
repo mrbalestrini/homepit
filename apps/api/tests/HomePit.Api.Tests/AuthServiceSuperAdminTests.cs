@@ -82,7 +82,7 @@ public sealed class AuthServiceSuperAdminTests
 
         await service.LoginAsync(new LoginRequest(options.Email!, options.Password!), CancellationToken.None);
         var response = await service.RegisterAsync(
-            new RegisterRequest("owner@homepit.dev", "owner-secret", "Owner", null, null),
+            new RegisterRequest("owner@homepit.dev", "owner-secret", "Owner", null),
             CancellationToken.None);
 
         Assert.Equal(SystemRole.Admin, response.User.SystemRole);
@@ -99,14 +99,17 @@ public sealed class AuthServiceSuperAdminTests
 
     private static AuthService CreateService(HomePitDbContext db, SuperAdminOptions options)
     {
+        var storage = new FakeObjectStorage();
+
         return new AuthService(
             db,
             new StubPasswordHasher(),
             new StubTokenService(),
             TimeProvider.System,
             new TestUserContext(),
-            new FakeObjectStorage(),
+            storage,
             new ImageSharpImageUploadProcessor(),
+            new HomePitDataPurgeService(db, storage),
             options);
     }
 

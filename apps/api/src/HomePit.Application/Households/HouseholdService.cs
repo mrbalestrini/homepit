@@ -26,7 +26,10 @@ public sealed record HouseholdMemberDto(
     HouseholdRole Role,
     bool IsCurrentUser);
 
-public sealed class HouseholdService(IHomePitDbContext db, IUserContext userContext)
+public sealed class HouseholdService(
+    IHomePitDbContext db,
+    IUserContext userContext,
+    HomePitDataPurgeService dataPurgeService)
 {
     private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
@@ -104,12 +107,7 @@ public sealed class HouseholdService(IHomePitDbContext db, IUserContext userCont
         var member = await ResolveMembershipForHouseholdAsync(householdId, cancellationToken);
         EnsureOwner(member, "Somente o proprietário pode excluir a casa.");
 
-        await db.ActivityComments
-            .Where(comment => comment.HouseholdId == householdId)
-            .ExecuteDeleteAsync(cancellationToken);
-
-        db.Households.Remove(member.Household!);
-        await db.SaveChangesAsync(cancellationToken);
+        await dataPurgeService.DeleteHouseholdAsync(householdId, cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<HouseholdMemberDto>> ListMembersAsync(CancellationToken cancellationToken)

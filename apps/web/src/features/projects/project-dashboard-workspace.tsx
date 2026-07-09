@@ -220,7 +220,6 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
           updateHousehold: dashboard.updateHousehold,
           deleteHousehold: dashboard.deleteHousehold,
           shareHousehold: dashboard.shareHousehold,
-          updateProfile: dashboard.updateProfile,
         }}
         activeModule="projects"
         subtitle={dashboard.selectedScopeLabel}

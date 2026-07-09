@@ -150,7 +150,12 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(user => user.PhoneNumber).HasMaxLength(40);
             builder.Property(user => user.ProfilePhotoObjectKey).HasMaxLength(512);
             builder.Property(user => user.SystemRole).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(user => user.AccountState).HasConversion<string>().HasMaxLength(40).IsRequired();
             builder.HasIndex(user => user.Email).IsUnique();
+            builder.HasOne(user => user.DeactivatedByUser)
+                .WithMany(user => user.DeactivatedUsers)
+                .HasForeignKey(user => user.DeactivatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Household>(builder =>

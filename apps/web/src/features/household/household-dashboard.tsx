@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { AccountStateGate } from "@/features/workspace/account-state-gate";
 import { HomePitAuth } from "@/features/workspace/homepit-auth";
 import { HouseholdMemberAvatar } from "@/features/workspace/protected-user-avatar";
 import {
@@ -24,7 +25,11 @@ export function HouseholdDashboard() {
     return <HomePitAuth onAuthenticated={dashboard.handleAuthenticated} />;
   }
 
-  return <HouseholdDashboardWorkspace dashboard={dashboard} />;
+  return (
+    <AccountStateGate session={dashboard.session}>
+      <HouseholdDashboardWorkspace dashboard={dashboard} />
+    </AccountStateGate>
+  );
 }
 
 function HouseholdDashboardWorkspace({ dashboard }: { dashboard: ReturnType<typeof useProjectDashboard> }) {
@@ -71,7 +76,6 @@ function HouseholdDashboardWorkspace({ dashboard }: { dashboard: ReturnType<type
         updateHousehold: dashboard.updateHousehold,
         deleteHousehold: dashboard.deleteHousehold,
         shareHousehold: dashboard.shareHousehold,
-        updateProfile: dashboard.updateProfile,
       }}
       activeModule="household"
       subtitle="Visão de administração, permissões e acesso da casa"

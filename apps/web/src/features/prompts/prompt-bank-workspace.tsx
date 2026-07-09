@@ -109,7 +109,6 @@ export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
           updateHousehold: bank.updateHousehold,
           deleteHousehold: bank.deleteHousehold,
           shareHousehold: bank.shareHousehold,
-          updateProfile: bank.updateProfile,
         }}
         activeModule="prompts"
         subtitle={bank.subtitle}

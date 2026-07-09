@@ -1,3 +1,5 @@
+export type AccountState = "Active" | "PendingSelfDeletion" | "DisabledBySuperAdmin";
+
 export type Household = {
   id: string;
   name: string;
@@ -23,8 +25,30 @@ export type User = {
   displayName: string;
   phoneNumber?: string | null;
   systemRole: "User" | "Admin" | "SuperAdmin";
+  accountState?: AccountState | null;
+  scheduledDeletionAt?: string | null;
+  supportEmail?: string | null;
   hasProfilePhoto: boolean;
   profilePhotoUpdatedAt?: string | null;
+};
+
+export type DeleteOwnAccountResult = {
+  deletedImmediately: boolean;
+  scheduledDeletionAt?: string | null;
+};
+
+export type AdminUserListItem = {
+  id: string;
+  email: string;
+  displayName: string;
+  phoneNumber?: string | null;
+  systemRole: "User" | "Admin" | "SuperAdmin";
+  accountState: AccountState;
+  scheduledDeletionAt?: string | null;
+  deactivatedAt?: string | null;
+  ownedHouseholdCount: number;
+  membershipCount: number;
+  isProtected: boolean;
 };
 
 export type AuthResponse = {
@@ -746,6 +770,10 @@ function defaultErrorMessage(status: number) {
 
   if (status === 403) {
     return "Acesso negado.";
+  }
+
+  if (status === 423) {
+    return "Conta desativada.";
   }
 
   return "Não foi possível concluir a operação.";

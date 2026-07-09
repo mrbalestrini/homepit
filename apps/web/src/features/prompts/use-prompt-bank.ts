@@ -226,6 +226,7 @@ export function usePromptBank() {
   const activeHousehold = useMemo(() => {
     return session?.households.find((household) => household.id === activeHouseholdId) ?? null;
   }, [activeHouseholdId, session?.households]);
+  const isAccountActive = (session?.user.accountState ?? "Active") === "Active";
 
   const canShareHousehold = activeHousehold?.role === "Owner" || activeHousehold?.role === "Admin";
   const canManageHousehold = activeHousehold?.role === "Owner";
@@ -276,7 +277,7 @@ export function usePromptBank() {
 
   const loadReferenceData = useCallback(
     async (token = session?.accessToken, householdId = activeHouseholdId) => {
-      if (!token || !householdId) {
+      if (!token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
@@ -298,7 +299,7 @@ export function usePromptBank() {
         setLoadingReferences(false);
       }
     },
-    [activeHouseholdId, session?.accessToken],
+    [activeHouseholdId, session?.accessToken, session?.user],
   );
 
   const loadPrompts = useCallback(
@@ -313,7 +314,7 @@ export function usePromptBank() {
         archivedOnly?: boolean;
       },
     ) => {
-      if (!token || !householdId) {
+      if (!token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
@@ -354,11 +355,11 @@ export function usePromptBank() {
         setLoadingPrompts(false);
       }
     },
-    [activeHouseholdId, archivedOnly, deferredSearch, page, promptPage.pageSize, selectedCategoryIds, session?.accessToken, universeFilter],
+    [activeHouseholdId, archivedOnly, deferredSearch, page, promptPage.pageSize, selectedCategoryIds, session?.accessToken, session?.user, universeFilter],
   );
 
   const refreshWorkspace = useCallback(async () => {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeHouseholdId || !isAccountActive) {
       return;
     }
 
@@ -366,10 +367,10 @@ export function usePromptBank() {
       loadReferenceData(session.accessToken, activeHouseholdId),
       loadPrompts(session.accessToken, activeHouseholdId),
     ]);
-  }, [activeHouseholdId, loadPrompts, loadReferenceData, session]);
+  }, [activeHouseholdId, isAccountActive, loadPrompts, loadReferenceData, session]);
 
   useEffect(() => {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeHouseholdId || !isAccountActive) {
       return;
     }
 
@@ -378,10 +379,10 @@ export function usePromptBank() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeHouseholdId, loadReferenceData, session]);
+  }, [activeHouseholdId, isAccountActive, loadReferenceData, session]);
 
   useEffect(() => {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeHouseholdId || !isAccountActive) {
       return;
     }
 
@@ -390,7 +391,7 @@ export function usePromptBank() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeHouseholdId, archivedOnly, deferredSearch, loadPrompts, page, selectedCategoryIds, session, universeFilter]);
+  }, [activeHouseholdId, archivedOnly, deferredSearch, isAccountActive, loadPrompts, page, selectedCategoryIds, session, universeFilter]);
 
   const handleAuthenticated = useCallback((auth: AuthResponse) => {
     storeSession(auth);

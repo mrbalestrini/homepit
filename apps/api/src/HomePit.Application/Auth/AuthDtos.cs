@@ -6,7 +6,6 @@ public sealed record RegisterRequest(
     string Email,
     string Password,
     string DisplayName,
-    string? HouseholdName,
     string? PhoneNumber);
 
 public sealed record LoginRequest(string Email, string Password);
@@ -14,6 +13,23 @@ public sealed record LoginRequest(string Email, string Password);
 public sealed record RefreshRequest(string RefreshToken);
 
 public sealed record UpdateProfileRequest(string DisplayName, string? PhoneNumber);
+
+public sealed record DeleteOwnAccountResult(
+    bool DeletedImmediately,
+    DateTimeOffset? ScheduledDeletionAt);
+
+public sealed record AdminUserListItemDto(
+    Guid Id,
+    string Email,
+    string DisplayName,
+    string? PhoneNumber,
+    SystemRole SystemRole,
+    AccountState AccountState,
+    DateTimeOffset? ScheduledDeletionAt,
+    DateTimeOffset? DeactivatedAt,
+    int OwnedHouseholdCount,
+    int MembershipCount,
+    bool IsProtected);
 
 public sealed record AuthResponse(
     string AccessToken,
@@ -28,6 +44,9 @@ public sealed record UserDto(
     string DisplayName,
     string? PhoneNumber,
     SystemRole SystemRole,
+    AccountState AccountState,
+    DateTimeOffset? ScheduledDeletionAt,
+    string? SupportEmail,
     bool HasProfilePhoto,
     DateTimeOffset? ProfilePhotoUpdatedAt);
 
