@@ -3,6 +3,7 @@ using HomePit.Domain.Institutional;
 using HomePit.Domain.Finance;
 using HomePit.Domain.Gsm;
 using HomePit.Domain.Notifications;
+using HomePit.Domain.Platform;
 using HomePit.Domain.Plans;
 using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
@@ -19,6 +20,7 @@ public interface IHomePitDbContext
     DbSet<InstitutionalPage> InstitutionalPages { get; }
     DbSet<InstitutionalBenefit> InstitutionalBenefits { get; }
     DbSet<InstitutionalStep> InstitutionalSteps { get; }
+    DbSet<PlatformSettings> PlatformSettings { get; }
     DbSet<FinanceCategory> FinanceCategories { get; }
     DbSet<FinancePeriod> FinancePeriods { get; }
     DbSet<FinanceRecurringTemplate> FinanceRecurringTemplates { get; }

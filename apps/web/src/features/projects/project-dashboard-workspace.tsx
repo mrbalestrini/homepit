@@ -465,11 +465,13 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
                       title={universe.name}
                       onCreate={() => dashboard.openCreateProject(universe.id)}
                       onEdit={universe.canEdit ? () => dashboard.openEditUniverse(universe) : undefined}
+                      editLocked={!universe.canEdit}
                       onDelete={universe.canDelete ? () => setDeletingUniverse(universe) : undefined}
                       createLabel="Novo projeto"
                       editLabel="Editar universo"
                       deleteLabel="Excluir universo"
                     />
+                    {!universe.canEdit ? <Badge variant="danger">Fora do plano</Badge> : null}
                   </div>
 
                   {!isCollapsed ? (
@@ -511,11 +513,13 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
                               title={project.name}
                               onCreate={() => dashboard.openCreateActivity(project.id)}
                               onEdit={project.canEdit ? () => dashboard.openEditProject(project) : undefined}
+                              editLocked={!project.canEdit}
                               onDelete={project.canDelete ? () => setDeletingProject(project) : undefined}
                               createLabel="Nova atividade"
                               editLabel="Editar projeto"
                               deleteLabel="Excluir projeto"
                             />
+                            {!project.canEdit ? <Badge variant="danger">Fora do plano</Badge> : null}
                           </div>
                         ))
                       )}
@@ -1417,6 +1421,7 @@ function EntityActionMenu({
   title,
   onCreate,
   onEdit,
+  editLocked = false,
   onDelete,
   createLabel,
   editLabel = "Editar",
@@ -1425,12 +1430,13 @@ function EntityActionMenu({
   title: string;
   onCreate?: () => void;
   onEdit?: () => void;
+  editLocked?: boolean;
   onDelete?: () => void;
   createLabel?: string;
   editLabel?: string;
   deleteLabel?: string;
 }) {
-  if (!onCreate && !onEdit && !onDelete) {
+  if (!onCreate && !onEdit && !onDelete && !editLocked) {
     return null;
   }
 
@@ -1441,13 +1447,17 @@ function EntityActionMenu({
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>{title}</DropdownMenuLabel>
-        {onCreate ? <DropdownMenuItem onClick={onCreate}>{createLabel}</DropdownMenuItem> : null}
-        {onEdit ? <DropdownMenuItem onClick={onEdit}>{editLabel}</DropdownMenuItem> : null}
-        {onDelete ? (
-          <>
-            <DropdownMenuSeparator />
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>{title}</DropdownMenuLabel>
+          {onCreate ? <DropdownMenuItem onClick={onCreate}>{createLabel}</DropdownMenuItem> : null}
+          {onEdit || editLocked ? (
+            <DropdownMenuItem disabled={editLocked} onClick={onEdit}>
+              {editLabel}
+            </DropdownMenuItem>
+          ) : null}
+          {onDelete ? (
+            <>
+              <DropdownMenuSeparator />
             <DropdownMenuItem className="text-danger focus:text-danger" onClick={onDelete}>
               {deleteLabel}
             </DropdownMenuItem>

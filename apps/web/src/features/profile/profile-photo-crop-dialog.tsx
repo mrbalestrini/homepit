@@ -50,11 +50,11 @@ export function ProfilePhotoCropDialog({ draft, onCancel, onConfirm }: ProfilePh
 
   return (
     <Dialog open={Boolean(draft)} onOpenChange={(open) => !open && !processing && onCancel()}>
-      <DialogContent className="w-[min(96vw,72rem)] max-h-[92vh] overflow-hidden p-5">
+      <DialogContent className="w-[min(96vw,56rem)] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Ajustar foto de perfil</DialogTitle>
           <DialogDescription>
-            A foto atual será substituída. Reposicione o recorte e confirme somente quando estiver satisfeito.
+            Ajuste o enquadramento e o zoom até a foto ficar do jeito que você quer.
           </DialogDescription>
         </DialogHeader>
 
@@ -63,24 +63,26 @@ export function ProfilePhotoCropDialog({ draft, onCancel, onConfirm }: ProfilePh
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <p>
-                Ao confirmar, a foto anterior sai de cena e o novo recorte entra imediatamente no perfil.
+                Ao confirmar, a nova foto entra no perfil na hora.
               </p>
             </div>
           </div>
 
-          <div className="relative aspect-square overflow-hidden rounded-[24px] border border-border/70 bg-black">
-            <Cropper
-              image={draft.previewUrl}
-              crop={crop}
-              zoom={zoom}
-              aspect={1}
-              maxZoom={4}
-              objectFit="cover"
-              restrictPosition
-              onCropChange={setCrop}
-              onCropComplete={(_, areaPixels: Area) => setCroppedAreaPixels(areaPixels)}
-              onZoomChange={setZoom}
-            />
+          <div className="mx-auto w-full max-w-[34rem]">
+            <div className="relative aspect-square overflow-hidden rounded-[24px] border border-border/70 bg-black">
+              <Cropper
+                image={draft.previewUrl}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                maxZoom={4}
+                objectFit="cover"
+                restrictPosition
+                onCropChange={setCrop}
+                onCropComplete={(_, areaPixels: Area) => setCroppedAreaPixels(areaPixels)}
+                onZoomChange={setZoom}
+              />
+            </div>
           </div>
 
           <label className="grid gap-2">

@@ -26,6 +26,18 @@ public sealed class ApiContractSmokeTests
     }
 
     [Fact]
+    public void Openapi_contract_lists_platform_settings_routes()
+    {
+        var contractPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "..", "contracts", "openapi", "homepit.v1.yaml"));
+        var contract = File.ReadAllText(contractPath);
+
+        Assert.Contains("/api/platform-settings:", contract);
+        Assert.Contains("/api/admin/platform/settings:", contract);
+        Assert.Contains("PublicPlatformSettings:", contract);
+        Assert.Contains("PlatformSettings:", contract);
+    }
+
+    [Fact]
     public void Openapi_contract_lists_gsm_routes_and_status_enum()
     {
         var contractPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "..", "contracts", "openapi", "homepit.v1.yaml"));

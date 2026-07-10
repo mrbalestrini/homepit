@@ -31,6 +31,7 @@ import { useProjectDashboard } from "@/features/projects/use-project-dashboard";
 import { COMMON_IMAGE_ACCEPT } from "@/lib/image-upload";
 import { ProfilePhotoCropDialog, type ProfilePhotoCropDraft } from "@/features/profile/profile-photo-crop-dialog";
 import { cropProfilePhotoFile } from "@/features/profile/profile-photo-utils";
+import { cn } from "@/lib/utils";
 
 export function ProfilePage() {
   const dashboard = useProjectDashboard();
@@ -85,7 +86,7 @@ function ProfileWorkspace({ dashboard }: { dashboard: ReturnType<typeof useProje
         shareHousehold: dashboard.shareHousehold,
       }}
       activeModule="profile"
-      subtitle="Gerencie sua identidade, foto, contato e o ciclo de vida da conta"
+      subtitle="Atualize sua foto, seus dados e acompanhe os limites da conta"
       visibleCount={session.households.length}
       visibleLabel="casas"
       headerStats={[
@@ -104,6 +105,9 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   const user = session.user;
   const token = session.accessToken;
   const ownedHouseholdCount = session.households.filter((household) => household.role === "Owner").length;
+  const selectedUniverseProjectCount = dashboard.selectedUniverseId
+    ? dashboard.projects.filter((project) => project.universeId === dashboard.selectedUniverseId).length
+    : null;
   const profilePhotoInputRef = useRef<HTMLInputElement | null>(null);
 
   const [displayName, setDisplayName] = useState(user.displayName);
@@ -263,8 +267,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Gestão pessoal</p>
               <h1 className="mt-2 text-3xl font-semibold text-foreground sm:text-4xl">Sua identidade no HomePit</h1>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                A nova área de perfil já nasce preparada para futuras abas, com foco em foto, dados principais e
-                controle completo do ciclo da conta.
+                Atualize sua foto, revise seus dados e acompanhe os limites da conta em um só lugar.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -309,7 +312,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                     </button>
                   </div>
                   <p className="text-xs leading-5 text-muted-foreground">
-                    Clique no ícone da câmera para escolher uma nova foto. O recorte é aplicado na hora.
+                    Clique no ícone da câmera para escolher uma nova foto e ajustar o enquadramento.
                   </p>
                 </div>
                 <div className="rounded-[16px] border border-border/70 bg-background px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -333,7 +336,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Resumo rápido</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Sua foto é usada na colaboração da casa, comentários e módulos compartilhados.
+                  Sua foto aparece nas interações da casa, nos comentários e nos módulos compartilhados.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -348,15 +351,15 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
           <Card>
             <CardHeader>
               <CardTitle>Perfil</CardTitle>
-              <CardDescription>Campos organizados para crescer junto com futuras abas desta área.</CardDescription>
+              <CardDescription>Revise seu nome e seu contato principal sem complicação.</CardDescription>
             </CardHeader>
             <CardContent>
               <form className="grid gap-5" onSubmit={saveProfile}>
                 <div className="grid gap-5 lg:grid-cols-2">
-                  <Field label="Nome" description="Nome exibido nos módulos e interações da casa.">
+                  <Field label="Nome" description="Como você quer aparecer para as outras pessoas.">
                     <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
                   </Field>
-                  <Field label="WhatsApp" description="Contato usado no contexto da sua conta.">
+                  <Field label="WhatsApp" description="O contato que acompanha sua conta no HomePit.">
                     <Input value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} autoComplete="tel" />
                   </Field>
                 </div>
@@ -373,7 +376,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
           <Card>
             <CardHeader>
               <CardTitle>Plano</CardTitle>
-              <CardDescription>Limites e vigência comercial da sua conta no HomePit.</CardDescription>
+              <CardDescription>Veja o que sua conta pode usar e o que já está em uso.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {planLoading ? (
@@ -393,18 +396,35 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                     </Badge>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <Metric label="Casas próprias" value={planSummary.plan.maxOwnedHouseholds} />
-                    <Metric label="Universos/casa" value={planSummary.plan.maxUniversesPerHousehold} />
-                    <Metric label="Projetos/universo" value={planSummary.plan.maxProjectsPerUniverse} />
-                    <Metric label="Imagens originais" value={planSummary.plan.maxOriginalImages} />
+                    <QuotaMetric
+                      label="Casas"
+                      current={planSummary.usage.ownedHouseholdCount}
+                      limit={planSummary.plan.maxOwnedHouseholds}
+                    />
+                    <QuotaMetric
+                      label="Universos por casa"
+                      current={planSummary.usage.activeHouseholdUniverseCount ?? null}
+                      limit={planSummary.plan.maxUniversesPerHousehold}
+                    />
+                    <QuotaMetric
+                      label="Projetos por universo"
+                      current={selectedUniverseProjectCount}
+                      limit={planSummary.plan.maxProjectsPerUniverse}
+                      helperText={
+                        dashboard.selectedUniverseId
+                          ? undefined
+                          : "Selecione um universo no módulo Projetos para ver este limite."
+                      }
+                    />
+                    <QuotaMetric
+                      label="Imagens totais"
+                      current={planSummary.usage.managedOriginalImageCount}
+                      limit={planSummary.plan.maxOriginalImages}
+                    />
                   </div>
                   <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4 text-sm leading-6 text-muted-foreground">
-                    {planSummary.plan.imagePolicyDescription}
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <Metric label="Casas em uso" value={planSummary.usage.ownedHouseholdCount} />
-                    <Metric label="Imagens em uso" value={planSummary.usage.managedOriginalImageCount} />
-                    <Metric label="Universos da casa ativa" value={planSummary.usage.activeHouseholdUniverseCount ?? 0} />
+                    Seu plano define quanto você pode criar e quantas imagens ficam em qualidade original. Se a
+                    conta passar da cota, a edição do excesso fica bloqueada até o uso voltar ao limite.
                   </div>
                   {planSummary.activeSubscription ? (
                     <div className="rounded-[18px] border border-border/70 bg-background px-4 py-3 text-sm leading-6 text-muted-foreground">
@@ -413,7 +433,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                       {formatDateTime(planSummary.activeSubscription.endsAt)}.
                     </div>
                   ) : (
-                    <Notice tone="warning">Sem assinatura ativa no momento. Sua conta usa o plano padrão atual.</Notice>
+                    <Notice tone="warning">Você está usando o plano padrão porque não há assinatura ativa no momento.</Notice>
                   )}
                 </>
               ) : (
@@ -526,11 +546,44 @@ function Field({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="rounded-[18px] border border-border/70 bg-background px-4 py-3">
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function QuotaMetric({
+  label,
+  current,
+  limit,
+  helperText,
+}: {
+  label: string;
+  current: number | null;
+  limit: number;
+  helperText?: string;
+}) {
+  const isUnavailable = current === null;
+  const isOverLimit = current !== null && current > limit;
+  const valueText = current === null ? `— de ${limit}` : `${current} de ${limit}`;
+
+  return (
+    <div
+      className={cn(
+        "rounded-[18px] border px-4 py-3 transition",
+        isOverLimit ? "border-danger/30 bg-status-danger-soft" : "border-border/70 bg-background",
+      )}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <p className={cn("mt-2 text-2xl font-semibold", isOverLimit ? "text-danger" : "text-foreground")}>{valueText}</p>
+      {helperText ? (
+        <p className={cn("mt-2 text-xs leading-5", isUnavailable ? "text-muted-foreground" : "text-muted-foreground")}>
+          {helperText}
+        </p>
+      ) : null}
     </div>
   );
 }

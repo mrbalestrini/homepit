@@ -92,6 +92,33 @@ export type UserSubscription = {
   adminNote?: string | null;
 };
 
+export type PlatformSettings = {
+  adminName: string;
+  contactEmail: string;
+  contactPhone: string;
+  managementPhone: string;
+  instagram: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  canShowAddressOnLanding: boolean;
+};
+
+export type UpdatePlatformSettingsRequest = {
+  adminName: string;
+  contactEmail: string;
+  contactPhone: string;
+  managementPhone: string;
+  instagram: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+};
+
 export type PlanUsageSummary = {
   ownedHouseholdCount: number;
   managedOriginalImageCount: number;

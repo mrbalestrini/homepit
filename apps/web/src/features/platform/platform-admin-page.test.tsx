@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "@/lib/api";
@@ -47,6 +47,7 @@ const mockedUseProjectDashboard = vi.mocked(useProjectDashboard);
 
 describe("PlatformAdminPage", () => {
   beforeEach(() => {
+    cleanup();
     vi.clearAllMocks();
   });
 
@@ -111,6 +112,22 @@ describe("PlatformAdminPage", () => {
         return [];
       }
 
+      if (path === "/api/admin/platform/settings") {
+        return {
+          adminName: "",
+          contactEmail: "",
+          contactPhone: "",
+          managementPhone: "",
+          instagram: "",
+          addressLine1: "",
+          addressLine2: "",
+          city: "",
+          state: "",
+          postalCode: "",
+          canShowAddressOnLanding: false,
+        };
+      }
+
       if (path === "/api/admin/platform/plans/plan-standard") {
         return {
           id: "plan-standard",
@@ -136,6 +153,7 @@ describe("PlatformAdminPage", () => {
     expect(await screen.findByRole("tab", { name: "Usuários" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Planos" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Assinaturas" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Configurações" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Planos" }));
     fireEvent.change(await screen.findByLabelText("Preço mensal"), { target: { value: "11.90" } });
@@ -148,6 +166,99 @@ describe("PlatformAdminPage", () => {
           method: "PUT",
           token: "access-token",
           body: expect.stringContaining('"monthlyPrice":11.9'),
+        }),
+      );
+    });
+  });
+
+  it("renders and saves platform settings", async () => {
+    mockedUseProjectDashboard.mockReturnValue(buildDashboard("SuperAdmin"));
+    mockedApiFetch.mockImplementation(async (path, options) => {
+      if (path === "/api/admin/users") {
+        return [];
+      }
+
+      if (path === "/api/admin/platform/plans") {
+        return [];
+      }
+
+      if (path === "/api/admin/platform/subscriptions") {
+        return [];
+      }
+
+      if (path === "/api/admin/platform/settings" && (!options || options.method === "GET")) {
+        return {
+          adminName: "",
+          contactEmail: "",
+          contactPhone: "",
+          managementPhone: "",
+          instagram: "",
+          addressLine1: "",
+          addressLine2: "",
+          city: "",
+          state: "",
+          postalCode: "",
+          canShowAddressOnLanding: false,
+        };
+      }
+
+      if (path === "/api/admin/platform/settings" && options?.method === "PUT") {
+        const body = JSON.parse(options.body as string) as Record<string, string>;
+        return {
+          ...body,
+          canShowAddressOnLanding: true,
+        };
+      }
+
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<PlatformAdminPage />);
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Configurações" }));
+
+    fireEvent.change(await screen.findByLabelText("Nome administrador"), {
+      target: { value: "Equipe HomePit" },
+    });
+    fireEvent.change(screen.getByLabelText("E-mail contato"), {
+      target: { value: "contato@homepit.dev" },
+    });
+    fireEvent.change(screen.getByLabelText("Telefone contato"), {
+      target: { value: "(11) 99999-0000" },
+    });
+    fireEvent.change(screen.getByLabelText("Telefone gestão"), {
+      target: { value: "(11) 98888-7777" },
+    });
+    fireEvent.change(screen.getByLabelText("Instagram"), {
+      target: { value: "@homepit" },
+    });
+    fireEvent.change(screen.getByLabelText("Endereço linha 1"), {
+      target: { value: "Rua das Flores, 123" },
+    });
+    fireEvent.change(screen.getByLabelText("Endereço linha 2"), {
+      target: { value: "Sala 21" },
+    });
+    fireEvent.change(screen.getByLabelText("Cidade"), {
+      target: { value: "São Paulo" },
+    });
+    fireEvent.change(screen.getByLabelText("Estado"), {
+      target: { value: "SP" },
+    });
+    fireEvent.change(screen.getByLabelText("CEP"), {
+      target: { value: "01310-000" },
+    });
+
+    expect(screen.getByText("Endereço pronto para a landing")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Salvar configurações" }));
+
+    await waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalledWith(
+        "/api/admin/platform/settings",
+        expect.objectContaining({
+          method: "PUT",
+          token: "access-token",
+          body: expect.stringContaining('"adminName":"Equipe HomePit"'),
         }),
       );
     });

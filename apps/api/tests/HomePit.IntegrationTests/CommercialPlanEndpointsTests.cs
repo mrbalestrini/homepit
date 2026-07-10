@@ -120,6 +120,68 @@ public sealed class CommercialPlanEndpointsTests
         Assert.Equal("Active", seededUser.ActiveSubscriptionStatus);
     }
 
+    [Fact]
+    public async Task Superadmin_can_manage_platform_settings()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email = "superadmin@homepit.dev",
+            password = "super-secret"
+        });
+
+        loginResponse.EnsureSuccessStatusCode();
+        var superAdminAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(superAdminAuth);
+
+        var initialResponse = await SendAuthorizedAsync(
+            client,
+            superAdminAuth.AccessToken,
+            null,
+            HttpMethod.Get,
+            "/api/admin/platform/settings");
+
+        initialResponse.EnsureSuccessStatusCode();
+        var initialSettings = await initialResponse.Content.ReadFromJsonAsync<PlatformSettingsResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(initialSettings);
+        Assert.False(initialSettings!.CanShowAddressOnLanding);
+
+        var updateResponse = await SendAuthorizedAsync(
+            client,
+            superAdminAuth.AccessToken,
+            null,
+            HttpMethod.Put,
+            "/api/admin/platform/settings",
+            JsonContent.Create(new
+            {
+                adminName = "Equipe HomePit",
+                contactEmail = "contato@homepit.dev",
+                contactPhone = "(11) 99999-0000",
+                managementPhone = "(11) 98888-7777",
+                instagram = "@homepit",
+                addressLine1 = "Rua das Flores, 123",
+                addressLine2 = "Sala 21",
+                city = "São Paulo",
+                state = "SP",
+                postalCode = "01310-000"
+            }));
+
+        updateResponse.EnsureSuccessStatusCode();
+        var updatedSettings = await updateResponse.Content.ReadFromJsonAsync<PlatformSettingsResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(updatedSettings);
+        Assert.Equal("Equipe HomePit", updatedSettings!.AdminName);
+        Assert.True(updatedSettings.CanShowAddressOnLanding);
+
+        var publicResponse = await client.GetAsync("/api/platform-settings");
+        publicResponse.EnsureSuccessStatusCode();
+        var publicSettings = await publicResponse.Content.ReadFromJsonAsync<PublicPlatformSettingsResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(publicSettings);
+        Assert.Equal("contato@homepit.dev", publicSettings!.ContactEmail);
+        Assert.True(publicSettings.CanShowAddressOnLanding);
+    }
+
     private static async Task<SeedUserResult> SeedUserAsync(HomePitApiFactory factory)
     {
         await using var scope = factory.Services.CreateAsyncScope();
@@ -166,6 +228,28 @@ public sealed class CommercialPlanEndpointsTests
     private sealed record ProblemDetailsResponse(string? Detail);
     private sealed record PlanDefinitionResponse(Guid Id, string Slug, string Name);
     private sealed record AdminUserListItemResponse(Guid Id, string EffectivePlanName, string? ActiveSubscriptionStatus);
+    private sealed record PlatformSettingsResponse(
+        string AdminName,
+        string ContactEmail,
+        string ContactPhone,
+        string ManagementPhone,
+        string Instagram,
+        string AddressLine1,
+        string AddressLine2,
+        string City,
+        string State,
+        string PostalCode,
+        bool CanShowAddressOnLanding);
+    private sealed record PublicPlatformSettingsResponse(
+        string ContactEmail,
+        string ContactPhone,
+        string Instagram,
+        string AddressLine1,
+        string AddressLine2,
+        string City,
+        string State,
+        string PostalCode,
+        bool CanShowAddressOnLanding);
 
     private sealed class HomePitApiFactory : WebApplicationFactory<Program>, IAsyncDisposable
     {

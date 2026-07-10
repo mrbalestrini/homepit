@@ -4,6 +4,16 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.10.0] - 2026-07-10
+
+### Added
+- Nova aba `Configurações` no hub `/admin/platform`, com campos de identificação, contato público, contato interno e endereço institucional organizados por assunto.
+- API global de configurações da plataforma para o `SuperAdmin`, com leitura pública separada para uso da landing.
+
+### Changed
+- O hub global da plataforma passou a separar o catálogo comercial das configurações institucionais e de contato.
+- O contrato da API e `/api/system/info` passaram a expor a versão `0.2.0`.
+
 ## [1.9.0] - 2026-07-09
 
 ### Added

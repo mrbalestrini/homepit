@@ -8,6 +8,7 @@ using HomePit.Application.Finance;
 using HomePit.Application.Gsm;
 using HomePit.Application.Households;
 using HomePit.Application.Institutional;
+using HomePit.Application.Platform;
 using HomePit.Application.Plans;
 using HomePit.Application.Prompts;
 using HomePit.Application.Projects;
@@ -90,7 +91,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/system/info", () => Results.Ok(new
 {
     name = "HomePit API",
-    version = "0.1.1",
+    version = "0.2.0",
     timezone = "America/Sao_Paulo"
 }));
 
@@ -119,6 +120,14 @@ app.MapGet("/api/institutional-page/images/{slot}", async (
     var image = await service.GetImageAsync(slot, cancellationToken);
     context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
     return Results.File(image.Content, image.ContentType);
+});
+app.MapGet("/api/platform-settings", async (
+    HttpContext context,
+    PlatformSettingsService service,
+    CancellationToken cancellationToken) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.Ok(await service.GetPublicAsync(cancellationToken));
 });
 
 var api = app.MapGroup("/api").RequireAuthorization();
@@ -158,6 +167,15 @@ api.MapDelete("/admin/institutional-page/images/{slot}", async (
     InstitutionalPageService service,
     CancellationToken cancellationToken) =>
         Results.Ok(await service.DeleteImageAsync(slot, cancellationToken)));
+api.MapGet("/admin/platform/settings", async (
+    PlatformSettingsService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.GetAdminAsync(cancellationToken)));
+api.MapPut("/admin/platform/settings", async (
+    UpdatePlatformSettingsRequest request,
+    PlatformSettingsService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateAsync(request, cancellationToken)));
 
 api.MapGet("/households", async (HouseholdService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.ListAsync(cancellationToken)));

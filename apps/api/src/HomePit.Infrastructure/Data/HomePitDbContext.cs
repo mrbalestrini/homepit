@@ -5,6 +5,7 @@ using HomePit.Domain.Gsm;
 using HomePit.Domain.Households;
 using HomePit.Domain.Institutional;
 using HomePit.Domain.Notifications;
+using HomePit.Domain.Platform;
 using HomePit.Domain.Plans;
 using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
@@ -22,6 +23,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<InstitutionalPage> InstitutionalPages => Set<InstitutionalPage>();
     public DbSet<InstitutionalBenefit> InstitutionalBenefits => Set<InstitutionalBenefit>();
     public DbSet<InstitutionalStep> InstitutionalSteps => Set<InstitutionalStep>();
+    public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
     public DbSet<FinanceCategory> FinanceCategories => Set<FinanceCategory>();
     public DbSet<FinancePeriod> FinancePeriods => Set<FinancePeriod>();
     public DbSet<FinanceRecurringTemplate> FinanceRecurringTemplates => Set<FinanceRecurringTemplate>();
@@ -57,6 +59,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
         ConfigureFinance(modelBuilder);
         ConfigureGsm(modelBuilder);
         ConfigureInstitutional(modelBuilder);
+        ConfigurePlatform(modelBuilder);
         ConfigurePlans(modelBuilder);
         ConfigureProjects(modelBuilder);
         ConfigurePrompts(modelBuilder);
@@ -193,6 +196,26 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
                 .WithMany(user => user.RefreshTokens)
                 .HasForeignKey(token => token.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigurePlatform(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<PlatformSettings>(builder =>
+        {
+            builder.ToTable("platform_settings");
+            builder.Property(item => item.Key).HasMaxLength(40).IsRequired();
+            builder.Property(item => item.AdminName).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.ContactEmail).HasMaxLength(320).IsRequired();
+            builder.Property(item => item.ContactPhone).HasMaxLength(40).IsRequired();
+            builder.Property(item => item.ManagementPhone).HasMaxLength(40).IsRequired();
+            builder.Property(item => item.Instagram).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.AddressLine1).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.AddressLine2).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.City).HasMaxLength(120).IsRequired();
+            builder.Property(item => item.State).HasMaxLength(80).IsRequired();
+            builder.Property(item => item.PostalCode).HasMaxLength(20).IsRequired();
+            builder.HasIndex(item => item.Key).IsUnique();
         });
     }
 

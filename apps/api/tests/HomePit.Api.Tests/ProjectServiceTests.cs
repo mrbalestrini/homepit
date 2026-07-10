@@ -27,6 +27,38 @@ public sealed class ProjectServiceTests
     }
 
     [Fact]
+    public async Task List_universes_marks_newer_items_as_read_only_when_the_plan_is_exceeded()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        await AddUniversesAsync(context, fixture, 4);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var universes = await service.ListUniversesAsync(CancellationToken.None);
+
+        Assert.Equal(5, universes.Count);
+        Assert.Equal(3, universes.Count(item => item.CanEdit));
+        Assert.Equal(2, universes.Count(item => !item.CanEdit));
+        Assert.All(universes, item => Assert.True(item.CanDelete));
+    }
+
+    [Fact]
+    public async Task List_projects_marks_newer_items_as_read_only_when_the_plan_is_exceeded()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        await AddProjectsAsync(context, fixture, 4);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+
+        var projects = await service.ListProjectsAsync(fixture.UniverseId, CancellationToken.None);
+
+        Assert.Equal(5, projects.Count);
+        Assert.Equal(3, projects.Count(item => item.CanEdit));
+        Assert.Equal(2, projects.Count(item => !item.CanEdit));
+        Assert.All(projects, item => Assert.True(item.CanDelete));
+    }
+
+    [Fact]
     public async Task Update_project_returns_only_open_activity_count()
     {
         await using var context = CreateDbContext();
@@ -278,6 +310,61 @@ public sealed class ProjectServiceTests
             ownerMember.Id,
             universe.Id,
             project.Id);
+    }
+
+    private static async Task AddUniversesAsync(
+        HomePitDbContext context,
+        ProjectFixture fixture,
+        int additionalCount)
+    {
+        var universes = Enumerable.Range(1, additionalCount)
+            .Select(index => new Universe
+            {
+                HouseholdId = fixture.HouseholdId,
+                CreatedByMemberId = fixture.OwnerMemberId,
+                Name = $"Universo {index}"
+            })
+            .ToArray();
+
+        context.Universes.AddRange(universes);
+        await context.SaveChangesAsync();
+
+        var baseTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        for (var index = 0; index < universes.Length; index++)
+        {
+            universes[index].CreatedAt = baseTime.AddMinutes(index);
+            universes[index].UpdatedAt = universes[index].CreatedAt;
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task AddProjectsAsync(
+        HomePitDbContext context,
+        ProjectFixture fixture,
+        int additionalCount)
+    {
+        var projects = Enumerable.Range(1, additionalCount)
+            .Select(index => new Project
+            {
+                HouseholdId = fixture.HouseholdId,
+                UniverseId = fixture.UniverseId,
+                CreatedByMemberId = fixture.OwnerMemberId,
+                Name = $"Projeto {index}"
+            })
+            .ToArray();
+
+        context.Projects.AddRange(projects);
+        await context.SaveChangesAsync();
+
+        var baseTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        for (var index = 0; index < projects.Length; index++)
+        {
+            projects[index].CreatedAt = baseTime.AddMinutes(index);
+            projects[index].UpdatedAt = projects[index].CreatedAt;
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private sealed record ProjectFixture(

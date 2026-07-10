@@ -55,7 +55,7 @@ describe("ProfilePage", () => {
     vi.clearAllMocks();
   });
 
-  it("shows the current plan, usage and image policy", async () => {
+  it("shows the current plan, usage and quota states", async () => {
     mockedUseProjectDashboard.mockReturnValue(buildDashboard());
     mockedApiFetch.mockImplementation(async (path) => {
       if (path === "/api/users/me/plan") {
@@ -106,9 +106,53 @@ describe("ProfilePage", () => {
     expect(await screen.findByText("Plano")).toBeInTheDocument();
     expect(screen.getByText("Standard")).toBeInTheDocument();
     expect(screen.getByText(/R\$ 9,90\/mês/)).toBeInTheDocument();
-    expect(screen.getByText(/Mantém até 30 imagem\(ns\) privada\(s\) recente\(s\)/)).toBeInTheDocument();
-    expect(screen.getByText("Casas em uso")).toBeInTheDocument();
-    expect(screen.getByText("Imagens em uso")).toBeInTheDocument();
+    expect(screen.getAllByText("Casas").length).toBeGreaterThan(0);
+    expect(screen.getByText("Universos por casa")).toBeInTheDocument();
+    expect(screen.getByText("Projetos por universo")).toBeInTheDocument();
+    expect(screen.getByText("Imagens totais")).toBeInTheDocument();
+    expect(await screen.findByText("1 de 1")).toBeInTheDocument();
+    expect(await screen.findByText("2 de 3")).toBeInTheDocument();
+    expect(await screen.findByText("4 de 3")).toBeInTheDocument();
+    expect(await screen.findByText("12 de 30")).toBeInTheDocument();
+    expect(await screen.findByText(/Seu plano define quanto você pode criar/i)).toBeInTheDocument();
+  });
+
+  it("shows a neutral project quota when no universe is selected", async () => {
+    mockedUseProjectDashboard.mockReturnValue(buildDashboard({ selectedUniverseId: "" }));
+    mockedApiFetch.mockImplementation(async (path) => {
+      if (path === "/api/users/me/plan") {
+        return {
+          plan: {
+            id: "plan-standard",
+            slug: "standard",
+            name: "Standard",
+            currencyCode: "BRL",
+            monthlyPrice: 9.9,
+            annualPrice: 99,
+            maxOwnedHouseholds: 1,
+            maxUniversesPerHousehold: 3,
+            maxProjectsPerUniverse: 3,
+            maxOriginalImages: 30,
+            imagePolicyDescription: "Não usado nesta tela.",
+          },
+          activeSubscription: null,
+          usage: {
+            ownedHouseholdCount: 1,
+            managedOriginalImageCount: 12,
+            activeHouseholdUniverseCount: 2,
+          },
+        };
+      }
+
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<ProfilePage />);
+
+    expect(await screen.findByText("— de 3")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Selecione um universo no módulo Projetos para ver este limite."),
+    ).toBeInTheDocument();
 
     await waitFor(() => {
       expect(mockedApiFetch).toHaveBeenCalledWith(
@@ -121,7 +165,11 @@ describe("ProfilePage", () => {
   });
 });
 
-function buildDashboard() {
+function buildDashboard(options?: { selectedUniverseId?: string }) {
+  return buildDashboardWithOptions(options);
+}
+
+function buildDashboardWithOptions({ selectedUniverseId = "universe-1" }: { selectedUniverseId?: string } = {}) {
   return {
     session: {
       accessToken: "access-token",
@@ -159,6 +207,62 @@ function buildDashboard() {
     canManageHousehold: true,
     editingHousehold: null,
     activeModal: null,
+    selectedUniverseId,
+    selectedProjectId: "",
+    projects: [
+      {
+        id: "project-1",
+        universeId: "universe-1",
+        universeName: "Universo",
+        universeImageUrl: null,
+        universeHasImage: false,
+        universeImageUpdatedAt: null,
+        name: "Projeto 1",
+        createdByMemberId: "member-1",
+        activityCount: 1,
+        canEdit: true,
+        canDelete: true,
+      },
+      {
+        id: "project-2",
+        universeId: "universe-1",
+        universeName: "Universo",
+        universeImageUrl: null,
+        universeHasImage: false,
+        universeImageUpdatedAt: null,
+        name: "Projeto 2",
+        createdByMemberId: "member-1",
+        activityCount: 0,
+        canEdit: true,
+        canDelete: true,
+      },
+      {
+        id: "project-3",
+        universeId: "universe-1",
+        universeName: "Universo",
+        universeImageUrl: null,
+        universeHasImage: false,
+        universeImageUpdatedAt: null,
+        name: "Projeto 3",
+        createdByMemberId: "member-1",
+        activityCount: 0,
+        canEdit: true,
+        canDelete: true,
+      },
+      {
+        id: "project-4",
+        universeId: "universe-1",
+        universeName: "Universo",
+        universeImageUrl: null,
+        universeHasImage: false,
+        universeImageUpdatedAt: null,
+        name: "Projeto 4",
+        createdByMemberId: "member-1",
+        activityCount: 0,
+        canEdit: false,
+        canDelete: true,
+      },
+    ],
     setError: vi.fn(),
     setSidebarCollapsed: vi.fn(),
     setTheme: vi.fn(),

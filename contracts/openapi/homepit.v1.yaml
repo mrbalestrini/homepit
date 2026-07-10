@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: HomePit API
-  version: 0.1.1
+  version: 0.2.0
 servers:
   - url: http://localhost:8080
 security:
@@ -91,6 +91,16 @@ paths:
                 format: binary
         "404":
           description: Image not found
+  /api/platform-settings:
+    get:
+      security: []
+      responses:
+        "200":
+          description: Public platform settings used by the landing page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPlatformSettings"
   /api/admin/institutional-page:
     get:
       responses:
@@ -453,6 +463,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserSubscription"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/settings:
+    get:
+      responses:
+        "200":
+          description: Platform settings for the SuperAdmin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformSettings"
+        "403":
+          description: SuperAdmin role required
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlatformSettingsRequest"
+      responses:
+        "200":
+          description: Platform settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformSettings"
         "403":
           description: SuperAdmin role required
   /api/finance/periods:
@@ -2101,6 +2138,81 @@ components:
         highlightImageAlt:
           type: string
           maxLength: 300
+    PublicPlatformSettings:
+      type: object
+      required:
+        [contactEmail, contactPhone, instagram, addressLine1, addressLine2, city, state, postalCode, canShowAddressOnLanding]
+      properties:
+        contactEmail:
+          type: string
+        contactPhone:
+          type: string
+        instagram:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
+        canShowAddressOnLanding:
+          type: boolean
+    PlatformSettings:
+      type: object
+      required:
+        [adminName, contactEmail, contactPhone, managementPhone, instagram, addressLine1, addressLine2, city, state, postalCode, canShowAddressOnLanding]
+      properties:
+        adminName:
+          type: string
+        contactEmail:
+          type: string
+        contactPhone:
+          type: string
+        managementPhone:
+          type: string
+        instagram:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
+        canShowAddressOnLanding:
+          type: boolean
+    UpdatePlatformSettingsRequest:
+      type: object
+      required:
+        [adminName, contactEmail, contactPhone, managementPhone, instagram, addressLine1, addressLine2, city, state, postalCode]
+      properties:
+        adminName:
+          type: string
+        contactEmail:
+          type: string
+        contactPhone:
+          type: string
+        managementPhone:
+          type: string
+        instagram:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
     AuthResponse:
       type: object
       required: [accessToken, refreshToken, expiresAt, user, households]

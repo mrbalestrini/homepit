@@ -5,6 +5,7 @@ import {
   Loader2,
   LogOut,
   Pencil,
+  Settings2,
   ShieldOff,
   Sparkles,
   Trash2,
@@ -22,9 +23,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   type AdminUserListItem,
   type BillingCycle,
+  type PlatformSettings,
   type PlanDefinition,
   type UserSubscription,
   type UserSubscriptionStatus,
+  type UpdatePlatformSettingsRequest,
   apiFetch,
   clearSession,
 } from "@/lib/api";
@@ -33,8 +36,9 @@ import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmati
 import { HomePitAuth } from "@/features/workspace/homepit-auth";
 import { HomePitWorkspaceShell, Notice } from "@/features/workspace/homepit-workspace-shell";
 import { useProjectDashboard } from "@/features/projects/use-project-dashboard";
+import { cn } from "@/lib/utils";
 
-type PlatformTab = "users" | "plans" | "subscriptions";
+type PlatformTab = "users" | "plans" | "subscriptions" | "settings";
 type UserFilter = "all" | "Active" | "PendingSelfDeletion" | "DisabledBySuperAdmin";
 
 type SubscriptionFormState = {
@@ -49,6 +53,8 @@ type SubscriptionFormState = {
   adminNote: string;
 };
 
+type PlatformSettingsFormState = UpdatePlatformSettingsRequest;
+
 const defaultSubscriptionForm: SubscriptionFormState = {
   userId: "",
   planDefinitionId: "",
@@ -59,6 +65,19 @@ const defaultSubscriptionForm: SubscriptionFormState = {
   currencyCode: "BRL",
   status: "Active",
   adminNote: "",
+};
+
+const defaultPlatformSettingsForm: PlatformSettingsFormState = {
+  adminName: "",
+  contactEmail: "",
+  contactPhone: "",
+  managementPhone: "",
+  instagram: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  state: "",
+  postalCode: "",
 };
 
 export function PlatformAdminPage() {
@@ -83,7 +102,7 @@ function PlatformWorkspace({ dashboard }: { dashboard: ReturnType<typeof useProj
   }
 
   return (
-    <HomePitWorkspaceShell
+      <HomePitWorkspaceShell
       controller={{
         session,
         activeHouseholdId: dashboard.activeHouseholdId,
@@ -115,7 +134,7 @@ function PlatformWorkspace({ dashboard }: { dashboard: ReturnType<typeof useProj
         shareHousehold: dashboard.shareHousehold,
       }}
       activeModule="platform"
-      subtitle="Usuários, planos e assinaturas em um hub global do SuperAdmin"
+      subtitle="Usuários, planos, assinaturas e configurações globais em um hub do SuperAdmin"
       visibleCount={session.households.length}
       visibleLabel="casas visíveis"
       headerStats={[{ label: "casas", value: session.households.length }]}
@@ -131,8 +150,13 @@ function PlatformAdminPanel({ token }: { token: string }) {
   const [users, setUsers] = useState<AdminUserListItem[]>([]);
   const [plans, setPlans] = useState<PlanDefinition[]>([]);
   const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([]);
+  const [platformSettings, setPlatformSettings] = useState<PlatformSettings>({
+    ...defaultPlatformSettingsForm,
+    canShowAddressOnLanding: false,
+  });
   const [loading, setLoading] = useState(true);
   const [savingPlanId, setSavingPlanId] = useState<string | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
   const [userFilter, setUserFilter] = useState<UserFilter>("all");
   const [userToDelete, setUserToDelete] = useState<AdminUserListItem | null>(null);
@@ -140,20 +164,28 @@ function PlatformAdminPanel({ token }: { token: string }) {
   const [savingSubscription, setSavingSubscription] = useState(false);
   const [subscriptionForm, setSubscriptionForm] = useState<SubscriptionFormState>(defaultSubscriptionForm);
   const [planDrafts, setPlanDrafts] = useState<Record<string, PlanDefinition>>({});
+  const addressCanBePublic =
+    platformSettings.addressLine1.trim() !== "" &&
+    platformSettings.addressLine2.trim() !== "" &&
+    platformSettings.city.trim() !== "" &&
+    platformSettings.state.trim() !== "" &&
+    platformSettings.postalCode.trim() !== "";
 
   const loadData = useCallback(async () => {
     setLoading(true);
 
     try {
-      const [nextUsers, nextPlans, nextSubscriptions] = await Promise.all([
+      const [nextUsers, nextPlans, nextSubscriptions, nextSettings] = await Promise.all([
         apiFetch<AdminUserListItem[]>("/api/admin/users", { token }),
         apiFetch<PlanDefinition[]>("/api/admin/platform/plans", { token }),
         apiFetch<UserSubscription[]>("/api/admin/platform/subscriptions", { token }),
+        apiFetch<PlatformSettings>("/api/admin/platform/settings", { token }),
       ]);
 
       setUsers(nextUsers);
       setPlans(nextPlans);
       setSubscriptions(nextSubscriptions);
+      setPlatformSettings(nextSettings);
       setPlanDrafts(Object.fromEntries(nextPlans.map((plan) => [plan.id, plan])));
     } catch (exception) {
       toast.error(exception instanceof Error ? exception.message : "Não foi possível carregar a plataforma.");
@@ -195,6 +227,13 @@ function PlatformAdminPanel({ token }: { token: string }) {
     }));
   }
 
+  function updateSettingsField(field: keyof PlatformSettingsFormState, value: string) {
+    setPlatformSettings((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
   async function savePlan(planId: string) {
     const draft = planDrafts[planId];
     if (!draft) {
@@ -224,6 +263,25 @@ function PlatformAdminPanel({ token }: { token: string }) {
       toast.error(exception instanceof Error ? exception.message : "Não foi possível salvar o plano.");
     } finally {
       setSavingPlanId(null);
+    }
+  }
+
+  async function savePlatformSettings() {
+    setSavingSettings(true);
+
+    try {
+      const saved = await apiFetch<PlatformSettings>("/api/admin/platform/settings", {
+        method: "PUT",
+        token,
+        body: JSON.stringify(platformSettings),
+      });
+
+      setPlatformSettings(saved);
+      toast.success("Configurações da plataforma atualizadas.");
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Não foi possível salvar as configurações.");
+    } finally {
+      setSavingSettings(false);
     }
   }
 
@@ -376,6 +434,7 @@ function PlatformAdminPanel({ token }: { token: string }) {
             <TabButton tab="users" activeTab={activeTab} onSelect={setActiveTab} label="Usuários" />
             <TabButton tab="plans" activeTab={activeTab} onSelect={setActiveTab} label="Planos" />
             <TabButton tab="subscriptions" activeTab={activeTab} onSelect={setActiveTab} label="Assinaturas" />
+            <TabButton tab="settings" activeTab={activeTab} onSelect={setActiveTab} label="Configurações" />
           </div>
         </CardContent>
       </Card>
@@ -666,6 +725,162 @@ function PlatformAdminPanel({ token }: { token: string }) {
         </div>
       ) : null}
 
+      {!loading && activeTab === "settings" ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]" role="tabpanel" aria-label="Configurações">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configurações da plataforma</CardTitle>
+              <CardDescription>Dados globais usados pelo contato da marca, pela operação e pela landing.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <section className="space-y-4">
+                <SectionHeading
+                  title="Identificação"
+                  description="Nome e presença social que ajudam a reconhecer a plataforma."
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Nome administrador">
+                    <Input
+                      value={platformSettings.adminName}
+                      onChange={(event) => updateSettingsField("adminName", event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Instagram">
+                    <Input
+                      value={platformSettings.instagram}
+                      onChange={(event) => updateSettingsField("instagram", event.target.value)}
+                    />
+                  </Field>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading
+                  title="Contato público"
+                  description="Meios que podem aparecer para clientes na landing."
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="E-mail contato">
+                    <Input
+                      type="email"
+                      value={platformSettings.contactEmail}
+                      onChange={(event) => updateSettingsField("contactEmail", event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Telefone contato">
+                    <Input
+                      value={platformSettings.contactPhone}
+                      onChange={(event) => updateSettingsField("contactPhone", event.target.value)}
+                    />
+                  </Field>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading
+                  title="Contato interno"
+                  description="Canal que recebe notificações operacionais da plataforma."
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Telefone gestão">
+                    <Input
+                      value={platformSettings.managementPhone}
+                      onChange={(event) => updateSettingsField("managementPhone", event.target.value)}
+                    />
+                  </Field>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading
+                  title="Endereço institucional"
+                  description="Preencha todos os campos para liberar a exibição na landing."
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Endereço linha 1">
+                    <Input
+                      value={platformSettings.addressLine1}
+                      onChange={(event) => updateSettingsField("addressLine1", event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Endereço linha 2">
+                    <Input
+                      value={platformSettings.addressLine2}
+                      onChange={(event) => updateSettingsField("addressLine2", event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Cidade">
+                    <Input
+                      value={platformSettings.city}
+                      onChange={(event) => updateSettingsField("city", event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Estado">
+                    <Input
+                      value={platformSettings.state}
+                      onChange={(event) => updateSettingsField("state", event.target.value)}
+                    />
+                  </Field>
+                  <Field label="CEP">
+                    <Input
+                      value={platformSettings.postalCode}
+                      onChange={(event) => updateSettingsField("postalCode", event.target.value)}
+                    />
+                  </Field>
+                </div>
+                <div
+                  className={cn(
+                    "rounded-[18px] border px-4 py-3 text-sm",
+                    platformSettings.canShowAddressOnLanding
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                      : "border-border/70 bg-surface-muted text-muted-foreground",
+                  )}
+                >
+                  <p className="font-semibold text-foreground">
+                    {addressCanBePublic
+                      ? "Endereço pronto para a landing"
+                      : "Endereço ainda não visível na landing"}
+                  </p>
+                  <p className="mt-1">
+                    {addressCanBePublic
+                      ? "Os campos de endereço já estão completos."
+                      : "Preencha linha 1, linha 2, cidade, estado e CEP para liberar a exibição."}
+                  </p>
+                </div>
+              </section>
+
+              <div className="flex justify-end">
+                <Button onClick={() => void savePlatformSettings()} disabled={savingSettings}>
+                  {savingSettings ? <Loader2 className="animate-spin" /> : <Settings2 />}
+                  Salvar configurações
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Resumo</CardTitle>
+              <CardDescription>Visão rápida do que já pode ser usado na landing.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <SummaryRow label="Contato público" value={platformSettings.contactEmail || "Não informado"} />
+              <SummaryRow label="Telefone contato" value={platformSettings.contactPhone || "Não informado"} />
+              <SummaryRow label="Telefone gestão" value={platformSettings.managementPhone || "Não informado"} />
+              <SummaryRow label="Instagram" value={platformSettings.instagram || "Não informado"} />
+              <SummaryRow
+                label="Endereço"
+                value={
+                  addressCanBePublic
+                    ? `${platformSettings.addressLine1}, ${platformSettings.addressLine2} - ${platformSettings.city}/${platformSettings.state} - ${platformSettings.postalCode}`
+                    : "Aguardando preenchimento completo"
+                }
+              />
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
       <DeleteConfirmationDialog
         open={Boolean(userToDelete)}
         title="Excluir usuário"
@@ -722,6 +937,24 @@ function TabButton({
     >
       {label}
     </button>
+  );
+}
+
+function SectionHeading({ title, description }: { title: string; description: string }) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[16px] border border-border/70 bg-surface-muted px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <p className="mt-1 break-words text-sm text-foreground">{value}</p>
+    </div>
   );
 }
 
