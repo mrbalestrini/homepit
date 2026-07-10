@@ -10,8 +10,9 @@ public sealed record PlanDefinitionDto(
     decimal MonthlyPrice,
     decimal AnnualPrice,
     int MaxOwnedHouseholds,
-    int MaxUniversesPerHousehold,
-    int MaxProjectsPerUniverse,
+    int MaxUniverses,
+    int MaxProjects,
+    int? MaxInvitedMembers,
     int MaxOriginalImages,
     string ImagePolicyDescription);
 
@@ -19,8 +20,9 @@ public sealed record UpdatePlanDefinitionRequest(
     decimal MonthlyPrice,
     decimal AnnualPrice,
     int MaxOwnedHouseholds,
-    int MaxUniversesPerHousehold,
-    int MaxProjectsPerUniverse,
+    int MaxUniverses,
+    int MaxProjects,
+    int? MaxInvitedMembers,
     int MaxOriginalImages);
 
 public sealed record UserSubscriptionDto(
@@ -63,13 +65,25 @@ public sealed record UpdateUserSubscriptionRequest(
 
 public sealed record PlanUsageSummaryDto(
     int OwnedHouseholdCount,
-    int ManagedOriginalImageCount,
-    int? ActiveHouseholdUniverseCount);
+    int UniverseCount,
+    int ProjectCount,
+    int InvitedMemberCount,
+    int ManagedOriginalImageCount);
 
 public sealed record CurrentUserPlanSummaryDto(
     PlanDefinitionDto Plan,
     UserSubscriptionDto? ActiveSubscription,
     PlanUsageSummaryDto Usage);
+
+public sealed record PlanCreationItemDto(
+    Guid Id,
+    string Name,
+    DateTimeOffset CreatedAt,
+    Guid HouseholdId,
+    string HouseholdName,
+    bool CanDelete,
+    Guid? UniverseId,
+    string? UniverseName);
 
 public sealed record AdminUserCommercialSummaryDto(
     string EffectivePlanSlug,

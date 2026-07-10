@@ -13,6 +13,10 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 ### Changed
 - O hub global da plataforma passou a separar o catálogo comercial das configurações institucionais e de contato.
 - O contrato da API e `/api/system/info` passaram a expor a versão `0.2.0`.
+- A propriedade comercial das casas passou a ser persistida pelo criador da casa, separada do papel `Owner`, para que vínculos em casas de terceiros não contem como casas próprias do usuário logado.
+- As cotas de `universos por casa`, `projetos por universo`, o selo `Fora do plano` e a exclusão com purge de casas próprias passaram a seguir o criador da casa compartilhada.
+- As cotas de universos e projetos passaram a contar o total criado pela pessoa usuária, sem depender da casa ou do universo onde os itens estão, e a edição deixou de ser bloqueada para itens já existentes acima da cota.
+- O catálogo de planos ganhou a cota opcional de membros convidados ativos por casas próprias, com `vazio = ilimitado`, e o perfil passou a mostrar consumo/restante com modal de listagem e exclusão segura para casas, universos e projetos criados pela pessoa.
 
 ## [1.9.0] - 2026-07-09
 

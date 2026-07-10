@@ -37,9 +37,6 @@ public sealed class ProjectService(
     public async Task<IReadOnlyCollection<UniverseDto>> ListUniversesAsync(CancellationToken cancellationToken)
     {
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
-        var plan = await commercialPlanService.ResolveEffectivePlanDefinitionAsync(userContext.UserId, cancellationToken);
-        var editableUniverseIds = await GetEditableUniverseIdsAsync(currentMember.HouseholdId, plan.MaxUniversesPerHousehold, cancellationToken);
-
         var universes = await db.Universes
             .AsNoTracking()
             .Where(universe => universe.HouseholdId == currentMember.HouseholdId)
@@ -61,7 +58,6 @@ public sealed class ProjectService(
             .Select(universe =>
             {
                 var canManage = CanManageEntity(currentMember, universe.CreatedByMemberId);
-                var canEdit = canManage && editableUniverseIds.Contains(universe.Id);
 
                 return new UniverseDto(
                     universe.Id,
@@ -71,7 +67,7 @@ public sealed class ProjectService(
                     universe.ImageUpdatedAt,
                     universe.CreatedByMemberId,
                     universe.ProjectCount,
-                    canEdit,
+                    canManage,
                     canManage);
             })
             .ToArray();
@@ -109,7 +105,6 @@ public sealed class ProjectService(
             ?? throw new NotFoundException("Universo não encontrado.");
 
         EnsureCanManageEntity(currentMember, universe.CreatedByMemberId, "Você não pode editar um universo criado por outra pessoa.");
-        await EnsureUniverseEditableAsync(currentMember.HouseholdId, universe.Id, cancellationToken);
 
         var normalizedImageUrl = NormalizeImageUrl(request.ImageUrl);
 
@@ -153,7 +148,6 @@ public sealed class ProjectService(
             ?? throw new NotFoundException("Universo não encontrado.");
 
         EnsureCanManageEntity(currentMember, universe.CreatedByMemberId, "Você não pode editar um universo criado por outra pessoa.");
-        await EnsureUniverseEditableAsync(currentMember.HouseholdId, universe.Id, cancellationToken);
 
         var objectKey = ObjectStorageKeys.UniverseImage(universe.Id);
         await using var uploadStream = new MemoryStream(preparedImage.Content, writable: false);
@@ -260,8 +254,6 @@ public sealed class ProjectService(
     public async Task<IReadOnlyCollection<ProjectDto>> ListProjectsAsync(Guid? universeId, CancellationToken cancellationToken)
     {
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
-        var plan = await commercialPlanService.ResolveEffectivePlanDefinitionAsync(userContext.UserId, cancellationToken);
-
         var projects = await db.Projects
             .AsNoTracking()
             .Where(project => project.HouseholdId == currentMember.HouseholdId)
@@ -281,21 +273,11 @@ public sealed class ProjectService(
             })
             .ToArrayAsync(cancellationToken);
 
-        var editableProjectIds = projects
-            .GroupBy(project => project.UniverseId)
-            .SelectMany(group => group
-                .OrderBy(project => project.CreatedAt)
-                .ThenBy(project => project.Id)
-                .Take(plan.MaxProjectsPerUniverse)
-                .Select(project => project.Id))
-            .ToArray();
-
         return projects
             .OrderBy(project => project.Name)
             .Select(project =>
             {
                 var canManage = CanManageEntity(currentMember, project.CreatedByMemberId);
-                var canEdit = canManage && editableProjectIds.Contains(project.Id);
 
                 return new ProjectDto(
                     project.Id,
@@ -307,7 +289,7 @@ public sealed class ProjectService(
                     project.Name,
                     project.CreatedByMemberId,
                     project.ActivityCount,
-                    canEdit,
+                    canManage,
                     canManage);
             })
             .ToArray();
@@ -352,12 +334,6 @@ public sealed class ProjectService(
             ?? throw new NotFoundException("Universo não encontrado.");
 
         EnsureCanManageEntity(currentMember, project.CreatedByMemberId, "Você não pode editar um projeto criado por outra pessoa.");
-        await EnsureProjectEditableAsync(currentMember.HouseholdId, project.UniverseId, project.Id, cancellationToken);
-
-        if (project.UniverseId != universe.Id)
-        {
-            await commercialPlanService.EnsureCanCreateProjectAsync(userContext.UserId, universe.Id, cancellationToken);
-        }
 
         project.UniverseId = universe.Id;
         project.Name = RequiredText(request.Name, "Informe o nome do projeto.");
@@ -1021,83 +997,6 @@ public sealed class ProjectService(
     private static bool CanDeleteComment(HouseholdMember member, Guid authorMemberId)
     {
         return IsContentManager(member) || authorMemberId == member.Id;
-    }
-
-    private async Task<Guid[]> GetEditableUniverseIdsAsync(
-        Guid householdId,
-        int maxUniversesPerHousehold,
-        CancellationToken cancellationToken)
-    {
-        if (maxUniversesPerHousehold <= 0)
-        {
-            return Array.Empty<Guid>();
-        }
-
-        return await db.Universes
-            .AsNoTracking()
-            .Where(universe => universe.HouseholdId == householdId)
-            .OrderBy(universe => universe.CreatedAt)
-            .ThenBy(universe => universe.Id)
-            .Take(maxUniversesPerHousehold)
-            .Select(universe => universe.Id)
-            .ToArrayAsync(cancellationToken);
-    }
-
-    private async Task EnsureUniverseEditableAsync(Guid householdId, Guid universeId, CancellationToken cancellationToken)
-    {
-        var plan = await commercialPlanService.ResolveEffectivePlanDefinitionAsync(userContext.UserId, cancellationToken);
-        var editableUniverseIds = await GetEditableUniverseIdsAsync(householdId, plan.MaxUniversesPerHousehold, cancellationToken);
-
-        if (editableUniverseIds.Contains(universeId))
-        {
-            return;
-        }
-
-        throw new ValidationException(BuildUniverseEditLimitMessage(plan));
-    }
-
-    private async Task EnsureProjectEditableAsync(
-        Guid householdId,
-        Guid universeId,
-        Guid projectId,
-        CancellationToken cancellationToken)
-    {
-        var plan = await commercialPlanService.ResolveEffectivePlanDefinitionAsync(userContext.UserId, cancellationToken);
-
-        if (plan.MaxProjectsPerUniverse <= 0)
-        {
-            throw new ValidationException(BuildProjectEditLimitMessage(plan));
-        }
-
-        var editableProjectIds = await db.Projects
-            .AsNoTracking()
-            .Where(project => project.HouseholdId == householdId && project.UniverseId == universeId)
-            .OrderBy(project => project.CreatedAt)
-            .ThenBy(project => project.Id)
-            .Take(plan.MaxProjectsPerUniverse)
-            .Select(project => project.Id)
-            .ToArrayAsync(cancellationToken);
-
-        if (editableProjectIds.Contains(projectId))
-        {
-            return;
-        }
-
-        throw new ValidationException(BuildProjectEditLimitMessage(plan));
-    }
-
-    private static string BuildUniverseEditLimitMessage(PlanDefinition plan)
-    {
-        return plan.MaxUniversesPerHousehold == 0
-            ? $"O plano {plan.Name} não permite editar universos nesta casa."
-            : $"O plano {plan.Name} permite editar apenas os {plan.MaxUniversesPerHousehold} universo(s) mais antigos desta casa.";
-    }
-
-    private static string BuildProjectEditLimitMessage(PlanDefinition plan)
-    {
-        return plan.MaxProjectsPerUniverse == 0
-            ? $"O plano {plan.Name} não permite editar projetos neste universo."
-            : $"O plano {plan.Name} permite editar apenas os {plan.MaxProjectsPerUniverse} projeto(s) mais antigos deste universo.";
     }
 
     private static void EnsureCanManageEntity(

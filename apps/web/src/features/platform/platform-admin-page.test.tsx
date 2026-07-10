@@ -99,8 +99,9 @@ describe("PlatformAdminPage", () => {
             monthlyPrice: 9.9,
             annualPrice: 99,
             maxOwnedHouseholds: 1,
-            maxUniversesPerHousehold: 3,
-            maxProjectsPerUniverse: 3,
+            maxUniverses: 3,
+            maxProjects: 3,
+            maxInvitedMembers: null,
             maxOriginalImages: 30,
             imagePolicyDescription:
               "Mantém até 30 imagem(ns) privada(s) recente(s) em qualidade original; a partir da imagem 31, a mais antiga é substituída por WEBP com até 300 px e qualidade 30%.",
@@ -137,8 +138,9 @@ describe("PlatformAdminPage", () => {
           monthlyPrice: 11.9,
           annualPrice: 119,
           maxOwnedHouseholds: 1,
-          maxUniversesPerHousehold: 3,
-          maxProjectsPerUniverse: 3,
+          maxUniverses: 3,
+          maxProjects: 3,
+          maxInvitedMembers: 5,
           maxOriginalImages: 30,
           imagePolicyDescription:
             "Mantém até 30 imagem(ns) privada(s) recente(s) em qualidade original; a partir da imagem 31, a mais antiga é substituída por WEBP com até 300 px e qualidade 30%.",
@@ -157,6 +159,7 @@ describe("PlatformAdminPage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Planos" }));
     fireEvent.change(await screen.findByLabelText("Preço mensal"), { target: { value: "11.90" } });
+    fireEvent.change(screen.getByLabelText("Membros convidados"), { target: { value: "5" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar plano" }));
 
     await waitFor(() => {
@@ -165,7 +168,7 @@ describe("PlatformAdminPage", () => {
         expect.objectContaining({
           method: "PUT",
           token: "access-token",
-          body: expect.stringContaining('"monthlyPrice":11.9'),
+          body: expect.stringContaining('"maxInvitedMembers":5'),
         }),
       );
     });

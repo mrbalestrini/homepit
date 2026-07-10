@@ -337,6 +337,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CurrentUserPlanSummary"
+  /api/users/me/plan/creations/{scope}:
+    get:
+      parameters:
+        - name: scope
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [households, universes, projects]
+      responses:
+        "200":
+          description: Current user's creations by scope
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanCreationItem"
   /api/admin/users:
     get:
       responses:
@@ -2310,7 +2328,7 @@ components:
     PlanDefinition:
       type: object
       required:
-        [id, slug, name, currencyCode, monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniversesPerHousehold, maxProjectsPerUniverse, maxOriginalImages, imagePolicyDescription]
+        [id, slug, name, currencyCode, monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniverses, maxProjects, maxOriginalImages, imagePolicyDescription]
       properties:
         id:
           type: string
@@ -2327,10 +2345,13 @@ components:
           type: number
         maxOwnedHouseholds:
           type: integer
-        maxUniversesPerHousehold:
+        maxUniverses:
           type: integer
-        maxProjectsPerUniverse:
+        maxProjects:
           type: integer
+        maxInvitedMembers:
+          type: integer
+          nullable: true
         maxOriginalImages:
           type: integer
         imagePolicyDescription:
@@ -2338,7 +2359,7 @@ components:
     UpdatePlanDefinitionRequest:
       type: object
       required:
-        [monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniversesPerHousehold, maxProjectsPerUniverse, maxOriginalImages]
+        [monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniverses, maxProjects, maxOriginalImages]
       properties:
         monthlyPrice:
           type: number
@@ -2346,10 +2367,13 @@ components:
           type: number
         maxOwnedHouseholds:
           type: integer
-        maxUniversesPerHousehold:
+        maxUniverses:
           type: integer
-        maxProjectsPerUniverse:
+        maxProjects:
           type: integer
+        maxInvitedMembers:
+          type: integer
+          nullable: true
         maxOriginalImages:
           type: integer
     UserSubscription:
@@ -2450,15 +2474,18 @@ components:
           nullable: true
     PlanUsageSummary:
       type: object
-      required: [ownedHouseholdCount, managedOriginalImageCount]
+      required: [ownedHouseholdCount, universeCount, projectCount, invitedMemberCount, managedOriginalImageCount]
       properties:
         ownedHouseholdCount:
           type: integer
+        universeCount:
+          type: integer
+        projectCount:
+          type: integer
+        invitedMemberCount:
+          type: integer
         managedOriginalImageCount:
           type: integer
-        activeHouseholdUniverseCount:
-          type: integer
-          nullable: true
     CurrentUserPlanSummary:
       type: object
       required: [plan, usage]
@@ -2470,9 +2497,35 @@ components:
           nullable: true
         usage:
           $ref: "#/components/schemas/PlanUsageSummary"
+    PlanCreationItem:
+      type: object
+      required: [id, name, createdAt, householdId, householdName, canDelete]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        householdId:
+          type: string
+          format: uuid
+        householdName:
+          type: string
+        canDelete:
+          type: boolean
+        universeId:
+          type: string
+          format: uuid
+          nullable: true
+        universeName:
+          type: string
+          nullable: true
     Household:
       type: object
-      required: [id, name, role, createdAt]
+      required: [id, name, role, createdAt, isOwnedByCurrentUser]
       properties:
         id:
           type: string
@@ -2484,6 +2537,8 @@ components:
         createdAt:
           type: string
           format: date-time
+        isOwnedByCurrentUser:
+          type: boolean
     HouseholdMember:
       type: object
       required: [id, userId, displayName, email, hasProfilePhoto, role, isCurrentUser]

@@ -3,6 +3,7 @@ using HomePit.Application.Plans;
 using HomePit.Application.Projects;
 using HomePit.Application.Storage;
 using HomePit.Domain.Households;
+using HomePit.Domain.Plans;
 using HomePit.Domain.Projects;
 using HomePit.Infrastructure.Data;
 using HomePit.Infrastructure.Images;
@@ -27,7 +28,7 @@ public sealed class ProjectServiceTests
     }
 
     [Fact]
-    public async Task List_universes_marks_newer_items_as_read_only_when_the_plan_is_exceeded()
+    public async Task List_universes_keeps_existing_items_editable_when_the_total_limit_is_exceeded()
     {
         await using var context = CreateDbContext();
         var fixture = await SeedFixtureAsync(context);
@@ -37,13 +38,12 @@ public sealed class ProjectServiceTests
         var universes = await service.ListUniversesAsync(CancellationToken.None);
 
         Assert.Equal(5, universes.Count);
-        Assert.Equal(3, universes.Count(item => item.CanEdit));
-        Assert.Equal(2, universes.Count(item => !item.CanEdit));
+        Assert.All(universes, item => Assert.True(item.CanEdit));
         Assert.All(universes, item => Assert.True(item.CanDelete));
     }
 
     [Fact]
-    public async Task List_projects_marks_newer_items_as_read_only_when_the_plan_is_exceeded()
+    public async Task List_projects_keeps_existing_items_editable_when_the_total_limit_is_exceeded()
     {
         await using var context = CreateDbContext();
         var fixture = await SeedFixtureAsync(context);
@@ -53,8 +53,7 @@ public sealed class ProjectServiceTests
         var projects = await service.ListProjectsAsync(fixture.UniverseId, CancellationToken.None);
 
         Assert.Equal(5, projects.Count);
-        Assert.Equal(3, projects.Count(item => item.CanEdit));
-        Assert.Equal(2, projects.Count(item => !item.CanEdit));
+        Assert.All(projects, item => Assert.True(item.CanEdit));
         Assert.All(projects, item => Assert.True(item.CanDelete));
     }
 
@@ -203,6 +202,21 @@ public sealed class ProjectServiceTests
         Assert.Empty(storage.Objects);
     }
 
+    [Fact]
+    public async Task List_universes_still_respects_authorship_rules_for_invited_member()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context, includeInvitedMember: true, invitedRole: HouseholdRole.Owner);
+        await AddUniversesAsync(context, fixture, 4);
+        await UpgradeUserToBronzeAsync(context, fixture.OwnerUserId);
+        var service = CreateService(context, fixture.MemberUserId!.Value, fixture.HouseholdId);
+
+        var universes = await service.ListUniversesAsync(CancellationToken.None);
+
+        Assert.Equal(5, universes.Count);
+        Assert.All(universes, item => Assert.True(item.CanEdit));
+    }
+
     private static HomePitDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<HomePitDbContext>()
@@ -239,7 +253,10 @@ public sealed class ProjectServiceTests
             managedImageQuotaService);
     }
 
-    private static async Task<ProjectFixture> SeedFixtureAsync(HomePitDbContext context)
+    private static async Task<ProjectFixture> SeedFixtureAsync(
+        HomePitDbContext context,
+        bool includeInvitedMember = false,
+        HouseholdRole invitedRole = HouseholdRole.Member)
     {
         var ownerUser = new AppUser
         {
@@ -250,7 +267,8 @@ public sealed class ProjectServiceTests
         };
         var household = new Household
         {
-            Name = "Casa Teste"
+            Name = "Casa Teste",
+            CreatedByUser = ownerUser
         };
         var ownerMember = new HouseholdMember
         {
@@ -297,6 +315,27 @@ public sealed class ProjectServiceTests
         };
 
         context.Users.Add(ownerUser);
+        AppUser? invitedUser = null;
+
+        if (includeInvitedMember)
+        {
+            invitedUser = new AppUser
+            {
+                Email = "invited@homepit.dev",
+                PasswordHash = "hash",
+                DisplayName = "Invited",
+                SystemRole = SystemRole.User
+            };
+
+            context.Users.Add(invitedUser);
+            context.HouseholdMembers.Add(new HouseholdMember
+            {
+                Household = household,
+                User = invitedUser,
+                Role = invitedRole
+            });
+        }
+
         context.Households.Add(household);
         context.HouseholdMembers.Add(ownerMember);
         context.Universes.Add(universe);
@@ -309,7 +348,8 @@ public sealed class ProjectServiceTests
             ownerUser.Id,
             ownerMember.Id,
             universe.Id,
-            project.Id);
+            project.Id,
+            invitedUser?.Id);
     }
 
     private static async Task AddUniversesAsync(
@@ -372,7 +412,29 @@ public sealed class ProjectServiceTests
         Guid OwnerUserId,
         Guid OwnerMemberId,
         Guid UniverseId,
-        Guid ProjectId);
+        Guid ProjectId,
+        Guid? MemberUserId);
+
+    private static async Task UpgradeUserToBronzeAsync(HomePitDbContext context, Guid userId)
+    {
+        var planService = new CommercialPlanService(context, new TestUserContext(userId, null), TimeProvider.System);
+        await planService.EnsurePlanCatalogAsync(CancellationToken.None);
+        var bronzePlan = await context.PlanDefinitions.SingleAsync(item => item.Slug == PlanDefinitionCatalog.BronzeSlug);
+
+        context.UserSubscriptions.Add(new HomePit.Domain.Plans.UserSubscription
+        {
+            UserId = userId,
+            PlanDefinitionId = bronzePlan.Id,
+            BillingCycle = HomePit.Domain.Plans.BillingCycle.Monthly,
+            StartsAt = DateTimeOffset.Parse("2026-07-01T00:00:00Z"),
+            EndsAt = DateTimeOffset.Parse("2026-07-31T23:59:59Z"),
+            AmountPaid = 19.90m,
+            CurrencyCode = "BRL",
+            Status = HomePit.Domain.Plans.UserSubscriptionStatus.Active
+        });
+
+        await context.SaveChangesAsync();
+    }
 
     private sealed class TestUserContext(Guid userId, Guid? householdId) : IUserContext
     {

@@ -82,8 +82,9 @@ public sealed class ApiContractSmokeTests
         Assert.Contains("/api/admin/users:", contract);
         Assert.Contains("/api/admin/users/{id}/deactivate:", contract);
         Assert.Contains("/api/admin/users/{id}/reactivate:", contract);
+        Assert.Contains("/api/users/me/plan/creations/{scope}:", contract);
         Assert.Contains("enum: [Active, PendingSelfDeletion, DisabledBySuperAdmin]", contract);
         Assert.Contains("scheduledDeletionAt:", contract);
-        Assert.DoesNotContain("householdName:", contract);
+        Assert.Contains("householdName:", contract);
     }
 }

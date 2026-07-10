@@ -221,6 +221,11 @@ api.MapPost("/users/me/reactivate", async (AuthService service, CancellationToke
     Results.Ok(await service.ReactivateOwnAccountAsync(cancellationToken)));
 api.MapGet("/users/me/plan", async (CommercialPlanService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetCurrentUserPlanAsync(cancellationToken)));
+api.MapGet("/users/me/plan/creations/{scope}", async (
+    string scope,
+    CommercialPlanService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListCurrentUserCreationsAsync(scope, cancellationToken)));
 api.MapPost("/users/me/profile-photo", async (
     HttpRequest request,
     AuthService service,

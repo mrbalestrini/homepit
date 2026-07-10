@@ -20,6 +20,7 @@ public sealed class AppUser : AuditableEntity
     public bool IsActive { get; set; } = true;
 
     public ICollection<HouseholdMember> HouseholdMembers { get; } = new List<HouseholdMember>();
+    public ICollection<Household> CreatedHouseholds { get; } = new List<Household>();
     public ICollection<RefreshToken> RefreshTokens { get; } = new List<RefreshToken>();
     public ICollection<AppUser> DeactivatedUsers { get; } = new List<AppUser>();
     public ICollection<UserSubscription> Subscriptions { get; } = new List<UserSubscription>();

@@ -3,6 +3,7 @@ using System;
 using HomePit.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HomePit.Infrastructure.Migrations
 {
     [DbContext(typeof(HomePitDbContext))]
-    partial class HomePitDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260710165742_AddHouseholdCommercialOwnership")]
+    partial class AddHouseholdCommercialOwnership
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1219,13 +1222,10 @@ namespace HomePit.Infrastructure.Migrations
                     b.Property<int>("MaxOwnedHouseholds")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("MaxInvitedMembers")
+                    b.Property<int>("MaxProjectsPerUniverse")
                         .HasColumnType("integer");
 
-                    b.Property<int>("MaxProjects")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("MaxUniverses")
+                    b.Property<int>("MaxUniversesPerHousehold")
                         .HasColumnType("integer");
 
                     b.Property<decimal>("MonthlyPrice")

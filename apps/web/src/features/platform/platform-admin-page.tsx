@@ -217,12 +217,16 @@ function PlatformAdminPanel({ token }: { token: string }) {
     [users],
   );
 
-  function updatePlanDraft(planId: string, field: keyof PlanDefinition, value: string) {
+  function updatePlanDraft(
+    planId: string,
+    field: "monthlyPrice" | "annualPrice" | "maxOwnedHouseholds" | "maxUniverses" | "maxProjects" | "maxInvitedMembers" | "maxOriginalImages",
+    value: string,
+  ) {
     setPlanDrafts((current) => ({
       ...current,
       [planId]: {
         ...current[planId],
-        [field]: Number(value),
+        [field]: field === "maxInvitedMembers" && value.trim() === "" ? null : Number(value),
       },
     }));
   }
@@ -250,8 +254,9 @@ function PlatformAdminPanel({ token }: { token: string }) {
           monthlyPrice: draft.monthlyPrice,
           annualPrice: draft.annualPrice,
           maxOwnedHouseholds: draft.maxOwnedHouseholds,
-          maxUniversesPerHousehold: draft.maxUniversesPerHousehold,
-          maxProjectsPerUniverse: draft.maxProjectsPerUniverse,
+          maxUniverses: draft.maxUniverses,
+          maxProjects: draft.maxProjects,
+          maxInvitedMembers: draft.maxInvitedMembers ?? null,
           maxOriginalImages: draft.maxOriginalImages,
         }),
       });
@@ -539,18 +544,26 @@ function PlatformAdminPanel({ token }: { token: string }) {
                         onChange={(event) => updatePlanDraft(plan.id, "maxOwnedHouseholds", event.target.value)}
                       />
                     </Field>
-                    <Field label="Universos por casa">
+                    <Field label="Universos totais">
                       <Input
                         type="number"
-                        value={draft.maxUniversesPerHousehold}
-                        onChange={(event) => updatePlanDraft(plan.id, "maxUniversesPerHousehold", event.target.value)}
+                        value={draft.maxUniverses}
+                        onChange={(event) => updatePlanDraft(plan.id, "maxUniverses", event.target.value)}
                       />
                     </Field>
-                    <Field label="Projetos por universo">
+                    <Field label="Projetos totais">
                       <Input
                         type="number"
-                        value={draft.maxProjectsPerUniverse}
-                        onChange={(event) => updatePlanDraft(plan.id, "maxProjectsPerUniverse", event.target.value)}
+                        value={draft.maxProjects}
+                        onChange={(event) => updatePlanDraft(plan.id, "maxProjects", event.target.value)}
+                      />
+                    </Field>
+                    <Field label="Membros convidados">
+                      <Input
+                        type="number"
+                        value={draft.maxInvitedMembers ?? ""}
+                        onChange={(event) => updatePlanDraft(plan.id, "maxInvitedMembers", event.target.value)}
+                        placeholder="Ilimitado"
                       />
                     </Field>
                     <Field label="Imagens originais">

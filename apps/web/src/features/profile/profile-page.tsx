@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Camera, Loader2, ShieldAlert, Sparkles } from "lucide-react";
+import { AlertTriangle, Camera, Loader2, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { type ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -19,10 +19,13 @@ import { AccountStateGate } from "@/features/workspace/account-state-gate";
 import { HomePitAuth } from "@/features/workspace/homepit-auth";
 import { HomePitWorkspaceShell, Notice } from "@/features/workspace/homepit-workspace-shell";
 import { ProtectedUserAvatar } from "@/features/workspace/protected-user-avatar";
+import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmation-dialog";
 import {
   type AuthResponse,
   type CurrentUserPlanSummary,
   type DeleteOwnAccountResult,
+  type PlanCreationItem,
+  type PlanCreationScope,
   apiFetch,
   clearSession,
   updateStoredSession,
@@ -91,7 +94,7 @@ function ProfileWorkspace({ dashboard }: { dashboard: ReturnType<typeof useProje
       visibleLabel="casas"
       headerStats={[
         { label: "casas", value: session.households.length },
-        { label: "próprias", value: session.households.filter((household) => household.role === "Owner").length },
+        { label: "próprias", value: session.households.filter((household) => household.isOwnedByCurrentUser).length },
       ]}
       requireHousehold={false}
     >
@@ -104,10 +107,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   const session = dashboard.session!;
   const user = session.user;
   const token = session.accessToken;
-  const ownedHouseholdCount = session.households.filter((household) => household.role === "Owner").length;
-  const selectedUniverseProjectCount = dashboard.selectedUniverseId
-    ? dashboard.projects.filter((project) => project.universeId === dashboard.selectedUniverseId).length
-    : null;
+  const ownedHouseholdCount = session.households.filter((household) => household.isOwnedByCurrentUser).length;
   const profilePhotoInputRef = useRef<HTMLInputElement | null>(null);
 
   const [displayName, setDisplayName] = useState(user.displayName);
@@ -118,6 +118,10 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   const [photoCropDraft, setPhotoCropDraft] = useState<ProfilePhotoCropDraft | null>(null);
   const [planSummary, setPlanSummary] = useState<CurrentUserPlanSummary | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
+  const [creationScope, setCreationScope] = useState<PlanCreationScope | null>(null);
+  const [creationItems, setCreationItems] = useState<PlanCreationItem[]>([]);
+  const [creationLoading, setCreationLoading] = useState(false);
+  const [deletingCreation, setDeletingCreation] = useState<PlanCreationItem | null>(null);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -224,6 +228,82 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
     };
   }, [photoCropDraft]);
 
+  async function loadPlanSummary() {
+    setPlanLoading(true);
+
+    try {
+      const nextSummary = await apiFetch<CurrentUserPlanSummary>("/api/users/me/plan", {
+        token,
+      });
+      setPlanSummary(nextSummary);
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Não foi possível carregar o plano.");
+    } finally {
+      setPlanLoading(false);
+    }
+  }
+
+  async function openCreationModal(scope: PlanCreationScope) {
+    setCreationScope(scope);
+    setCreationLoading(true);
+
+    try {
+      const items = await apiFetch<PlanCreationItem[]>(`/api/users/me/plan/creations/${scope}`, {
+        token,
+      });
+      setCreationItems(items);
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Não foi possível carregar a listagem.");
+      setCreationScope(null);
+    } finally {
+      setCreationLoading(false);
+    }
+  }
+
+  async function deleteCreationItem() {
+    if (!deletingCreation) {
+      return;
+    }
+
+    try {
+      if (creationScope === "households") {
+        await apiFetch<void>(`/api/households/${deletingCreation.id}`, {
+          method: "DELETE",
+          token,
+          householdId: deletingCreation.householdId,
+        });
+        await dashboard.refreshHouseholds();
+      } else if (creationScope === "universes") {
+        await apiFetch<void>(`/api/universes/${deletingCreation.id}`, {
+          method: "DELETE",
+          token,
+          householdId: deletingCreation.householdId,
+        });
+        if (dashboard.activeHouseholdId === deletingCreation.householdId) {
+          await dashboard.loadWorkspace();
+        }
+      } else if (creationScope === "projects") {
+        await apiFetch<void>(`/api/projects/${deletingCreation.id}`, {
+          method: "DELETE",
+          token,
+          householdId: deletingCreation.householdId,
+        });
+        if (dashboard.activeHouseholdId === deletingCreation.householdId) {
+          await dashboard.loadWorkspace();
+        }
+      }
+
+      setCreationItems((current) => current.filter((item) => item.id !== deletingCreation.id));
+      await loadPlanSummary();
+      toast.success(
+        `${capitalize(getCreationScopeLabel(creationScope ?? "households", true))} ${getCreationPastParticiple(creationScope ?? "households")}.`,
+      );
+      setDeletingCreation(null);
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Não foi possível excluir a criação.");
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -234,7 +314,6 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
         try {
           const nextSummary = await apiFetch<CurrentUserPlanSummary>("/api/users/me/plan", {
             token,
-            householdId: dashboard.activeHouseholdId || undefined,
           });
 
           if (!cancelled) {
@@ -256,7 +335,42 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [dashboard.activeHouseholdId, token]);
+  }, [token]);
+
+  const quotaCards = planSummary
+    ? [
+        {
+          label: "Casas",
+          current: planSummary.usage.ownedHouseholdCount,
+          limit: planSummary.plan.maxOwnedHouseholds,
+          scope: "households" as const,
+        },
+        {
+          label: "Universos",
+          current: planSummary.usage.universeCount,
+          limit: planSummary.plan.maxUniverses,
+          scope: "universes" as const,
+        },
+        {
+          label: "Projetos",
+          current: planSummary.usage.projectCount,
+          limit: planSummary.plan.maxProjects,
+          scope: "projects" as const,
+        },
+        {
+          label: "Membros convidados",
+          current: planSummary.usage.invitedMemberCount,
+          limit: planSummary.plan.maxInvitedMembers ?? null,
+          scope: null,
+        },
+        {
+          label: "Imagens originais",
+          current: planSummary.usage.managedOriginalImageCount,
+          limit: planSummary.plan.maxOriginalImages,
+          scope: null,
+        },
+      ]
+    : [];
 
   return (
     <div className="space-y-4">
@@ -395,36 +509,23 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                       {formatCurrency(planSummary.plan.annualPrice, planSummary.plan.currencyCode)}/ano
                     </Badge>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <QuotaMetric
-                      label="Casas"
-                      current={planSummary.usage.ownedHouseholdCount}
-                      limit={planSummary.plan.maxOwnedHouseholds}
-                    />
-                    <QuotaMetric
-                      label="Universos por casa"
-                      current={planSummary.usage.activeHouseholdUniverseCount ?? null}
-                      limit={planSummary.plan.maxUniversesPerHousehold}
-                    />
-                    <QuotaMetric
-                      label="Projetos por universo"
-                      current={selectedUniverseProjectCount}
-                      limit={planSummary.plan.maxProjectsPerUniverse}
-                      helperText={
-                        dashboard.selectedUniverseId
-                          ? undefined
-                          : "Selecione um universo no módulo Projetos para ver este limite."
-                      }
-                    />
-                    <QuotaMetric
-                      label="Imagens totais"
-                      current={planSummary.usage.managedOriginalImageCount}
-                      limit={planSummary.plan.maxOriginalImages}
-                    />
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                    {quotaCards.map((card) => (
+                      <QuotaOverviewCard
+                        key={card.label}
+                        label={card.label}
+                        current={card.current}
+                        limit={card.limit}
+                        clickable={card.scope !== null}
+                        helperText={card.scope ? "Clique para ver as criações." : undefined}
+                        onClick={card.scope ? () => void openCreationModal(card.scope) : undefined}
+                      />
+                    ))}
                   </div>
                   <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4 text-sm leading-6 text-muted-foreground">
-                    Seu plano define quanto você pode criar e quantas imagens ficam em qualidade original. Se a
-                    conta passar da cota, a edição do excesso fica bloqueada até o uso voltar ao limite.
+                    Seu plano define quantas criações totais sua conta pode manter e quantas imagens privadas seguem
+                    em qualidade original. Ao atingir o limite, novas criações ficam bloqueadas até o uso voltar a
+                    caber na cota.
                   </div>
                   {planSummary.activeSubscription ? (
                     <div className="rounded-[18px] border border-border/70 bg-background px-4 py-3 text-sm leading-6 text-muted-foreground">
@@ -524,6 +625,88 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={creationScope !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreationScope(null);
+            setCreationItems([]);
+          }
+        }}
+      >
+          <DialogContent className="w-[min(94vw,48rem)] max-h-[88vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {creationScope
+                ? `${capitalize(getCreationScopeLabel(creationScope))} ${getCreationPastParticiple(creationScope, true)} por você`
+                : "Suas criações"}
+            </DialogTitle>
+            <DialogDescription>
+              {creationScope
+                ? "Revise a lista abaixo e exclua com segurança quando precisar liberar cota."
+                : "Revise suas criações."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {creationLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Carregando listagem...
+            </div>
+          ) : creationItems.length === 0 ? (
+            <Notice tone="warning">Nenhuma criação encontrada para este tipo.</Notice>
+          ) : (
+            <div className="space-y-3">
+              {creationItems.map((item) => (
+                <div key={item.id} className="rounded-[18px] border border-border/70 bg-surface-muted p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{buildCreationContext(item, creationScope ?? "households")}</p>
+                      <p className="text-xs text-muted-foreground">Criado em {formatDateTime(item.createdAt)}</p>
+                    </div>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setDeletingCreation(item)}
+                      disabled={!item.canDelete}
+                    >
+                      <Trash2 />
+                      Excluir
+                    </Button>
+                  </div>
+                  {!item.canDelete ? (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Esta criação continua no seu histórico, mas a exclusão depende de acesso ativo a essa casa.
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <DeleteConfirmationDialog
+        open={Boolean(deletingCreation)}
+        title={deletingCreation ? `Excluir ${getCreationDeleteLabel(creationScope ?? "households")}` : "Excluir criação"}
+        description={
+          deletingCreation
+            ? `Essa ação remove ${getCreationDeleteLabel(creationScope ?? "households")} ${deletingCreation.name} e ajuda a liberar cota da sua conta.`
+            : "Essa ação remove a criação selecionada."
+        }
+        confirmationTarget={deletingCreation?.name}
+        confirmationLabel={`Digite o nome ${deletingCreation?.name ?? ""} para confirmar`}
+        confirmLabel={`Excluir ${getCreationDeleteLabel(creationScope ?? "households")}`}
+        impactItems={buildCreationImpactItems(creationScope ?? "households")}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingCreation(null);
+          }
+        }}
+        onConfirm={deleteCreationItem}
+      />
     </div>
   );
 }
@@ -555,20 +738,48 @@ function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function QuotaMetric({
+function QuotaOverviewCard({
   label,
   current,
   limit,
+  clickable,
   helperText,
+  onClick,
 }: {
   label: string;
-  current: number | null;
-  limit: number;
+  current: number;
+  limit: number | null;
+  clickable?: boolean;
   helperText?: string;
+  onClick?: () => void;
 }) {
-  const isUnavailable = current === null;
-  const isOverLimit = current !== null && current > limit;
-  const valueText = current === null ? `— de ${limit}` : `${current} de ${limit}`;
+  const isOverLimit = limit !== null && current > limit;
+  const remaining = limit === null ? null : Math.max(limit - current, 0);
+  const content = (
+    <>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <p className={cn("mt-2 text-2xl font-semibold", isOverLimit ? "text-danger" : "text-foreground")}>{current} usados</p>
+      <p className={cn("mt-2 text-xs leading-5", isOverLimit ? "text-danger" : "text-muted-foreground")}>
+        {remaining === null ? "Restante ilimitado" : `${remaining} restante(s)`}
+      </p>
+      {helperText ? <p className="mt-2 text-xs leading-5 text-muted-foreground">{helperText}</p> : null}
+    </>
+  );
+
+  if (clickable && onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(
+          "rounded-[18px] border px-4 py-3 text-left transition hover:border-primary/40 hover:bg-surface-muted",
+          isOverLimit ? "border-danger/30 bg-status-danger-soft" : "border-border/70 bg-background",
+        )}
+      >
+        {content}
+      </button>
+    );
+  }
 
   return (
     <div
@@ -577,15 +788,75 @@ function QuotaMetric({
         isOverLimit ? "border-danger/30 bg-status-danger-soft" : "border-border/70 bg-background",
       )}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
-      <p className={cn("mt-2 text-2xl font-semibold", isOverLimit ? "text-danger" : "text-foreground")}>{valueText}</p>
-      {helperText ? (
-        <p className={cn("mt-2 text-xs leading-5", isUnavailable ? "text-muted-foreground" : "text-muted-foreground")}>
-          {helperText}
-        </p>
-      ) : null}
+      {content}
     </div>
   );
+}
+
+function getCreationScopeLabel(scope: PlanCreationScope, singular = false) {
+  switch (scope) {
+    case "households":
+      return singular ? "casa" : "casas";
+    case "universes":
+      return singular ? "universo" : "universos";
+    case "projects":
+      return singular ? "projeto" : "projetos";
+    default:
+      return scope;
+  }
+}
+
+function getCreationDeleteLabel(scope: PlanCreationScope) {
+  return getCreationScopeLabel(scope, true);
+}
+
+function getCreationPastParticiple(scope: PlanCreationScope, plural = false) {
+  if (scope === "households") {
+    return plural ? "criadas" : "excluída";
+  }
+
+  return plural ? "criados" : "excluído";
+}
+
+function buildCreationContext(item: PlanCreationItem, scope: PlanCreationScope) {
+  if (scope === "projects") {
+    return `Casa: ${item.householdName} • Universo: ${item.universeName ?? "Sem universo"}`;
+  }
+
+  if (scope === "universes") {
+    return `Casa: ${item.householdName}`;
+  }
+
+  return `Casa: ${item.householdName}`;
+}
+
+function buildCreationImpactItems(scope: PlanCreationScope) {
+  switch (scope) {
+    case "households":
+      return [
+        "A casa, seus universos, projetos, atividades, prompts e membros vinculados.",
+        "Comentários, preferências e histórico operacional ligados a essa casa.",
+        "Parte da cota total usada por essa criação.",
+      ];
+    case "universes":
+      return [
+        "O universo e os projetos, atividades e pendências vinculados a ele.",
+        "Associações do banco de prompts com esse universo.",
+        "Parte da cota total usada por essa criação.",
+      ];
+    case "projects":
+      return [
+        "O projeto e as atividades, comentários e pendências vinculados a ele.",
+        "Referências desse projeto em áreas relacionadas da casa.",
+        "Parte da cota total usada por essa criação.",
+      ];
+    default:
+      return ["Parte da cota total usada por essa criação."];
+  }
+}
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function formatCurrency(value: number, currencyCode: string) {

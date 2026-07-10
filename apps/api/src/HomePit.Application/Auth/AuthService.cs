@@ -74,9 +74,7 @@ public sealed class AuthService(
     {
         EnsureWritableUser();
         var user = await FindCurrentUserAsync(cancellationToken);
-        var ownedHouseholdCount = await db.HouseholdMembers.CountAsync(
-            member => member.UserId == user.Id && member.IsActive && member.Role == HouseholdRole.Owner,
-            cancellationToken);
+        var ownedHouseholdCount = await CountOwnedHouseholdsAsync(user.Id, cancellationToken);
 
         if (ownedHouseholdCount == 0)
         {
@@ -450,14 +448,20 @@ public sealed class AuthService(
                 ? await db.Households
                 .AsNoTracking()
                 .OrderBy(household => household.Name)
-                .Select(household => new HouseholdDto(household.Id, household.Name, HouseholdRole.Member, household.CreatedAt))
+                .Select(household => new HouseholdDto(
+                    household.Id,
+                    household.Name,
+                    HouseholdRole.Member,
+                    household.CreatedAt,
+                    household.CreatedByUserId == user.Id))
                 .ToArrayAsync(cancellationToken)
             : memberships
                 .Select(member => new HouseholdDto(
                     member.HouseholdId,
                     member.Household?.Name ?? string.Empty,
                     member.Role,
-                    member.Household!.CreatedAt))
+                    member.Household!.CreatedAt,
+                    member.Household.CreatedByUserId == user.Id))
                 .ToArray();
 
         return new AuthResponse(
@@ -594,6 +598,7 @@ public sealed class AuthService(
     private async Task<AdminUserListItemDto> BuildAdminUserAsync(AppUser user, CancellationToken cancellationToken)
     {
         var commercialSummary = await commercialPlanService.GetAdminUserCommercialSummaryAsync(user.Id, cancellationToken);
+        var ownedHouseholdCount = await CountOwnedHouseholdsAsync(user.Id, cancellationToken);
 
         return new AdminUserListItemDto(
             user.Id,
@@ -604,7 +609,7 @@ public sealed class AuthService(
             user.AccountState,
             user.ScheduledDeletionAt,
             user.DeactivatedAt,
-            user.HouseholdMembers.Count(member => member.IsActive && member.Role == HouseholdRole.Owner),
+            ownedHouseholdCount,
             user.HouseholdMembers.Count(member => member.IsActive),
             user.SystemRole == SystemRole.SuperAdmin,
             commercialSummary.EffectivePlanSlug,
@@ -615,6 +620,11 @@ public sealed class AuthService(
             commercialSummary.ActiveSubscriptionAmountPaid,
             commercialSummary.ActiveSubscriptionCurrencyCode,
             commercialSummary.ActiveSubscriptionStatus);
+    }
+
+    private Task<int> CountOwnedHouseholdsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return db.Households.CountAsync(household => household.CreatedByUserId == userId, cancellationToken);
     }
 
     private async Task<AppUser> EnsureSuperAdminUserAsync(CancellationToken cancellationToken)

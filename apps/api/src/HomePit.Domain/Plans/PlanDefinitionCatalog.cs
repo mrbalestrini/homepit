@@ -18,8 +18,9 @@ public static class PlanDefinitionCatalog
             MonthlyPrice: 0m,
             AnnualPrice: 0m,
             MaxOwnedHouseholds: 0,
-            MaxUniversesPerHousehold: 3,
-            MaxProjectsPerUniverse: 3,
+            MaxUniverses: 3,
+            MaxProjects: 3,
+            MaxInvitedMembers: null,
             MaxOriginalImages: 30,
             SortOrder: 0),
         new(
@@ -29,8 +30,9 @@ public static class PlanDefinitionCatalog
             MonthlyPrice: 9.90m,
             AnnualPrice: 99.00m,
             MaxOwnedHouseholds: 1,
-            MaxUniversesPerHousehold: 3,
-            MaxProjectsPerUniverse: 3,
+            MaxUniverses: 3,
+            MaxProjects: 3,
+            MaxInvitedMembers: null,
             MaxOriginalImages: 30,
             SortOrder: 1),
         new(
@@ -40,8 +42,9 @@ public static class PlanDefinitionCatalog
             MonthlyPrice: 19.90m,
             AnnualPrice: 199.00m,
             MaxOwnedHouseholds: 3,
-            MaxUniversesPerHousehold: 6,
-            MaxProjectsPerUniverse: 6,
+            MaxUniverses: 6,
+            MaxProjects: 6,
+            MaxInvitedMembers: null,
             MaxOriginalImages: 50,
             SortOrder: 2),
         new(
@@ -51,8 +54,9 @@ public static class PlanDefinitionCatalog
             MonthlyPrice: 29.90m,
             AnnualPrice: 299.00m,
             MaxOwnedHouseholds: 5,
-            MaxUniversesPerHousehold: 9,
-            MaxProjectsPerUniverse: 9,
+            MaxUniverses: 9,
+            MaxProjects: 9,
+            MaxInvitedMembers: null,
             MaxOriginalImages: 100,
             SortOrder: 3),
         new(
@@ -62,8 +66,9 @@ public static class PlanDefinitionCatalog
             MonthlyPrice: 39.90m,
             AnnualPrice: 399.00m,
             MaxOwnedHouseholds: 7,
-            MaxUniversesPerHousehold: 15,
-            MaxProjectsPerUniverse: 15,
+            MaxUniverses: 15,
+            MaxProjects: 15,
+            MaxInvitedMembers: null,
             MaxOriginalImages: 300,
             SortOrder: 4)
     ];
@@ -75,8 +80,9 @@ public static class PlanDefinitionCatalog
         decimal MonthlyPrice,
         decimal AnnualPrice,
         int MaxOwnedHouseholds,
-        int MaxUniversesPerHousehold,
-        int MaxProjectsPerUniverse,
+        int MaxUniverses,
+        int MaxProjects,
+        int? MaxInvitedMembers,
         int MaxOriginalImages,
         int SortOrder);
 }

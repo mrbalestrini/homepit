@@ -126,15 +126,274 @@ public sealed class CommercialPlanServiceTests
         Assert.True(degradedInfo.Height <= 300);
     }
 
+    [Fact]
+    public async Task Current_user_plan_counts_global_usage_for_the_current_user()
+    {
+        await using var context = CreateDbContext();
+        var creator = await SeedUserAsync(context, "creator@homepit.dev");
+        var invited = await SeedUserAsync(context, "invited@homepit.dev");
+        var ownerMemberId = Guid.NewGuid();
+        var invitedOwnerMemberId = Guid.NewGuid();
+        var household = new Household
+        {
+            Name = "Casa compartilhada",
+            CreatedByUserId = creator.Id
+        };
+
+        context.Households.Add(household);
+        context.HouseholdMembers.AddRange(
+            new HouseholdMember
+            {
+                Id = ownerMemberId,
+                Household = household,
+                UserId = creator.Id,
+                Role = HouseholdRole.Owner
+            },
+            new HouseholdMember
+            {
+                Id = invitedOwnerMemberId,
+                Household = household,
+                UserId = invited.Id,
+                Role = HouseholdRole.Owner
+            });
+
+        var service = CreateCommercialPlanService(context, invited.Id, SystemRole.User, household.Id);
+        var invitedUniverse = new HomePit.Domain.Projects.Universe
+        {
+            Household = household,
+            CreatedByMemberId = invitedOwnerMemberId,
+            Name = "Universo do convidado"
+        };
+        context.Universes.Add(invitedUniverse);
+        context.Projects.Add(new HomePit.Domain.Projects.Project
+        {
+            HouseholdId = household.Id,
+            Universe = invitedUniverse,
+            CreatedByMemberId = invitedOwnerMemberId,
+            Name = "Projeto do convidado"
+        });
+
+        await context.SaveChangesAsync();
+
+        var summary = await service.GetCurrentUserPlanAsync(CancellationToken.None);
+
+        Assert.Equal(PlanDefinitionCatalog.FreeSlug, summary.Plan.Slug);
+        Assert.Equal(0, summary.Usage.OwnedHouseholdCount);
+        Assert.Equal(1, summary.Usage.UniverseCount);
+        Assert.Equal(1, summary.Usage.ProjectCount);
+        Assert.Equal(0, summary.Usage.InvitedMemberCount);
+    }
+
+    [Fact]
+    public async Task Create_universe_limit_uses_the_creator_total_even_inside_another_users_household()
+    {
+        await using var context = CreateDbContext();
+        var creator = await SeedUserAsync(context, "creator-limit@homepit.dev");
+        var invited = await SeedUserAsync(context, "invited-limit@homepit.dev");
+        var creatorMemberId = Guid.NewGuid();
+        var invitedMemberId = Guid.NewGuid();
+        var household = new Household
+        {
+            Name = "Casa premium",
+            CreatedByUserId = creator.Id
+        };
+
+        context.Households.Add(household);
+        context.HouseholdMembers.AddRange(
+            new HouseholdMember
+            {
+                Id = creatorMemberId,
+                Household = household,
+                UserId = creator.Id,
+                Role = HouseholdRole.Owner
+            },
+            new HouseholdMember
+            {
+                Id = invitedMemberId,
+                Household = household,
+                UserId = invited.Id,
+                Role = HouseholdRole.Member
+            });
+
+        var service = CreateCommercialPlanService(context, invited.Id, SystemRole.User, household.Id);
+        await service.EnsurePlanCatalogAsync(CancellationToken.None);
+        context.Universes.AddRange(Enumerable.Range(1, 3).Select(index => new HomePit.Domain.Projects.Universe
+        {
+            Household = household,
+            CreatedByMemberId = invitedMemberId,
+            Name = $"Universo {index}"
+        }));
+
+        await context.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() =>
+            service.EnsureCanCreateUniverseAsync(invited.Id, household.Id, CancellationToken.None));
+
+        Assert.Equal("O plano Free permite até 3 universo(s) no total.", exception.Message);
+    }
+
+    [Fact]
+    public async Task Create_project_limit_uses_the_creator_total_even_inside_another_users_universe()
+    {
+        await using var context = CreateDbContext();
+        var creator = await SeedUserAsync(context, "creator-project@homepit.dev");
+        var invited = await SeedUserAsync(context, "invited-project@homepit.dev");
+        var creatorMemberId = Guid.NewGuid();
+        var invitedMemberId = Guid.NewGuid();
+        var household = new Household
+        {
+            Name = "Casa premium",
+            CreatedByUserId = creator.Id
+        };
+        var universe = new HomePit.Domain.Projects.Universe
+        {
+            Household = household,
+            CreatedByMemberId = creatorMemberId,
+            Name = "Universo compartilhado"
+        };
+
+        context.Households.Add(household);
+        context.Universes.Add(universe);
+        context.HouseholdMembers.AddRange(
+            new HouseholdMember
+            {
+                Id = creatorMemberId,
+                Household = household,
+                UserId = creator.Id,
+                Role = HouseholdRole.Owner
+            },
+            new HouseholdMember
+            {
+                Id = invitedMemberId,
+                Household = household,
+                UserId = invited.Id,
+                Role = HouseholdRole.Member
+            });
+
+        var service = CreateCommercialPlanService(context, invited.Id, SystemRole.User, household.Id);
+        await service.EnsurePlanCatalogAsync(CancellationToken.None);
+        context.Projects.AddRange(Enumerable.Range(1, 3).Select(index => new HomePit.Domain.Projects.Project
+        {
+            HouseholdId = household.Id,
+            Universe = universe,
+            CreatedByMemberId = invitedMemberId,
+            Name = $"Projeto {index}"
+        }));
+
+        await context.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() =>
+            service.EnsureCanCreateProjectAsync(invited.Id, universe.Id, CancellationToken.None));
+
+        Assert.Equal("O plano Free permite até 3 projeto(s) no total.", exception.Message);
+    }
+
+    [Fact]
+    public async Task Invite_limit_counts_active_memberships_in_households_created_by_the_plan_owner()
+    {
+        await using var context = CreateDbContext();
+        var creator = await SeedUserAsync(context, "owner-invites@homepit.dev");
+        var admin = await SeedUserAsync(context, "admin-invites@homepit.dev");
+        var guest = await SeedUserAsync(context, "guest-invites@homepit.dev");
+        var household = new Household
+        {
+            Name = "Casa de convites",
+            CreatedByUserId = creator.Id
+        };
+
+        context.Households.Add(household);
+        context.HouseholdMembers.AddRange(
+            new HouseholdMember
+            {
+                Household = household,
+                UserId = creator.Id,
+                Role = HouseholdRole.Owner
+            },
+            new HouseholdMember
+            {
+                Household = household,
+                UserId = admin.Id,
+                Role = HouseholdRole.Admin
+            });
+
+        var service = CreateCommercialPlanService(context, admin.Id, SystemRole.User, household.Id);
+        await service.EnsurePlanCatalogAsync(CancellationToken.None);
+        var freePlan = await context.PlanDefinitions.SingleAsync(item => item.Slug == PlanDefinitionCatalog.FreeSlug);
+        freePlan.MaxInvitedMembers = 2;
+        await context.SaveChangesAsync();
+
+        await service.EnsureCanInviteMemberToHouseholdAsync(household.Id, guest.Id, CancellationToken.None);
+
+        context.HouseholdMembers.Add(new HouseholdMember
+        {
+            Household = household,
+            UserId = guest.Id,
+            Role = HouseholdRole.Member
+        });
+        await context.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() =>
+            service.EnsureCanInviteMemberToHouseholdAsync(household.Id, Guid.NewGuid(), CancellationToken.None));
+
+        Assert.Equal("O plano Free permite até 2 membro(s) convidado(s) ativo(s) nas casas próprias.", exception.Message);
+    }
+
+    [Fact]
+    public async Task Invite_limit_ignores_inactive_memberships_and_null_limit_is_unlimited()
+    {
+        await using var context = CreateDbContext();
+        var creator = await SeedUserAsync(context, "owner-limit@homepit.dev");
+        var guest = await SeedUserAsync(context, "guest-limit@homepit.dev");
+        var guestTwo = await SeedUserAsync(context, "guest-limit-two@homepit.dev");
+        var household = new Household
+        {
+            Name = "Casa livre",
+            CreatedByUserId = creator.Id
+        };
+
+        context.Households.Add(household);
+        context.HouseholdMembers.AddRange(
+            new HouseholdMember
+            {
+                Household = household,
+                UserId = creator.Id,
+                Role = HouseholdRole.Owner
+            },
+            new HouseholdMember
+            {
+                Household = household,
+                UserId = guest.Id,
+                Role = HouseholdRole.Member,
+                IsActive = false
+            });
+
+        var service = CreateCommercialPlanService(context, creator.Id, SystemRole.User, household.Id);
+        await service.EnsurePlanCatalogAsync(CancellationToken.None);
+        var freePlan = await context.PlanDefinitions.SingleAsync(item => item.Slug == PlanDefinitionCatalog.FreeSlug);
+        freePlan.MaxInvitedMembers = 1;
+        await context.SaveChangesAsync();
+
+        await service.EnsureCanInviteMemberToHouseholdAsync(household.Id, guestTwo.Id, CancellationToken.None);
+
+        freePlan.MaxInvitedMembers = null;
+        await context.SaveChangesAsync();
+
+        await service.EnsureCanInviteMemberToHouseholdAsync(household.Id, Guid.NewGuid(), CancellationToken.None);
+    }
+
     private static async Task PutObjectAsync(InMemoryObjectStorage storage, string key, byte[] content, string contentType)
     {
         await using var stream = new MemoryStream(content, writable: false);
         await storage.PutAsync(new ObjectStoragePutRequest(key, stream, content.LongLength, contentType), CancellationToken.None);
     }
 
-    private static CommercialPlanService CreateCommercialPlanService(HomePitDbContext context, Guid userId, SystemRole systemRole)
+    private static CommercialPlanService CreateCommercialPlanService(
+        HomePitDbContext context,
+        Guid userId,
+        SystemRole systemRole,
+        Guid? householdId = null)
     {
-        return new CommercialPlanService(context, new TestUserContext(userId, systemRole), TimeProvider.System);
+        return new CommercialPlanService(context, new TestUserContext(userId, systemRole, householdId), TimeProvider.System);
     }
 
     private static HomePitDbContext CreateDbContext()
@@ -161,11 +420,11 @@ public sealed class CommercialPlanServiceTests
         return user;
     }
 
-    private sealed class TestUserContext(Guid userId, SystemRole systemRole) : IUserContext
+    private sealed class TestUserContext(Guid userId, SystemRole systemRole, Guid? householdId) : IUserContext
     {
         public Guid UserId { get; } = userId;
         public SystemRole SystemRole { get; } = systemRole;
-        public Guid? HouseholdId => null;
+        public Guid? HouseholdId { get; } = householdId;
     }
 
     private sealed class InMemoryObjectStorage : IObjectStorage

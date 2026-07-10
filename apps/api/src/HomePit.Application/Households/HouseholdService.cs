@@ -42,7 +42,12 @@ public sealed class HouseholdService(
             return await db.Households
                 .AsNoTracking()
                 .OrderBy(household => household.Name)
-                .Select(household => new HouseholdDto(household.Id, household.Name, HouseholdRole.Member, household.CreatedAt))
+                .Select(household => new HouseholdDto(
+                    household.Id,
+                    household.Name,
+                    HouseholdRole.Member,
+                    household.CreatedAt,
+                    household.CreatedByUserId == userContext.UserId))
                 .ToArrayAsync(cancellationToken);
         }
 
@@ -50,7 +55,12 @@ public sealed class HouseholdService(
             .AsNoTracking()
             .Where(member => member.UserId == userContext.UserId && member.IsActive)
             .OrderBy(member => member.Household!.Name)
-            .Select(member => new HouseholdDto(member.HouseholdId, member.Household!.Name, member.Role, member.Household!.CreatedAt))
+            .Select(member => new HouseholdDto(
+                member.HouseholdId,
+                member.Household!.Name,
+                member.Role,
+                member.Household!.CreatedAt,
+                member.Household!.CreatedByUserId == userContext.UserId))
             .ToArrayAsync(cancellationToken);
     }
 
@@ -63,7 +73,11 @@ public sealed class HouseholdService(
             throw new ValidationException("Informe o nome da casa.");
         }
 
-        var household = new Household { Name = request.Name.Trim() };
+        var household = new Household
+        {
+            Name = request.Name.Trim(),
+            CreatedByUserId = userContext.UserId
+        };
         var member = new HouseholdMember
         {
             Household = household,
@@ -81,7 +95,7 @@ public sealed class HouseholdService(
         });
 
         await db.SaveChangesAsync(cancellationToken);
-        return new HouseholdDto(household.Id, household.Name, member.Role, household.CreatedAt);
+        return ToHouseholdDto(household, member.Role);
     }
 
     public async Task<HouseholdDto> UpdateAsync(
@@ -101,7 +115,7 @@ public sealed class HouseholdService(
         member.Household!.Name = request.Name.Trim();
         await db.SaveChangesAsync(cancellationToken);
 
-        return new HouseholdDto(member.HouseholdId, member.Household.Name, member.Role, member.Household.CreatedAt);
+        return ToHouseholdDto(member.Household, member.Role);
     }
 
     public async Task DeleteAsync(Guid householdId, CancellationToken cancellationToken)
@@ -181,6 +195,10 @@ public sealed class HouseholdService(
 
         if (existingMember is not null)
         {
+            await commercialPlanService.EnsureCanInviteMemberToHouseholdAsync(
+                currentMember.HouseholdId,
+                user.Id,
+                cancellationToken);
             existingMember.Role = role;
             existingMember.IsActive = true;
 
@@ -199,6 +217,11 @@ public sealed class HouseholdService(
             await db.SaveChangesAsync(cancellationToken);
             return ToMemberDto(existingMember, userContext.UserId);
         }
+
+        await commercialPlanService.EnsureCanInviteMemberToHouseholdAsync(
+            currentMember.HouseholdId,
+            user.Id,
+            cancellationToken);
 
         var member = new HouseholdMember
         {
@@ -388,6 +411,16 @@ public sealed class HouseholdService(
             member.User?.ProfilePhotoUpdatedAt,
             member.Role,
             member.UserId == currentUserId);
+    }
+
+    private HouseholdDto ToHouseholdDto(Household household, HouseholdRole role)
+    {
+        return new HouseholdDto(
+            household.Id,
+            household.Name,
+            role,
+            household.CreatedAt,
+            household.CreatedByUserId == userContext.UserId);
     }
 
     private async Task<Guid> ResolveSuperAdminHouseholdIdAsync(CancellationToken cancellationToken)

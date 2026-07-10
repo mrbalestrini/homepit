@@ -794,7 +794,8 @@ public sealed class FinanceEndpointsTests
         };
         var household = new Household
         {
-            Name = "Casa Financeira"
+            Name = "Casa Financeira",
+            CreatedByUserId = ownerUser.Id
         };
         var ownerMember = new HouseholdMember
         {

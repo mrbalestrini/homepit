@@ -7,6 +7,7 @@ export type Household = {
   name: string;
   role: "Owner" | "Admin" | "Member";
   createdAt?: string | null;
+  isOwnedByCurrentUser: boolean;
 };
 
 export type HouseholdMember = {
@@ -69,8 +70,9 @@ export type PlanDefinition = {
   monthlyPrice: number;
   annualPrice: number;
   maxOwnedHouseholds: number;
-  maxUniversesPerHousehold: number;
-  maxProjectsPerUniverse: number;
+  maxUniverses: number;
+  maxProjects: number;
+  maxInvitedMembers?: number | null;
   maxOriginalImages: number;
   imagePolicyDescription: string;
 };
@@ -121,14 +123,29 @@ export type UpdatePlatformSettingsRequest = {
 
 export type PlanUsageSummary = {
   ownedHouseholdCount: number;
+  universeCount: number;
+  projectCount: number;
+  invitedMemberCount: number;
   managedOriginalImageCount: number;
-  activeHouseholdUniverseCount?: number | null;
 };
 
 export type CurrentUserPlanSummary = {
   plan: PlanDefinition;
   activeSubscription?: UserSubscription | null;
   usage: PlanUsageSummary;
+};
+
+export type PlanCreationScope = "households" | "universes" | "projects";
+
+export type PlanCreationItem = {
+  id: string;
+  name: string;
+  createdAt: string;
+  householdId: string;
+  householdName: string;
+  canDelete: boolean;
+  universeId?: string | null;
+  universeName?: string | null;
 };
 
 export type AuthResponse = {

@@ -11,8 +11,9 @@ public sealed class PlanDefinition : AuditableEntity
     public decimal MonthlyPrice { get; set; }
     public decimal AnnualPrice { get; set; }
     public int MaxOwnedHouseholds { get; set; }
-    public int MaxUniversesPerHousehold { get; set; }
-    public int MaxProjectsPerUniverse { get; set; }
+    public int MaxUniverses { get; set; }
+    public int MaxProjects { get; set; }
+    public int? MaxInvitedMembers { get; set; }
     public int MaxOriginalImages { get; set; }
     public int SortOrder { get; set; }
 

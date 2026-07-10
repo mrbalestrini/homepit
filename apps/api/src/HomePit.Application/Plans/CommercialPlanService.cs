@@ -10,6 +10,10 @@ public sealed class CommercialPlanService(
     IUserContext userContext,
     TimeProvider timeProvider)
 {
+    private const string HouseholdCreationScope = "households";
+    private const string UniverseCreationScope = "universes";
+    private const string ProjectCreationScope = "projects";
+
     public async Task EnsurePlanCatalogAsync(CancellationToken cancellationToken)
     {
         var existingSlugs = await db.PlanDefinitions
@@ -27,8 +31,9 @@ public sealed class CommercialPlanService(
                 MonthlyPrice = seed.MonthlyPrice,
                 AnnualPrice = seed.AnnualPrice,
                 MaxOwnedHouseholds = seed.MaxOwnedHouseholds,
-                MaxUniversesPerHousehold = seed.MaxUniversesPerHousehold,
-                MaxProjectsPerUniverse = seed.MaxProjectsPerUniverse,
+                MaxUniverses = seed.MaxUniverses,
+                MaxProjects = seed.MaxProjects,
+                MaxInvitedMembers = seed.MaxInvitedMembers,
                 MaxOriginalImages = seed.MaxOriginalImages,
                 SortOrder = seed.SortOrder
             })
@@ -73,8 +78,9 @@ public sealed class CommercialPlanService(
         plan.MonthlyPrice = request.MonthlyPrice;
         plan.AnnualPrice = request.AnnualPrice;
         plan.MaxOwnedHouseholds = request.MaxOwnedHouseholds;
-        plan.MaxUniversesPerHousehold = request.MaxUniversesPerHousehold;
-        plan.MaxProjectsPerUniverse = request.MaxProjectsPerUniverse;
+        plan.MaxUniverses = request.MaxUniverses;
+        plan.MaxProjects = request.MaxProjects;
+        plan.MaxInvitedMembers = request.MaxInvitedMembers;
         plan.MaxOriginalImages = request.MaxOriginalImages;
 
         await db.SaveChangesAsync(cancellationToken);
@@ -209,23 +215,44 @@ public sealed class CommercialPlanService(
 
         var plan = await ResolveEffectivePlanDefinitionAsync(userContext.UserId, cancellationToken);
         var subscription = await GetActiveSubscriptionAsync(userContext.UserId, cancellationToken);
-        var ownedHouseholdCount = await db.HouseholdMembers.CountAsync(
-            item => item.UserId == userContext.UserId && item.IsActive && item.Role == HouseholdRole.Owner,
-            cancellationToken);
+        var ownedHouseholdCount = await CountOwnedHouseholdsAsync(userContext.UserId, cancellationToken);
+        var universeCount = await CountCreatedUniversesAsync(userContext.UserId, cancellationToken);
+        var projectCount = await CountCreatedProjectsAsync(userContext.UserId, cancellationToken);
+        var invitedMemberCount = await CountInvitedMembersAsync(userContext.UserId, cancellationToken);
         var managedOriginalImageCount = await db.UserPlanImageAssets.CountAsync(
             item => item.UserId == userContext.UserId && !item.IsDegraded,
             cancellationToken);
-        int? activeHouseholdUniverseCount = userContext.HouseholdId.HasValue
-            ? await db.Universes.CountAsync(item => item.HouseholdId == userContext.HouseholdId.Value, cancellationToken)
-            : null;
 
         return new CurrentUserPlanSummaryDto(
             ToPlanDefinitionDto(plan),
             subscription is null ? null : ToUserSubscriptionDto(subscription, ResolveEffectiveSubscriptionStatus(subscription)),
             new PlanUsageSummaryDto(
                 ownedHouseholdCount,
-                managedOriginalImageCount,
-                activeHouseholdUniverseCount));
+                universeCount,
+                projectCount,
+                invitedMemberCount,
+                managedOriginalImageCount));
+    }
+
+    public async Task<IReadOnlyCollection<PlanCreationItemDto>> ListCurrentUserCreationsAsync(
+        string scope,
+        CancellationToken cancellationToken)
+    {
+        var normalizedScope = NormalizeCreationScope(scope);
+        var activeMemberships = (await db.HouseholdMembers
+                .AsNoTracking()
+                .Where(member => member.UserId == userContext.UserId && member.IsActive)
+                .Select(member => new ActiveMembershipSnapshot(member.HouseholdId, member.Id, member.Role))
+                .ToArrayAsync(cancellationToken))
+            .ToDictionary(member => member.HouseholdId);
+
+        return normalizedScope switch
+        {
+            HouseholdCreationScope => await ListCreatedHouseholdsAsync(activeMemberships, cancellationToken),
+            UniverseCreationScope => await ListCreatedUniversesAsync(activeMemberships, cancellationToken),
+            ProjectCreationScope => await ListCreatedProjectsAsync(activeMemberships, cancellationToken),
+            _ => Array.Empty<PlanCreationItemDto>()
+        };
     }
 
     public async Task<AdminUserCommercialSummaryDto> GetAdminUserCommercialSummaryAsync(Guid userId, CancellationToken cancellationToken)
@@ -265,9 +292,7 @@ public sealed class CommercialPlanService(
     public async Task EnsureCanCreateHouseholdAsync(Guid userId, CancellationToken cancellationToken)
     {
         var plan = await ResolveEffectivePlanDefinitionAsync(userId, cancellationToken);
-        var ownedHouseholdCount = await db.HouseholdMembers.CountAsync(
-            item => item.UserId == userId && item.IsActive && item.Role == HouseholdRole.Owner,
-            cancellationToken);
+        var ownedHouseholdCount = await CountOwnedHouseholdsAsync(userId, cancellationToken);
 
         if (ownedHouseholdCount >= plan.MaxOwnedHouseholds)
         {
@@ -278,24 +303,58 @@ public sealed class CommercialPlanService(
     public async Task EnsureCanCreateUniverseAsync(Guid userId, Guid householdId, CancellationToken cancellationToken)
     {
         var plan = await ResolveEffectivePlanDefinitionAsync(userId, cancellationToken);
-        var universeCount = await db.Universes.CountAsync(item => item.HouseholdId == householdId, cancellationToken);
+        var universeCount = await CountCreatedUniversesAsync(userId, cancellationToken);
 
-        if (universeCount >= plan.MaxUniversesPerHousehold)
+        if (universeCount >= plan.MaxUniverses)
         {
             throw new ValidationException(
-                $"O plano {plan.Name} permite até {plan.MaxUniversesPerHousehold} universo(s) por casa.");
+                $"O plano {plan.Name} permite até {plan.MaxUniverses} universo(s) no total.");
         }
     }
 
     public async Task EnsureCanCreateProjectAsync(Guid userId, Guid universeId, CancellationToken cancellationToken)
     {
         var plan = await ResolveEffectivePlanDefinitionAsync(userId, cancellationToken);
-        var projectCount = await db.Projects.CountAsync(item => item.UniverseId == universeId, cancellationToken);
+        var projectCount = await CountCreatedProjectsAsync(userId, cancellationToken);
 
-        if (projectCount >= plan.MaxProjectsPerUniverse)
+        if (projectCount >= plan.MaxProjects)
         {
             throw new ValidationException(
-                $"O plano {plan.Name} permite até {plan.MaxProjectsPerUniverse} projeto(s) por universo.");
+                $"O plano {plan.Name} permite até {plan.MaxProjects} projeto(s) no total.");
+        }
+    }
+
+    public async Task EnsureCanInviteMemberToHouseholdAsync(
+        Guid householdId,
+        Guid invitedUserId,
+        CancellationToken cancellationToken)
+    {
+        var creatorUserId = await db.Households
+            .AsNoTracking()
+            .Where(household => household.Id == householdId)
+            .Select(household => household.CreatedByUserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (creatorUserId == Guid.Empty)
+        {
+            throw new NotFoundException("Casa não encontrada.");
+        }
+
+        if (creatorUserId == invitedUserId)
+        {
+            return;
+        }
+
+        var plan = await ResolveEffectivePlanDefinitionAsync(creatorUserId, cancellationToken);
+        if (plan.MaxInvitedMembers is null)
+        {
+            return;
+        }
+
+        var invitedMemberCount = await CountInvitedMembersAsync(creatorUserId, cancellationToken);
+        if (invitedMemberCount >= plan.MaxInvitedMembers.Value)
+        {
+            throw new ValidationException(BuildInvitedMemberLimitMessage(plan));
         }
     }
 
@@ -315,6 +374,75 @@ public sealed class CommercialPlanService(
         return plan.MaxOwnedHouseholds == 0
             ? $"O plano {plan.Name} não permite criar casas próprias."
             : $"O plano {plan.Name} permite até {plan.MaxOwnedHouseholds} casa(s) própria(s).";
+    }
+
+    private static string BuildInvitedMemberLimitMessage(PlanDefinition plan)
+    {
+        return plan.MaxInvitedMembers == 0
+            ? $"O plano {plan.Name} não permite convidar membros para casas próprias."
+            : $"O plano {plan.Name} permite até {plan.MaxInvitedMembers} membro(s) convidado(s) ativo(s) nas casas próprias.";
+    }
+
+    public async Task<PlanDefinition> ResolveEffectivePlanDefinitionForHouseholdAsync(Guid householdId, CancellationToken cancellationToken)
+    {
+        var ownerUserId = await db.Households
+            .AsNoTracking()
+            .Where(household => household.Id == householdId)
+            .Select(household => household.CreatedByUserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (ownerUserId == Guid.Empty)
+        {
+            throw new NotFoundException("Casa não encontrada.");
+        }
+
+        return await ResolveEffectivePlanDefinitionAsync(ownerUserId, cancellationToken);
+    }
+
+    public async Task<PlanDefinition> ResolveEffectivePlanDefinitionForUniverseAsync(Guid universeId, CancellationToken cancellationToken)
+    {
+        var householdId = await db.Universes
+            .AsNoTracking()
+            .Where(universe => universe.Id == universeId)
+            .Select(universe => universe.HouseholdId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (householdId == Guid.Empty)
+        {
+            throw new NotFoundException("Universo não encontrado.");
+        }
+
+        return await ResolveEffectivePlanDefinitionForHouseholdAsync(householdId, cancellationToken);
+    }
+
+    public Task<int> CountOwnedHouseholdsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return db.Households.CountAsync(household => household.CreatedByUserId == userId, cancellationToken);
+    }
+
+    public Task<int> CountCreatedUniversesAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return db.Universes.CountAsync(
+            universe => universe.CreatedByMember != null && universe.CreatedByMember.UserId == userId,
+            cancellationToken);
+    }
+
+    public Task<int> CountCreatedProjectsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return db.Projects.CountAsync(
+            project => project.CreatedByMember != null && project.CreatedByMember.UserId == userId,
+            cancellationToken);
+    }
+
+    public Task<int> CountInvitedMembersAsync(Guid creatorUserId, CancellationToken cancellationToken)
+    {
+        return db.HouseholdMembers.CountAsync(
+            member =>
+                member.IsActive &&
+                member.Household != null &&
+                member.Household.CreatedByUserId == creatorUserId &&
+                member.UserId != creatorUserId,
+            cancellationToken);
     }
 
     private async Task<UserSubscription?> GetActiveSubscriptionAsync(Guid userId, CancellationToken cancellationToken)
@@ -441,8 +569,9 @@ public sealed class CommercialPlanService(
         }
 
         if (request.MaxOwnedHouseholds < 0 ||
-            request.MaxUniversesPerHousehold < 0 ||
-            request.MaxProjectsPerUniverse < 0 ||
+            request.MaxUniverses < 0 ||
+            request.MaxProjects < 0 ||
+            request.MaxInvitedMembers < 0 ||
             request.MaxOriginalImages < 0)
         {
             throw new ValidationException("Os limites do plano não podem ser negativos.");
@@ -482,8 +611,9 @@ public sealed class CommercialPlanService(
             item.MonthlyPrice,
             item.AnnualPrice,
             item.MaxOwnedHouseholds,
-            item.MaxUniversesPerHousehold,
-            item.MaxProjectsPerUniverse,
+            item.MaxUniverses,
+            item.MaxProjects,
+            item.MaxInvitedMembers,
             item.MaxOriginalImages,
             BuildImagePolicyDescription(item));
     }
@@ -506,4 +636,129 @@ public sealed class CommercialPlanService(
             status,
             item.AdminNote);
     }
+
+    private async Task<IReadOnlyCollection<PlanCreationItemDto>> ListCreatedHouseholdsAsync(
+        IReadOnlyDictionary<Guid, ActiveMembershipSnapshot> activeMemberships,
+        CancellationToken cancellationToken)
+    {
+        var households = await db.Households
+            .AsNoTracking()
+            .Where(household => household.CreatedByUserId == userContext.UserId)
+            .OrderBy(household => household.Name)
+            .Select(household => new
+            {
+                household.Id,
+                household.Name,
+                household.CreatedAt
+            })
+            .ToArrayAsync(cancellationToken);
+
+        return households
+            .Select(household => new PlanCreationItemDto(
+                household.Id,
+                household.Name,
+                household.CreatedAt,
+                household.Id,
+                household.Name,
+                activeMemberships.TryGetValue(household.Id, out var membership) && membership.Role == HouseholdRole.Owner,
+                null,
+                null))
+            .ToArray();
+    }
+
+    private async Task<IReadOnlyCollection<PlanCreationItemDto>> ListCreatedUniversesAsync(
+        IReadOnlyDictionary<Guid, ActiveMembershipSnapshot> activeMemberships,
+        CancellationToken cancellationToken)
+    {
+        var universes = await db.Universes
+            .AsNoTracking()
+            .Where(universe => universe.CreatedByMember != null && universe.CreatedByMember.UserId == userContext.UserId)
+            .OrderBy(universe => universe.Name)
+            .Select(universe => new
+            {
+                universe.Id,
+                universe.Name,
+                universe.CreatedAt,
+                universe.HouseholdId,
+                HouseholdName = universe.Household!.Name,
+                universe.CreatedByMemberId
+            })
+            .ToArrayAsync(cancellationToken);
+
+        return universes
+            .Select(universe => new PlanCreationItemDto(
+                universe.Id,
+                universe.Name,
+                universe.CreatedAt,
+                universe.HouseholdId,
+                universe.HouseholdName,
+                CanManageCreation(universe.HouseholdId, universe.CreatedByMemberId, activeMemberships),
+                null,
+                null))
+            .ToArray();
+    }
+
+    private async Task<IReadOnlyCollection<PlanCreationItemDto>> ListCreatedProjectsAsync(
+        IReadOnlyDictionary<Guid, ActiveMembershipSnapshot> activeMemberships,
+        CancellationToken cancellationToken)
+    {
+        var projects = await db.Projects
+            .AsNoTracking()
+            .Where(project => project.CreatedByMember != null && project.CreatedByMember.UserId == userContext.UserId)
+            .OrderBy(project => project.Name)
+            .Select(project => new
+            {
+                project.Id,
+                project.Name,
+                project.CreatedAt,
+                project.HouseholdId,
+                HouseholdName = project.Universe!.Household!.Name,
+                project.UniverseId,
+                UniverseName = project.Universe!.Name,
+                project.CreatedByMemberId
+            })
+            .ToArrayAsync(cancellationToken);
+
+        return projects
+            .Select(project => new PlanCreationItemDto(
+                project.Id,
+                project.Name,
+                project.CreatedAt,
+                project.HouseholdId,
+                project.HouseholdName,
+                CanManageCreation(project.HouseholdId, project.CreatedByMemberId, activeMemberships),
+                project.UniverseId,
+                project.UniverseName))
+            .ToArray();
+    }
+
+    private static bool CanManageCreation(
+        Guid householdId,
+        Guid? createdByMemberId,
+        IReadOnlyDictionary<Guid, ActiveMembershipSnapshot> activeMemberships)
+    {
+        if (!activeMemberships.TryGetValue(householdId, out var membership))
+        {
+            return false;
+        }
+
+        return membership.Role is HouseholdRole.Owner or HouseholdRole.Admin || membership.Id == createdByMemberId;
+    }
+
+    private static string NormalizeCreationScope(string value)
+    {
+        var normalized = NormalizeRequiredText(value, "Informe o escopo da listagem.").Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            HouseholdCreationScope => HouseholdCreationScope,
+            UniverseCreationScope => UniverseCreationScope,
+            ProjectCreationScope => ProjectCreationScope,
+            _ => throw new ValidationException("Escopo inválido para a listagem de criações.")
+        };
+    }
+
+    private sealed record ActiveMembershipSnapshot(
+        Guid HouseholdId,
+        Guid Id,
+        HouseholdRole Role);
 }

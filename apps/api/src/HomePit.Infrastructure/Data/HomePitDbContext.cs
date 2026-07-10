@@ -170,6 +170,11 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
         {
             builder.ToTable("households");
             builder.Property(household => household.Name).HasMaxLength(160).IsRequired();
+            builder.HasIndex(household => household.CreatedByUserId);
+            builder.HasOne(household => household.CreatedByUser)
+                .WithMany(user => user.CreatedHouseholds)
+                .HasForeignKey(household => household.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<HouseholdMember>(builder =>

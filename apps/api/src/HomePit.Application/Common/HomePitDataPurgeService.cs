@@ -66,9 +66,9 @@ public sealed class HomePitDataPurgeService(
             }
         }
 
-        await db.ActivityComments
-            .Where(comment => comment.HouseholdId == householdId)
-            .ExecuteDeleteAsync(cancellationToken);
+        await DeleteActivityCommentsAsync(
+            db.ActivityComments.Where(comment => comment.HouseholdId == householdId),
+            cancellationToken);
 
         db.Households.Remove(household);
         await db.SaveChangesAsync(cancellationToken);
@@ -96,16 +96,16 @@ public sealed class HomePitDataPurgeService(
 
         if (membershipIds.Length > 0)
         {
-            await db.ActivityComments
-                .Where(comment => membershipIds.Contains(comment.AuthorMemberId))
-                .ExecuteDeleteAsync(cancellationToken);
+            await DeleteActivityCommentsAsync(
+                db.ActivityComments.Where(comment => membershipIds.Contains(comment.AuthorMemberId)),
+                cancellationToken);
         }
 
-        var ownedHouseholdIds = memberships
-            .Where(member => member.IsActive && member.Role == Domain.Households.HouseholdRole.Owner)
-            .Select(member => member.HouseholdId)
-            .Distinct()
-            .ToArray();
+        var ownedHouseholdIds = await db.Households
+            .AsNoTracking()
+            .Where(household => household.CreatedByUserId == userId)
+            .Select(household => household.Id)
+            .ToArrayAsync(cancellationToken);
 
         foreach (var householdId in ownedHouseholdIds)
         {
@@ -129,6 +129,26 @@ public sealed class HomePitDataPurgeService(
         {
             await objectStorage.DeleteAsync(objectKey!, cancellationToken);
         }
+    }
+
+    private async Task DeleteActivityCommentsAsync(
+        IQueryable<Domain.Projects.ActivityComment> query,
+        CancellationToken cancellationToken)
+    {
+        if (db is DbContext dbContext && !string.Equals(dbContext.Database.ProviderName, "Microsoft.EntityFrameworkCore.InMemory", StringComparison.Ordinal))
+        {
+            await query.ExecuteDeleteAsync(cancellationToken);
+            return;
+        }
+
+        var comments = await query.ToArrayAsync(cancellationToken);
+        if (comments.Length == 0)
+        {
+            return;
+        }
+
+        db.ActivityComments.RemoveRange(comments);
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private sealed record MembershipSnapshot(

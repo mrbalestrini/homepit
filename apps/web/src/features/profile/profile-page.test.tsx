@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "@/lib/api";
@@ -43,6 +43,10 @@ vi.mock("@/features/workspace/protected-user-avatar", () => ({
   ProtectedUserAvatar: () => <div>avatar</div>,
 }));
 
+vi.mock("@/features/workspace/delete-confirmation-dialog", () => ({
+  DeleteConfirmationDialog: () => null,
+}));
+
 vi.mock("@/features/profile/profile-photo-crop-dialog", () => ({
   ProfilePhotoCropDialog: () => null,
 }));
@@ -68,8 +72,9 @@ describe("ProfilePage", () => {
             monthlyPrice: 9.9,
             annualPrice: 99,
             maxOwnedHouseholds: 1,
-            maxUniversesPerHousehold: 3,
-            maxProjectsPerUniverse: 3,
+            maxUniverses: 3,
+            maxProjects: 5,
+            maxInvitedMembers: null,
             maxOriginalImages: 30,
             imagePolicyDescription:
               "Mantém até 30 imagem(ns) privada(s) recente(s) em qualidade original; a partir da imagem 31, a mais antiga é substituída por WEBP com até 300 px e qualidade 30%.",
@@ -92,8 +97,10 @@ describe("ProfilePage", () => {
           },
           usage: {
             ownedHouseholdCount: 1,
+            universeCount: 2,
+            projectCount: 4,
+            invitedMemberCount: 3,
             managedOriginalImageCount: 12,
-            activeHouseholdUniverseCount: 2,
           },
         };
       }
@@ -104,21 +111,22 @@ describe("ProfilePage", () => {
     render(<ProfilePage />);
 
     expect(await screen.findByText("Plano")).toBeInTheDocument();
-    expect(screen.getByText("Standard")).toBeInTheDocument();
+    expect(await screen.findByText("Standard")).toBeInTheDocument();
     expect(screen.getByText(/R\$ 9,90\/mês/)).toBeInTheDocument();
     expect(screen.getAllByText("Casas").length).toBeGreaterThan(0);
-    expect(screen.getByText("Universos por casa")).toBeInTheDocument();
-    expect(screen.getByText("Projetos por universo")).toBeInTheDocument();
-    expect(screen.getByText("Imagens totais")).toBeInTheDocument();
-    expect(await screen.findByText("1 de 1")).toBeInTheDocument();
-    expect(await screen.findByText("2 de 3")).toBeInTheDocument();
-    expect(await screen.findByText("4 de 3")).toBeInTheDocument();
-    expect(await screen.findByText("12 de 30")).toBeInTheDocument();
-    expect(await screen.findByText(/Seu plano define quanto você pode criar/i)).toBeInTheDocument();
+    expect(screen.getByText("Universos")).toBeInTheDocument();
+    expect(screen.getByText("Projetos")).toBeInTheDocument();
+    expect(screen.getByText("Membros convidados")).toBeInTheDocument();
+    expect(screen.getByText("Imagens originais")).toBeInTheDocument();
+    expect(await screen.findByText("1 usados")).toBeInTheDocument();
+    expect(await screen.findByText("2 usados")).toBeInTheDocument();
+    expect(await screen.findByText("4 usados")).toBeInTheDocument();
+    expect(await screen.findByText("Restante ilimitado")).toBeInTheDocument();
+    expect(await screen.findByText(/novas criações ficam bloqueadas/i)).toBeInTheDocument();
   });
 
-  it("shows a neutral project quota when no universe is selected", async () => {
-    mockedUseProjectDashboard.mockReturnValue(buildDashboard({ selectedUniverseId: "" }));
+  it("opens the universes modal with the user's creations", async () => {
+    mockedUseProjectDashboard.mockReturnValue(buildDashboard());
     mockedApiFetch.mockImplementation(async (path) => {
       if (path === "/api/users/me/plan") {
         return {
@@ -130,18 +138,36 @@ describe("ProfilePage", () => {
             monthlyPrice: 9.9,
             annualPrice: 99,
             maxOwnedHouseholds: 1,
-            maxUniversesPerHousehold: 3,
-            maxProjectsPerUniverse: 3,
+            maxUniverses: 3,
+            maxProjects: 5,
+            maxInvitedMembers: 6,
             maxOriginalImages: 30,
             imagePolicyDescription: "Não usado nesta tela.",
           },
           activeSubscription: null,
           usage: {
             ownedHouseholdCount: 1,
+            universeCount: 2,
+            projectCount: 4,
+            invitedMemberCount: 3,
             managedOriginalImageCount: 12,
-            activeHouseholdUniverseCount: 2,
           },
         };
+      }
+
+      if (path === "/api/users/me/plan/creations/universes") {
+        return [
+          {
+            id: "universe-1",
+            name: "Universo Alfa",
+            createdAt: "2026-07-03T10:00:00Z",
+            householdId: "household-2",
+            householdName: "Casa Compartilhada",
+            canDelete: true,
+            universeId: null,
+            universeName: null,
+          },
+        ];
       }
 
       throw new Error(`Unexpected path: ${path}`);
@@ -149,14 +175,15 @@ describe("ProfilePage", () => {
 
     render(<ProfilePage />);
 
-    expect(await screen.findByText("— de 3")).toBeInTheDocument();
-    expect(
-      await screen.findByText("Selecione um universo no módulo Projetos para ver este limite."),
-    ).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: /universos/i }));
+
+    expect(await screen.findByText("Universos criados por você")).toBeInTheDocument();
+    expect(await screen.findByText("Universo Alfa")).toBeInTheDocument();
+    expect(await screen.findByText("Casa: Casa Compartilhada")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(mockedApiFetch).toHaveBeenCalledWith(
-        "/api/users/me/plan",
+        "/api/users/me/plan/creations/universes",
         expect.objectContaining({
           token: "access-token",
         }),
@@ -189,6 +216,7 @@ function buildDashboardWithOptions({ selectedUniverseId = "universe-1" }: { sele
           name: "Casa",
           role: "Owner" as const,
           createdAt: "2026-07-01T00:00:00Z",
+          isOwnedByCurrentUser: true,
         },
       ],
     },
@@ -197,6 +225,7 @@ function buildDashboardWithOptions({ selectedUniverseId = "universe-1" }: { sele
       id: "household-1",
       name: "Casa",
       role: "Owner" as const,
+      isOwnedByCurrentUser: true,
     },
     members: [],
     theme: "cozy" as const,

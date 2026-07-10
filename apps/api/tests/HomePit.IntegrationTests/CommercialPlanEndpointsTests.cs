@@ -84,8 +84,9 @@ public sealed class CommercialPlanEndpointsTests
                 monthlyPrice = 11.90m,
                 annualPrice = 119.00m,
                 maxOwnedHouseholds = 1,
-                maxUniversesPerHousehold = 4,
-                maxProjectsPerUniverse = 4,
+                maxUniverses = 4,
+                maxProjects = 4,
+                maxInvitedMembers = 8,
                 maxOriginalImages = 35
             }));
 
@@ -182,6 +183,81 @@ public sealed class CommercialPlanEndpointsTests
         Assert.True(publicSettings.CanShowAddressOnLanding);
     }
 
+    [Fact]
+    public async Task Current_user_plan_and_creation_listing_return_global_usage()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+
+        var registerResponse = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            email = "profile-plan@homepit.dev",
+            password = "profile-secret",
+            displayName = "Profile User",
+            phoneNumber = (string?)null
+        });
+
+        registerResponse.EnsureSuccessStatusCode();
+        var auth = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(auth);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<HomePitDbContext>();
+            var household = new Household
+            {
+                Name = "Casa Perfil",
+                CreatedByUserId = auth!.User.Id
+            };
+            var membership = new HouseholdMember
+            {
+                Household = household,
+                UserId = auth.User.Id,
+                Role = HouseholdRole.Owner
+            };
+            var universe = new HomePit.Domain.Projects.Universe
+            {
+                Household = household,
+                CreatedByMember = membership,
+                Name = "Universo Perfil"
+            };
+
+            db.Households.Add(household);
+            db.HouseholdMembers.Add(membership);
+            db.Universes.Add(universe);
+            db.Projects.Add(new HomePit.Domain.Projects.Project
+            {
+                HouseholdId = household.Id,
+                Universe = universe,
+                CreatedByMember = membership,
+                Name = "Projeto Perfil"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var summaryResponse = await SendAuthorizedAsync(client, auth!.AccessToken, null, HttpMethod.Get, "/api/users/me/plan");
+        summaryResponse.EnsureSuccessStatusCode();
+        var summary = await summaryResponse.Content.ReadFromJsonAsync<CurrentUserPlanSummaryResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(summary);
+        Assert.Equal(1, summary!.Usage.OwnedHouseholdCount);
+        Assert.Equal(1, summary.Usage.UniverseCount);
+        Assert.Equal(1, summary.Usage.ProjectCount);
+        Assert.Equal(0, summary.Usage.InvitedMemberCount);
+
+        var creationsResponse = await SendAuthorizedAsync(
+            client,
+            auth.AccessToken,
+            null,
+            HttpMethod.Get,
+            "/api/users/me/plan/creations/projects");
+        creationsResponse.EnsureSuccessStatusCode();
+        var projects = await creationsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PlanCreationItemResponse>>(JsonSerializerOptions.Web);
+        var project = Assert.Single(projects!);
+        Assert.Equal("Projeto Perfil", project.Name);
+        Assert.Equal("Casa Perfil", project.HouseholdName);
+        Assert.True(project.CanDelete);
+    }
+
     private static async Task<SeedUserResult> SeedUserAsync(HomePitApiFactory factory)
     {
         await using var scope = factory.Services.CreateAsyncScope();
@@ -224,10 +300,18 @@ public sealed class CommercialPlanEndpointsTests
     private sealed record SeedUserResult(Guid UserId);
 
     private sealed record AuthResponse(string AccessToken, AuthUserResponse User);
-    private sealed record AuthUserResponse(string Id, string Email, string DisplayName, string SystemRole);
+    private sealed record AuthUserResponse(Guid Id, string Email, string DisplayName, string SystemRole);
     private sealed record ProblemDetailsResponse(string? Detail);
     private sealed record PlanDefinitionResponse(Guid Id, string Slug, string Name);
     private sealed record AdminUserListItemResponse(Guid Id, string EffectivePlanName, string? ActiveSubscriptionStatus);
+    private sealed record CurrentUserPlanSummaryResponse(PlanUsageSummaryResponse Usage);
+    private sealed record PlanUsageSummaryResponse(
+        int OwnedHouseholdCount,
+        int UniverseCount,
+        int ProjectCount,
+        int InvitedMemberCount,
+        int ManagedOriginalImageCount);
+    private sealed record PlanCreationItemResponse(Guid Id, string Name, Guid HouseholdId, string HouseholdName, bool CanDelete);
     private sealed record PlatformSettingsResponse(
         string AdminName,
         string ContactEmail,

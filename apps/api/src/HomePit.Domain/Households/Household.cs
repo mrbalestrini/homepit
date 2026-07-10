@@ -10,6 +10,8 @@ namespace HomePit.Domain.Households;
 public sealed class Household : AuditableEntity
 {
     public required string Name { get; set; }
+    public Guid CreatedByUserId { get; set; }
+    public AppUser? CreatedByUser { get; set; }
 
     public ICollection<HouseholdMember> Members { get; } = new List<HouseholdMember>();
     public ICollection<Universe> Universes { get; } = new List<Universe>();
