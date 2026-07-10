@@ -49,9 +49,17 @@ public sealed class ProjectService(
                 universe.ImageUpdatedAt,
                 universe.CreatedByMemberId,
                 ProjectCount = universe.Projects.Count,
+                CreatedByUserId = universe.CreatedByMember != null ? universe.CreatedByMember.UserId : (Guid?)null,
                 universe.CreatedAt
             })
             .ToArrayAsync(cancellationToken);
+
+        var outOfPlanUniverseIds = await ResolveOutOfPlanUniverseIdsAsync(
+            universes.Select(universe => new CreatorScopedEntitySnapshot(
+                universe.Id,
+                universe.CreatedByUserId,
+                universe.CreatedAt)),
+            cancellationToken);
 
         return universes
             .OrderBy(universe => universe.Name)
@@ -67,6 +75,7 @@ public sealed class ProjectService(
                     universe.ImageUpdatedAt,
                     universe.CreatedByMemberId,
                     universe.ProjectCount,
+                    outOfPlanUniverseIds.Contains(universe.Id),
                     canManage,
                     canManage);
             })
@@ -90,7 +99,7 @@ public sealed class ProjectService(
         db.Universes.Add(universe);
         await db.SaveChangesAsync(cancellationToken);
 
-        return ToUniverseDto(universe, 0, currentMember);
+        return ToUniverseDto(universe, 0, currentMember, isOutOfPlan: false);
     }
 
     public async Task<UniverseDto> UpdateUniverseAsync(
@@ -124,7 +133,11 @@ public sealed class ProjectService(
         var projectCount = await db.Projects
             .CountAsync(project => project.HouseholdId == currentMember.HouseholdId && project.UniverseId == universe.Id, cancellationToken);
 
-        return ToUniverseDto(universe, projectCount, currentMember);
+        return ToUniverseDto(
+            universe,
+            projectCount,
+            currentMember,
+            await IsUniverseOutOfPlanAsync(universe.Id, cancellationToken));
     }
 
     public async Task<UniverseDto> UploadUniverseImageAsync(
@@ -164,7 +177,11 @@ public sealed class ProjectService(
         var projectCount = await db.Projects
             .CountAsync(project => project.HouseholdId == currentMember.HouseholdId && project.UniverseId == universe.Id, cancellationToken);
 
-        return ToUniverseDto(universe, projectCount, currentMember);
+        return ToUniverseDto(
+            universe,
+            projectCount,
+            currentMember,
+            await IsUniverseOutOfPlanAsync(universe.Id, cancellationToken));
     }
 
     public async Task<StoredObject> GetUniverseImageAsync(Guid universeId, CancellationToken cancellationToken)
@@ -207,7 +224,11 @@ public sealed class ProjectService(
         var projectCount = await db.Projects
             .CountAsync(project => project.HouseholdId == currentMember.HouseholdId && project.UniverseId == universe.Id, cancellationToken);
 
-        return ToUniverseDto(universe, projectCount, currentMember);
+        return ToUniverseDto(
+            universe,
+            projectCount,
+            currentMember,
+            await IsUniverseOutOfPlanAsync(universe.Id, cancellationToken));
     }
 
     public async Task DeleteUniverseAsync(Guid universeId, CancellationToken cancellationToken)
@@ -269,9 +290,17 @@ public sealed class ProjectService(
                 project.Name,
                 project.CreatedByMemberId,
                 ActivityCount = project.Activities.Count(activity => activity.Status != ActivityStatus.Concluido),
+                CreatedByUserId = project.CreatedByMember != null ? project.CreatedByMember.UserId : (Guid?)null,
                 project.CreatedAt
             })
             .ToArrayAsync(cancellationToken);
+
+        var outOfPlanProjectIds = await ResolveOutOfPlanProjectIdsAsync(
+            projects.Select(project => new CreatorScopedEntitySnapshot(
+                project.Id,
+                project.CreatedByUserId,
+                project.CreatedAt)),
+            cancellationToken);
 
         return projects
             .OrderBy(project => project.Name)
@@ -289,6 +318,7 @@ public sealed class ProjectService(
                     project.Name,
                     project.CreatedByMemberId,
                     project.ActivityCount,
+                    outOfPlanProjectIds.Contains(project.Id),
                     canManage,
                     canManage);
             })
@@ -316,7 +346,7 @@ public sealed class ProjectService(
         await db.SaveChangesAsync(cancellationToken);
 
         project.Universe = universe;
-        return ToProjectDto(project, 0, currentMember);
+        return ToProjectDto(project, 0, currentMember, isOutOfPlan: false);
     }
 
     public async Task<ProjectDto> UpdateProjectAsync(
@@ -348,7 +378,11 @@ public sealed class ProjectService(
                 cancellationToken);
 
         project.Universe = universe;
-        return ToProjectDto(project, activityCount, currentMember);
+        return ToProjectDto(
+            project,
+            activityCount,
+            currentMember,
+            await IsProjectOutOfPlanAsync(project.Id, cancellationToken));
     }
 
     public async Task DeleteProjectAsync(Guid projectId, CancellationToken cancellationToken)
@@ -895,7 +929,11 @@ public sealed class ProjectService(
         return normalized;
     }
 
-    private static UniverseDto ToUniverseDto(Universe universe, int projectCount, HouseholdMember currentMember)
+    private static UniverseDto ToUniverseDto(
+        Universe universe,
+        int projectCount,
+        HouseholdMember currentMember,
+        bool isOutOfPlan)
     {
         var canManage = CanManageEntity(currentMember, universe.CreatedByMemberId);
         return new UniverseDto(
@@ -906,11 +944,16 @@ public sealed class ProjectService(
             universe.ImageUpdatedAt,
             universe.CreatedByMemberId,
             projectCount,
+            isOutOfPlan,
             canManage,
             canManage);
     }
 
-    private static ProjectDto ToProjectDto(Project project, int activityCount, HouseholdMember currentMember)
+    private static ProjectDto ToProjectDto(
+        Project project,
+        int activityCount,
+        HouseholdMember currentMember,
+        bool isOutOfPlan)
     {
         var canManage = CanManageEntity(currentMember, project.CreatedByMemberId);
         return new ProjectDto(
@@ -923,6 +966,7 @@ public sealed class ProjectService(
             project.Name,
             project.CreatedByMemberId,
             activityCount,
+            isOutOfPlan,
             canManage,
             canManage);
     }
@@ -967,6 +1011,125 @@ public sealed class ProjectService(
         }
     }
 
+    private async Task<bool> IsUniverseOutOfPlanAsync(Guid universeId, CancellationToken cancellationToken)
+    {
+        var outOfPlanUniverseIds = await ResolveOutOfPlanUniverseIdsAsync(
+            await db.Universes
+                .AsNoTracking()
+                .Where(universe => universe.Id == universeId)
+                .Select(universe => new CreatorScopedEntitySnapshot(
+                    universe.Id,
+                    universe.CreatedByMember != null ? universe.CreatedByMember.UserId : (Guid?)null,
+                    universe.CreatedAt))
+                .ToArrayAsync(cancellationToken),
+            cancellationToken);
+
+        return outOfPlanUniverseIds.Contains(universeId);
+    }
+
+    private async Task<bool> IsProjectOutOfPlanAsync(Guid projectId, CancellationToken cancellationToken)
+    {
+        var outOfPlanProjectIds = await ResolveOutOfPlanProjectIdsAsync(
+            await db.Projects
+                .AsNoTracking()
+                .Where(project => project.Id == projectId)
+                .Select(project => new CreatorScopedEntitySnapshot(
+                    project.Id,
+                    project.CreatedByMember != null ? project.CreatedByMember.UserId : (Guid?)null,
+                    project.CreatedAt))
+                .ToArrayAsync(cancellationToken),
+            cancellationToken);
+
+        return outOfPlanProjectIds.Contains(projectId);
+    }
+
+    private async Task<HashSet<Guid>> ResolveOutOfPlanUniverseIdsAsync(
+        IEnumerable<CreatorScopedEntitySnapshot> visibleUniverses,
+        CancellationToken cancellationToken)
+    {
+        return await ResolveOutOfPlanEntityIdsAsync(
+            visibleUniverses,
+            userIds => db.Universes
+                .AsNoTracking()
+                .Where(universe => universe.CreatedByMember != null && userIds.Contains(universe.CreatedByMember.UserId))
+                .Select(universe => new CreatorScopedEntitySnapshot(
+                    universe.Id,
+                    universe.CreatedByMember != null ? universe.CreatedByMember.UserId : (Guid?)null,
+                    universe.CreatedAt))
+                .ToArrayAsync(cancellationToken),
+            plan => plan.MaxUniverses,
+            cancellationToken);
+    }
+
+    private async Task<HashSet<Guid>> ResolveOutOfPlanProjectIdsAsync(
+        IEnumerable<CreatorScopedEntitySnapshot> visibleProjects,
+        CancellationToken cancellationToken)
+    {
+        return await ResolveOutOfPlanEntityIdsAsync(
+            visibleProjects,
+            userIds => db.Projects
+                .AsNoTracking()
+                .Where(project => project.CreatedByMember != null && userIds.Contains(project.CreatedByMember.UserId))
+                .Select(project => new CreatorScopedEntitySnapshot(
+                    project.Id,
+                    project.CreatedByMember != null ? project.CreatedByMember.UserId : (Guid?)null,
+                    project.CreatedAt))
+                .ToArrayAsync(cancellationToken),
+            plan => plan.MaxProjects,
+            cancellationToken);
+    }
+
+    private async Task<HashSet<Guid>> ResolveOutOfPlanEntityIdsAsync(
+        IEnumerable<CreatorScopedEntitySnapshot> visibleEntities,
+        Func<Guid[], Task<CreatorScopedEntitySnapshot[]>> loadAllEntitiesForCreatorsAsync,
+        Func<PlanDefinition, int> resolveLimit,
+        CancellationToken cancellationToken)
+    {
+        var visibleEntityArray = visibleEntities.ToArray();
+        var creatorUserIds = visibleEntityArray
+            .Where(entity => entity.CreatedByUserId.HasValue)
+            .Select(entity => entity.CreatedByUserId!.Value)
+            .Distinct()
+            .ToArray();
+
+        if (creatorUserIds.Length == 0)
+        {
+            return [];
+        }
+
+        var allEntities = await loadAllEntitiesForCreatorsAsync(creatorUserIds);
+        var limitsByUserId = new Dictionary<Guid, int>(creatorUserIds.Length);
+
+        foreach (var creatorUserId in creatorUserIds)
+        {
+            var plan = await commercialPlanService.ResolveEffectivePlanDefinitionAsync(creatorUserId, cancellationToken);
+            limitsByUserId[creatorUserId] = resolveLimit(plan);
+        }
+
+        var visibleEntityIds = visibleEntityArray.Select(entity => entity.Id).ToHashSet();
+        var outOfPlanIds = new HashSet<Guid>();
+
+        foreach (var creatorGroup in allEntities
+            .Where(entity => entity.CreatedByUserId.HasValue)
+            .GroupBy(entity => entity.CreatedByUserId!.Value))
+        {
+            var limit = limitsByUserId.GetValueOrDefault(creatorGroup.Key);
+
+            foreach (var entity in creatorGroup
+                .OrderBy(entity => entity.CreatedAt)
+                .ThenBy(entity => entity.Id)
+                .Skip(limit))
+            {
+                if (visibleEntityIds.Contains(entity.Id))
+                {
+                    outOfPlanIds.Add(entity.Id);
+                }
+            }
+        }
+
+        return outOfPlanIds;
+    }
+
     private static ActivityCommentDto ToCommentDto(ActivityComment comment, HouseholdMember currentMember)
     {
         return new ActivityCommentDto(
@@ -998,6 +1161,11 @@ public sealed class ProjectService(
     {
         return IsContentManager(member) || authorMemberId == member.Id;
     }
+
+    private sealed record CreatorScopedEntitySnapshot(
+        Guid Id,
+        Guid? CreatedByUserId,
+        DateTimeOffset CreatedAt);
 
     private static void EnsureCanManageEntity(
         HouseholdMember member,

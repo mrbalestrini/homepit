@@ -97,6 +97,7 @@ function buildProject(overrides: Partial<Project> & Pick<Project, "id" | "name">
     name: overrides.name,
     createdByMemberId: null,
     activityCount: 1,
+    isOutOfPlan: false,
     canEdit: true,
     canDelete: true,
     ...overrides,

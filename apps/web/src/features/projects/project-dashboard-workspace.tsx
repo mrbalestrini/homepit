@@ -471,7 +471,7 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
                       editLabel="Editar universo"
                       deleteLabel="Excluir universo"
                     />
-                    {!universe.canEdit ? <Badge variant="danger">Fora do plano</Badge> : null}
+                    {universe.isOutOfPlan && universe.canEdit ? <Badge variant="danger">Fora do plano</Badge> : null}
                   </div>
 
                   {!isCollapsed ? (
@@ -519,7 +519,7 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
                               editLabel="Editar projeto"
                               deleteLabel="Excluir projeto"
                             />
-                            {!project.canEdit ? <Badge variant="danger">Fora do plano</Badge> : null}
+                            {project.isOutOfPlan && project.canEdit ? <Badge variant="danger">Fora do plano</Badge> : null}
                           </div>
                         ))
                       )}

@@ -1,6 +1,8 @@
 export type AccountState = "Active" | "PendingSelfDeletion" | "DisabledBySuperAdmin";
 export type BillingCycle = "Monthly" | "Annual" | "Custom";
 export type UserSubscriptionStatus = "Scheduled" | "Active" | "Expired" | "Cancelled";
+export type ToolImprovementSuggestionStatus = "NaoLido" | "EmExecucao" | "Postergado" | "Feito";
+export type ToolImprovementSuggestionPriority = "Baixa" | "Media" | "Alta" | "Urgente";
 
 export type Household = {
   id: string;
@@ -108,6 +110,37 @@ export type PlatformSettings = {
   canShowAddressOnLanding: boolean;
 };
 
+export type ToolImprovementSuggestion = {
+  id: string;
+  userId: string;
+  userDisplayName: string;
+  userEmail: string;
+  submittedAt: string;
+  suggestionText: string;
+  status: ToolImprovementSuggestionStatus;
+  priority: ToolImprovementSuggestionPriority;
+  internalComment?: string | null;
+  lastReviewedAt?: string | null;
+  lastReviewedByUserId?: string | null;
+  lastReviewedByDisplayName?: string | null;
+};
+
+export type CreateToolImprovementSuggestionRequest = {
+  suggestionText: string;
+};
+
+export type UpdateToolImprovementSuggestionRequest = {
+  status: ToolImprovementSuggestionStatus;
+  priority: ToolImprovementSuggestionPriority;
+  internalComment?: string | null;
+};
+
+export type BulkUpdateToolImprovementSuggestionsRequest = {
+  suggestionIds: string[];
+  status?: ToolImprovementSuggestionStatus | null;
+  priority?: ToolImprovementSuggestionPriority | null;
+};
+
 export type UpdatePlatformSettingsRequest = {
   adminName: string;
   contactEmail: string;
@@ -164,6 +197,7 @@ export type Universe = {
   imageUpdatedAt?: string | null;
   createdByMemberId?: string | null;
   projectCount: number;
+  isOutOfPlan: boolean;
   canEdit: boolean;
   canDelete: boolean;
 };
@@ -178,6 +212,7 @@ export type Project = {
   name: string;
   createdByMemberId?: string | null;
   activityCount: number;
+  isOutOfPlan: boolean;
   canEdit: boolean;
   canDelete: boolean;
 };

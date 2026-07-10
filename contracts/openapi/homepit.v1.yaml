@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: HomePit API
-  version: 0.2.0
+  version: 0.3.0
 servers:
   - url: http://localhost:8080
 security:
@@ -355,6 +355,21 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PlanCreationItem"
+  /api/users/me/tool-improvement-suggestions:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateToolImprovementSuggestionRequest"
+      responses:
+        "201":
+          description: Tool improvement suggestion submitted by the current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolImprovementSuggestion"
   /api/admin/users:
     get:
       responses:
@@ -481,6 +496,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserSubscription"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/tool-improvement-suggestions:
+    get:
+      responses:
+        "200":
+          description: Tool improvement suggestions for superadmin triage
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ToolImprovementSuggestion"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/tool-improvement-suggestions/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateToolImprovementSuggestionRequest"
+      responses:
+        "200":
+          description: Tool improvement suggestion updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolImprovementSuggestion"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/tool-improvement-suggestions/bulk-update:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkUpdateToolImprovementSuggestionsRequest"
+      responses:
+        "200":
+          description: Tool improvement suggestions updated in bulk
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ToolImprovementSuggestion"
         "403":
           description: SuperAdmin role required
   /api/admin/platform/settings:
@@ -2231,6 +2297,84 @@ components:
           type: string
         postalCode:
           type: string
+    ToolImprovementSuggestionStatus:
+      type: string
+      enum: [NaoLido, EmExecucao, Postergado, Feito]
+    ToolImprovementSuggestionPriority:
+      type: string
+      enum: [Baixa, Media, Alta, Urgente]
+    CreateToolImprovementSuggestionRequest:
+      type: object
+      required: [suggestionText]
+      properties:
+        suggestionText:
+          type: string
+          maxLength: 8000
+    UpdateToolImprovementSuggestionRequest:
+      type: object
+      required: [status, priority]
+      properties:
+        status:
+          $ref: "#/components/schemas/ToolImprovementSuggestionStatus"
+        priority:
+          $ref: "#/components/schemas/ToolImprovementSuggestionPriority"
+        internalComment:
+          type: string
+          nullable: true
+          maxLength: 4000
+    BulkUpdateToolImprovementSuggestionsRequest:
+      type: object
+      required: [suggestionIds]
+      properties:
+        suggestionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        status:
+          $ref: "#/components/schemas/ToolImprovementSuggestionStatus"
+          nullable: true
+        priority:
+          $ref: "#/components/schemas/ToolImprovementSuggestionPriority"
+          nullable: true
+    ToolImprovementSuggestion:
+      type: object
+      required: [id, userId, userDisplayName, userEmail, submittedAt, suggestionText, status, priority]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        userDisplayName:
+          type: string
+        userEmail:
+          type: string
+          format: email
+        submittedAt:
+          type: string
+          format: date-time
+        suggestionText:
+          type: string
+        status:
+          $ref: "#/components/schemas/ToolImprovementSuggestionStatus"
+        priority:
+          $ref: "#/components/schemas/ToolImprovementSuggestionPriority"
+        internalComment:
+          type: string
+          nullable: true
+        lastReviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastReviewedByUserId:
+          type: string
+          format: uuid
+          nullable: true
+        lastReviewedByDisplayName:
+          type: string
+          nullable: true
     AuthResponse:
       type: object
       required: [accessToken, refreshToken, expiresAt, user, households]

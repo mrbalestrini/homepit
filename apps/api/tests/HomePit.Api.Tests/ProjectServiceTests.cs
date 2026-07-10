@@ -40,6 +40,7 @@ public sealed class ProjectServiceTests
         Assert.Equal(5, universes.Count);
         Assert.All(universes, item => Assert.True(item.CanEdit));
         Assert.All(universes, item => Assert.True(item.CanDelete));
+        Assert.Equal(2, universes.Count(item => item.IsOutOfPlan));
     }
 
     [Fact]
@@ -55,6 +56,7 @@ public sealed class ProjectServiceTests
         Assert.Equal(5, projects.Count);
         Assert.All(projects, item => Assert.True(item.CanEdit));
         Assert.All(projects, item => Assert.True(item.CanDelete));
+        Assert.Equal(2, projects.Count(item => item.IsOutOfPlan));
     }
 
     [Fact]
@@ -215,6 +217,7 @@ public sealed class ProjectServiceTests
 
         Assert.Equal(5, universes.Count);
         Assert.All(universes, item => Assert.True(item.CanEdit));
+        Assert.Equal(0, universes.Count(item => item.IsOutOfPlan));
     }
 
     private static HomePitDbContext CreateDbContext()
@@ -369,7 +372,7 @@ public sealed class ProjectServiceTests
         context.Universes.AddRange(universes);
         await context.SaveChangesAsync();
 
-        var baseTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var baseTime = new DateTimeOffset(2026, 1, 1, 0, 1, 0, TimeSpan.Zero);
         for (var index = 0; index < universes.Length; index++)
         {
             universes[index].CreatedAt = baseTime.AddMinutes(index);
@@ -397,7 +400,7 @@ public sealed class ProjectServiceTests
         context.Projects.AddRange(projects);
         await context.SaveChangesAsync();
 
-        var baseTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var baseTime = new DateTimeOffset(2026, 1, 1, 0, 1, 0, TimeSpan.Zero);
         for (var index = 0; index < projects.Length; index++)
         {
             projects[index].CreatedAt = baseTime.AddMinutes(index);

@@ -14,6 +14,7 @@ public sealed record UniverseDto(
     DateTimeOffset? ImageUpdatedAt,
     Guid? CreatedByMemberId,
     int ProjectCount,
+    bool IsOutOfPlan,
     bool CanEdit,
     bool CanDelete);
 
@@ -31,6 +32,7 @@ public sealed record ProjectDto(
     string Name,
     Guid? CreatedByMemberId,
     int ActivityCount,
+    bool IsOutOfPlan,
     bool CanEdit,
     bool CanDelete);
 

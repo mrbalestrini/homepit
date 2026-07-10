@@ -8,3 +8,4 @@
 - [x] Atualizar OpenAPI, changelog e testes backend/frontend relevantes.
 - [x] Separar ownership comercial da casa do papel `Owner`, com backfill seguro e cotas por criador da casa.
 - [x] Refatorar cotas de universos e projetos para totais por autoria, adicionar convidados ativos por plano e abrir listagem/exclusão no perfil.
+- [x] Adicionar fluxo de sugestões de melhoria no menu do usuário e triagem interna na aba `Sugestões` do hub `/admin/platform`.

@@ -24,6 +24,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<InstitutionalBenefit> InstitutionalBenefits => Set<InstitutionalBenefit>();
     public DbSet<InstitutionalStep> InstitutionalSteps => Set<InstitutionalStep>();
     public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
+    public DbSet<ToolImprovementSuggestion> ToolImprovementSuggestions => Set<ToolImprovementSuggestion>();
     public DbSet<FinanceCategory> FinanceCategories => Set<FinanceCategory>();
     public DbSet<FinancePeriod> FinancePeriods => Set<FinancePeriod>();
     public DbSet<FinanceRecurringTemplate> FinanceRecurringTemplates => Set<FinanceRecurringTemplate>();
@@ -221,6 +222,28 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(item => item.State).HasMaxLength(80).IsRequired();
             builder.Property(item => item.PostalCode).HasMaxLength(20).IsRequired();
             builder.HasIndex(item => item.Key).IsUnique();
+        });
+
+        modelBuilder.Entity<ToolImprovementSuggestion>(builder =>
+        {
+            builder.ToTable("tool_improvement_suggestions");
+            builder.Property(item => item.SubmittedAt).IsRequired();
+            builder.Property(item => item.SuggestionText).HasMaxLength(8000).IsRequired();
+            builder.Property(item => item.Status).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.Priority).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.InternalComment).HasMaxLength(4000);
+            builder.HasIndex(item => item.SubmittedAt);
+            builder.HasIndex(item => item.Status);
+            builder.HasIndex(item => item.Priority);
+            builder.HasIndex(item => item.UserId);
+            builder.HasOne(item => item.User)
+                .WithMany()
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.LastReviewedByUser)
+                .WithMany()
+                .HasForeignKey(item => item.LastReviewedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 

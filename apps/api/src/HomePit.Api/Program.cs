@@ -91,7 +91,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/system/info", () => Results.Ok(new
 {
     name = "HomePit API",
-    version = "0.2.0",
+    version = "0.3.0",
     timezone = "America/Sao_Paulo"
 }));
 
@@ -226,6 +226,11 @@ api.MapGet("/users/me/plan/creations/{scope}", async (
     CommercialPlanService service,
     CancellationToken cancellationToken) =>
         Results.Ok(await service.ListCurrentUserCreationsAsync(scope, cancellationToken)));
+api.MapPost("/users/me/tool-improvement-suggestions", async (
+    CreateToolImprovementSuggestionRequest request,
+    ToolImprovementSuggestionService service,
+    CancellationToken cancellationToken) =>
+        Results.Created("/api/users/me/tool-improvement-suggestions", await service.SubmitAsync(request, cancellationToken)));
 api.MapPost("/users/me/profile-photo", async (
     HttpRequest request,
     AuthService service,
@@ -306,6 +311,21 @@ api.MapPut("/admin/platform/subscriptions/{id:guid}", async (
     CommercialPlanService service,
     CancellationToken cancellationToken) =>
         Results.Ok(await service.UpdateSubscriptionAsync(id, request, cancellationToken)));
+api.MapGet("/admin/platform/tool-improvement-suggestions", async (
+    ToolImprovementSuggestionService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.ListAdminAsync(cancellationToken)));
+api.MapPut("/admin/platform/tool-improvement-suggestions/{id:guid}", async (
+    Guid id,
+    UpdateToolImprovementSuggestionRequest request,
+    ToolImprovementSuggestionService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.UpdateAsync(id, request, cancellationToken)));
+api.MapPost("/admin/platform/tool-improvement-suggestions/bulk-update", async (
+    BulkUpdateToolImprovementSuggestionsRequest request,
+    ToolImprovementSuggestionService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.BulkUpdateAsync(request, cancellationToken)));
 var finance = api.MapGroup("/finance");
 
 finance.MapGet("/periods", async (FinanceService service, CancellationToken cancellationToken) =>

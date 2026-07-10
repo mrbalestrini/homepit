@@ -21,6 +21,7 @@ public interface IHomePitDbContext
     DbSet<InstitutionalBenefit> InstitutionalBenefits { get; }
     DbSet<InstitutionalStep> InstitutionalSteps { get; }
     DbSet<PlatformSettings> PlatformSettings { get; }
+    DbSet<ToolImprovementSuggestion> ToolImprovementSuggestions { get; }
     DbSet<FinanceCategory> FinanceCategories { get; }
     DbSet<FinancePeriod> FinancePeriods { get; }
     DbSet<FinanceRecurringTemplate> FinanceRecurringTemplates { get; }

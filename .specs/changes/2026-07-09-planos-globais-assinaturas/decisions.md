@@ -52,3 +52,12 @@
   própria membership do criador e libera vaga quando o vínculo fica inativo.
 - O novo campo `MaxInvitedMembers` dos planos aceita `null` como ilimitado; nesta entrega,
   o seed padrão dos cinco planos nasce sem limite explícito para convidados.
+
+## 2026-07-10 - sugestões de melhoria convivem no hub global da plataforma
+
+- O fluxo de sugestões de melhoria entra no menu do usuário autenticado e grava sugestões
+  globais, sem depender de household ativa.
+- A triagem fica na aba `Sugestões` do hub `/admin/platform`, preservando a concentração de
+  governança global do `SuperAdmin` em uma única área.
+- Comentários do `SuperAdmin` são apenas internos nesta entrega; a pessoa autora não recebe
+  histórico, retorno ou acompanhamento de status pela interface comum.

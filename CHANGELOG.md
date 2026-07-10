@@ -9,14 +9,17 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 ### Added
 - Nova aba `Configurações` no hub `/admin/platform`, com campos de identificação, contato público, contato interno e endereço institucional organizados por assunto.
 - API global de configurações da plataforma para o `SuperAdmin`, com leitura pública separada para uso da landing.
+- Novo fluxo para usuários enviarem sugestões de melhoria pelo menu do perfil, com modal dedicada e orientações de contexto.
+- Nova aba `Sugestões` no hub `/admin/platform`, com filtros persistidos, triagem interna por status/prioridade e atualização em massa para o `SuperAdmin`.
 
 ### Changed
 - O hub global da plataforma passou a separar o catálogo comercial das configurações institucionais e de contato.
-- O contrato da API e `/api/system/info` passaram a expor a versão `0.2.0`.
+- O contrato da API e `/api/system/info` passaram a expor a versão `0.3.0`.
 - A propriedade comercial das casas passou a ser persistida pelo criador da casa, separada do papel `Owner`, para que vínculos em casas de terceiros não contem como casas próprias do usuário logado.
 - As cotas de `universos por casa`, `projetos por universo`, o selo `Fora do plano` e a exclusão com purge de casas próprias passaram a seguir o criador da casa compartilhada.
 - As cotas de universos e projetos passaram a contar o total criado pela pessoa usuária, sem depender da casa ou do universo onde os itens estão, e a edição deixou de ser bloqueada para itens já existentes acima da cota.
 - O catálogo de planos ganhou a cota opcional de membros convidados ativos por casas próprias, com `vazio = ilimitado`, e o perfil passou a mostrar consumo/restante com modal de listagem e exclusão segura para casas, universos e projetos criados pela pessoa.
+- O módulo de projetos deixou de usar a permissão de edição como atalho visual para o selo `Fora do plano`, evitando falso positivo para membros sem ownership do item.
 
 ## [1.9.0] - 2026-07-09
 

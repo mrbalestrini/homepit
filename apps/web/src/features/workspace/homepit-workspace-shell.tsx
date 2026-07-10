@@ -30,7 +30,8 @@ import {
   X,
 } from "lucide-react";
 import { FormEvent, useState } from "react";
-import type { AuthResponse, Household, HouseholdMember, User } from "@/lib/api";
+import { toast } from "sonner";
+import { apiFetch, type AuthResponse, type CreateToolImprovementSuggestionRequest, type Household, type HouseholdMember, type User } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +54,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 import { HouseholdMemberAvatar, ProtectedUserAvatar } from "./protected-user-avatar";
@@ -163,8 +165,38 @@ export function HomePitWorkspaceShell({
 }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [deleteHouseholdId, setDeleteHouseholdId] = useState<string | null>(null);
+  const [toolImprovementDialogOpen, setToolImprovementDialogOpen] = useState(false);
+  const [toolImprovementText, setToolImprovementText] = useState("");
+  const [submittingToolImprovement, setSubmittingToolImprovement] = useState(false);
   const householdToDelete =
     deleteHouseholdId && deleteHouseholdId === controller.activeHousehold?.id ? controller.activeHousehold : null;
+
+  async function submitToolImprovementSuggestion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const suggestionText = toolImprovementText.trim();
+    if (!suggestionText || !controller.session) {
+      return;
+    }
+
+    setSubmittingToolImprovement(true);
+
+    try {
+      const payload: CreateToolImprovementSuggestionRequest = { suggestionText };
+      await apiFetch("/api/users/me/tool-improvement-suggestions", {
+        method: "POST",
+        token: controller.session.accessToken,
+        body: JSON.stringify(payload),
+      });
+      setToolImprovementText("");
+      setToolImprovementDialogOpen(false);
+      toast.success("Sugestão enviada. Obrigado por ajudar a melhorar a ferramenta.");
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Não foi possível enviar a sugestão.");
+    } finally {
+      setSubmittingToolImprovement(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background lg:flex">
@@ -178,6 +210,7 @@ export function HomePitWorkspaceShell({
           controller={controller}
           collapsed={controller.sidebarCollapsed}
           activeModule={activeModule}
+          onOpenToolImprovementSuggestion={() => setToolImprovementDialogOpen(true)}
           onRequestDeleteHousehold={() => setDeleteHouseholdId(controller.activeHousehold?.id ?? null)}
         />
       </aside>
@@ -221,6 +254,7 @@ export function HomePitWorkspaceShell({
           controller={controller}
           collapsed={false}
           activeModule={activeModule}
+          onOpenToolImprovementSuggestion={() => setToolImprovementDialogOpen(true)}
           onRequestDeleteHousehold={() => setDeleteHouseholdId(controller.activeHousehold?.id ?? null)}
         />
         </SheetContent>
@@ -248,6 +282,62 @@ export function HomePitWorkspaceShell({
         onOpenChange={(open) => !open && controller.closeCommonModal()}
         onShare={controller.shareHousehold}
       />
+
+      <Dialog
+        open={toolImprovementDialogOpen}
+        onOpenChange={(open) => {
+          if (submittingToolImprovement) {
+            return;
+          }
+
+          setToolImprovementDialogOpen(open);
+          if (!open) {
+            setToolImprovementText("");
+          }
+        }}
+      >
+        <DialogContent className="w-[min(94vw,42rem)] max-h-[88vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sugestão de melhoria</DialogTitle>
+            <DialogDescription>
+              O sistema está no início e conta com suas sugestões para ficar cada vez melhor.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="grid gap-4" onSubmit={(event) => void submitToolImprovementSuggestion(event)}>
+            <Notice tone="warning">
+              Se puder, detalhe módulo, seção e funcionalidades envolvidas. Quanto mais contexto, mais fácil entender a
+              melhoria e evoluir a ferramenta.
+            </Notice>
+            <Field label="Sua sugestão">
+              <Textarea
+                value={toolImprovementText}
+                onChange={(event) => setToolImprovementText(event.target.value)}
+                placeholder="Descreva a melhoria sugerida"
+                rows={8}
+                maxLength={8000}
+                aria-label="Sua sugestão"
+              />
+            </Field>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setToolImprovementDialogOpen(false);
+                  setToolImprovementText("");
+                }}
+                disabled={submittingToolImprovement}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={submittingToolImprovement || toolImprovementText.trim() === ""}>
+                {submittingToolImprovement ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                Enviar sugestão
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <DeleteConfirmationDialog
         key={`household-delete-${deleteHouseholdId ?? "none"}-${householdToDelete?.id ?? "none"}`}
@@ -284,11 +374,13 @@ function SidebarContent({
   controller,
   collapsed,
   activeModule,
+  onOpenToolImprovementSuggestion,
   onRequestDeleteHousehold,
 }: {
   controller: HomePitWorkspaceController;
   collapsed: boolean;
   activeModule: ActiveModule;
+  onOpenToolImprovementSuggestion: () => void;
   onRequestDeleteHousehold: () => void;
 }) {
   return (
@@ -460,6 +552,7 @@ function SidebarContent({
             collapsed={collapsed}
             theme={controller.theme}
             onChangeTheme={controller.setTheme}
+            onOpenToolImprovementSuggestion={onOpenToolImprovementSuggestion}
             onLogout={controller.handleLogout}
           />
         </div>
@@ -654,6 +747,7 @@ function SidebarUserMenu({
   collapsed,
   theme,
   onChangeTheme,
+  onOpenToolImprovementSuggestion,
   onLogout,
 }: {
   user: User;
@@ -662,6 +756,7 @@ function SidebarUserMenu({
   collapsed: boolean;
   theme: WorkspaceTheme;
   onChangeTheme: (theme: WorkspaceTheme) => void;
+  onOpenToolImprovementSuggestion: () => void;
   onLogout: () => void;
 }) {
   return (
@@ -692,6 +787,10 @@ function SidebarUserMenu({
             <Pencil className="size-4" />
             Perfil
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onOpenToolImprovementSuggestion}>
+          <Sparkles className="size-4" />
+          Sugestão melhoria ferramenta
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Tema</DropdownMenuLabel>

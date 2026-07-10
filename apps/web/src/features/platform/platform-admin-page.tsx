@@ -21,16 +21,23 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  type BulkUpdateToolImprovementSuggestionsRequest,
+  type CreateToolImprovementSuggestionRequest,
   type AdminUserListItem,
   type BillingCycle,
   type PlatformSettings,
   type PlanDefinition,
+  type ToolImprovementSuggestion,
+  type ToolImprovementSuggestionPriority,
+  type ToolImprovementSuggestionStatus,
+  type UpdateToolImprovementSuggestionRequest,
   type UserSubscription,
   type UserSubscriptionStatus,
   type UpdatePlatformSettingsRequest,
   apiFetch,
   clearSession,
 } from "@/lib/api";
+import { uiStorageKeys } from "@/features/projects/project-dashboard.constants";
 import { AccountStateGate } from "@/features/workspace/account-state-gate";
 import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmation-dialog";
 import { HomePitAuth } from "@/features/workspace/homepit-auth";
@@ -38,8 +45,10 @@ import { HomePitWorkspaceShell, Notice } from "@/features/workspace/homepit-work
 import { useProjectDashboard } from "@/features/projects/use-project-dashboard";
 import { cn } from "@/lib/utils";
 
-type PlatformTab = "users" | "plans" | "subscriptions" | "settings";
+type PlatformTab = "users" | "plans" | "subscriptions" | "suggestions" | "settings";
 type UserFilter = "all" | "Active" | "PendingSelfDeletion" | "DisabledBySuperAdmin";
+type SuggestionStatusFilter = "all" | ToolImprovementSuggestionStatus;
+type SuggestionPriorityFilter = "all" | ToolImprovementSuggestionPriority;
 
 type SubscriptionFormState = {
   userId: string;
@@ -54,6 +63,16 @@ type SubscriptionFormState = {
 };
 
 type PlatformSettingsFormState = UpdatePlatformSettingsRequest;
+type SuggestionEditorState = {
+  status: ToolImprovementSuggestionStatus;
+  priority: ToolImprovementSuggestionPriority;
+  internalComment: string;
+};
+type SuggestionFiltersState = {
+  search: string;
+  status: SuggestionStatusFilter;
+  priority: SuggestionPriorityFilter;
+};
 
 const defaultSubscriptionForm: SubscriptionFormState = {
   userId: "",
@@ -79,6 +98,69 @@ const defaultPlatformSettingsForm: PlatformSettingsFormState = {
   state: "",
   postalCode: "",
 };
+
+const defaultSuggestionFilters: SuggestionFiltersState = {
+  search: "",
+  status: "all",
+  priority: "all",
+};
+
+const suggestionStatusOptions: Array<{ value: ToolImprovementSuggestionStatus; label: string }> = [
+  { value: "NaoLido", label: "Não lido" },
+  { value: "EmExecucao", label: "Em execução" },
+  { value: "Postergado", label: "Postergado" },
+  { value: "Feito", label: "Feito" },
+];
+
+const suggestionPriorityOptions: Array<{ value: ToolImprovementSuggestionPriority; label: string }> = [
+  { value: "Baixa", label: "Baixa" },
+  { value: "Media", label: "Média" },
+  { value: "Alta", label: "Alta" },
+  { value: "Urgente", label: "Urgente" },
+];
+
+function buildSuggestionDrafts(items: ToolImprovementSuggestion[]) {
+  return Object.fromEntries(
+    items.map((item) => [
+      item.id,
+      {
+        status: item.status,
+        priority: item.priority,
+        internalComment: item.internalComment ?? "",
+      } satisfies SuggestionEditorState,
+    ]),
+  );
+}
+
+function readStoredSuggestionFilters(): SuggestionFiltersState {
+  if (typeof window === "undefined") {
+    return defaultSuggestionFilters;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(uiStorageKeys.platformSuggestionFilters);
+    if (!rawValue) {
+      return defaultSuggestionFilters;
+    }
+
+    const parsed = JSON.parse(rawValue) as Partial<SuggestionFiltersState>;
+    return {
+      search: typeof parsed.search === "string" ? parsed.search : "",
+      status: isSuggestionStatusFilter(parsed.status) ? parsed.status : "all",
+      priority: isSuggestionPriorityFilter(parsed.priority) ? parsed.priority : "all",
+    };
+  } catch {
+    return defaultSuggestionFilters;
+  }
+}
+
+function isSuggestionStatusFilter(value: unknown): value is SuggestionStatusFilter {
+  return value === "all" || suggestionStatusOptions.some((option) => option.value === value);
+}
+
+function isSuggestionPriorityFilter(value: unknown): value is SuggestionPriorityFilter {
+  return value === "all" || suggestionPriorityOptions.some((option) => option.value === value);
+}
 
 export function PlatformAdminPage() {
   const dashboard = useProjectDashboard();
@@ -150,6 +232,7 @@ function PlatformAdminPanel({ token }: { token: string }) {
   const [users, setUsers] = useState<AdminUserListItem[]>([]);
   const [plans, setPlans] = useState<PlanDefinition[]>([]);
   const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([]);
+  const [suggestions, setSuggestions] = useState<ToolImprovementSuggestion[]>([]);
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>({
     ...defaultPlatformSettingsForm,
     canShowAddressOnLanding: false,
@@ -164,6 +247,13 @@ function PlatformAdminPanel({ token }: { token: string }) {
   const [savingSubscription, setSavingSubscription] = useState(false);
   const [subscriptionForm, setSubscriptionForm] = useState<SubscriptionFormState>(defaultSubscriptionForm);
   const [planDrafts, setPlanDrafts] = useState<Record<string, PlanDefinition>>({});
+  const [suggestionDrafts, setSuggestionDrafts] = useState<Record<string, SuggestionEditorState>>({});
+  const [savingSuggestionIds, setSavingSuggestionIds] = useState<string[]>([]);
+  const [selectedSuggestionIds, setSelectedSuggestionIds] = useState<string[]>([]);
+  const [savingBulkSuggestionUpdate, setSavingBulkSuggestionUpdate] = useState(false);
+  const [bulkSuggestionStatus, setBulkSuggestionStatus] = useState<"" | ToolImprovementSuggestionStatus>("");
+  const [bulkSuggestionPriority, setBulkSuggestionPriority] = useState<"" | ToolImprovementSuggestionPriority>("");
+  const [suggestionFilters, setSuggestionFilters] = useState<SuggestionFiltersState>(() => readStoredSuggestionFilters());
   const addressCanBePublic =
     platformSettings.addressLine1.trim() !== "" &&
     platformSettings.addressLine2.trim() !== "" &&
@@ -175,18 +265,21 @@ function PlatformAdminPanel({ token }: { token: string }) {
     setLoading(true);
 
     try {
-      const [nextUsers, nextPlans, nextSubscriptions, nextSettings] = await Promise.all([
+      const [nextUsers, nextPlans, nextSubscriptions, nextSuggestions, nextSettings] = await Promise.all([
         apiFetch<AdminUserListItem[]>("/api/admin/users", { token }),
         apiFetch<PlanDefinition[]>("/api/admin/platform/plans", { token }),
         apiFetch<UserSubscription[]>("/api/admin/platform/subscriptions", { token }),
+        apiFetch<ToolImprovementSuggestion[]>("/api/admin/platform/tool-improvement-suggestions", { token }),
         apiFetch<PlatformSettings>("/api/admin/platform/settings", { token }),
       ]);
 
       setUsers(nextUsers);
       setPlans(nextPlans);
       setSubscriptions(nextSubscriptions);
+      setSuggestions(nextSuggestions);
       setPlatformSettings(nextSettings);
       setPlanDrafts(Object.fromEntries(nextPlans.map((plan) => [plan.id, plan])));
+      setSuggestionDrafts(buildSuggestionDrafts(nextSuggestions));
     } catch (exception) {
       toast.error(exception instanceof Error ? exception.message : "Não foi possível carregar a plataforma.");
     } finally {
@@ -202,6 +295,14 @@ function PlatformAdminPanel({ token }: { token: string }) {
     return () => window.clearTimeout(timer);
   }, [loadData]);
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(uiStorageKeys.platformSuggestionFilters, JSON.stringify(suggestionFilters));
+    } catch {
+      // Ignore storage failures so filters do not block the UI.
+    }
+  }, [suggestionFilters]);
+
   const filteredUsers = useMemo(
     () => (userFilter === "all" ? users : users.filter((user) => user.accountState === userFilter)),
     [userFilter, users],
@@ -216,6 +317,36 @@ function PlatformAdminPanel({ token }: { token: string }) {
     }),
     [users],
   );
+
+  const filteredSuggestions = useMemo(() => {
+    const normalizedSearch = suggestionFilters.search.trim().toLowerCase();
+
+    return suggestions.filter((suggestion) => {
+      const matchesStatus = suggestionFilters.status === "all" || suggestion.status === suggestionFilters.status;
+      const matchesPriority = suggestionFilters.priority === "all" || suggestion.priority === suggestionFilters.priority;
+      const matchesSearch =
+        normalizedSearch === "" ||
+        suggestion.userDisplayName.toLowerCase().includes(normalizedSearch) ||
+        suggestion.userEmail.toLowerCase().includes(normalizedSearch) ||
+        suggestion.suggestionText.toLowerCase().includes(normalizedSearch);
+
+      return matchesStatus && matchesPriority && matchesSearch;
+    });
+  }, [suggestionFilters, suggestions]);
+
+  const suggestionSummary = useMemo(
+    () => ({
+      total: suggestions.length,
+      unread: suggestions.filter((suggestion) => suggestion.status === "NaoLido").length,
+      inProgress: suggestions.filter((suggestion) => suggestion.status === "EmExecucao").length,
+      postponed: suggestions.filter((suggestion) => suggestion.status === "Postergado").length,
+      done: suggestions.filter((suggestion) => suggestion.status === "Feito").length,
+    }),
+    [suggestions],
+  );
+
+  const allVisibleSuggestionsSelected =
+    filteredSuggestions.length > 0 && filteredSuggestions.every((suggestion) => selectedSuggestionIds.includes(suggestion.id));
 
   function updatePlanDraft(
     planId: string,
@@ -417,6 +548,123 @@ function PlatformAdminPanel({ token }: { token: string }) {
     }
   }
 
+  function updateSuggestionFilter(field: keyof SuggestionFiltersState, value: string) {
+    setSuggestionFilters((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function updateSuggestionDraft(
+    suggestionId: string,
+    field: keyof SuggestionEditorState,
+    value: string,
+  ) {
+    setSuggestionDrafts((current) => ({
+      ...current,
+      [suggestionId]: {
+        ...(current[suggestionId] ?? { status: "NaoLido", priority: "Media", internalComment: "" }),
+        [field]: value,
+      },
+    }));
+  }
+
+  function toggleSuggestionSelection(suggestionId: string) {
+    setSelectedSuggestionIds((current) =>
+      current.includes(suggestionId) ? current.filter((id) => id !== suggestionId) : [...current, suggestionId],
+    );
+  }
+
+  function toggleVisibleSuggestionSelection() {
+    if (filteredSuggestions.length === 0) {
+      return;
+    }
+
+    setSelectedSuggestionIds((current) => {
+      const visibleIds = filteredSuggestions.map((suggestion) => suggestion.id);
+      if (visibleIds.every((id) => current.includes(id))) {
+        return current.filter((id) => !visibleIds.includes(id));
+      }
+
+      return Array.from(new Set([...current, ...visibleIds]));
+    });
+  }
+
+  async function saveSuggestion(suggestionId: string) {
+    const draft = suggestionDrafts[suggestionId];
+    if (!draft) {
+      return;
+    }
+
+    setSavingSuggestionIds((current) => [...current, suggestionId]);
+
+    try {
+      const payload: UpdateToolImprovementSuggestionRequest = {
+        status: draft.status,
+        priority: draft.priority,
+        internalComment: draft.internalComment.trim() === "" ? null : draft.internalComment.trim(),
+      };
+
+      const updated = await apiFetch<ToolImprovementSuggestion>(`/api/admin/platform/tool-improvement-suggestions/${suggestionId}`, {
+        method: "PUT",
+        token,
+        body: JSON.stringify(payload),
+      });
+
+      setSuggestions((current) => current.map((suggestion) => (suggestion.id === updated.id ? updated : suggestion)));
+      setSuggestionDrafts((current) => ({
+        ...current,
+        [updated.id]: {
+          status: updated.status,
+          priority: updated.priority,
+          internalComment: updated.internalComment ?? "",
+        },
+      }));
+      toast.success("Sugestão atualizada.");
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Não foi possível salvar a sugestão.");
+    } finally {
+      setSavingSuggestionIds((current) => current.filter((id) => id !== suggestionId));
+    }
+  }
+
+  async function applyBulkSuggestionUpdate() {
+    if (selectedSuggestionIds.length === 0 || (!bulkSuggestionStatus && !bulkSuggestionPriority)) {
+      return;
+    }
+
+    setSavingBulkSuggestionUpdate(true);
+
+    try {
+      const payload: BulkUpdateToolImprovementSuggestionsRequest = {
+        suggestionIds: selectedSuggestionIds,
+        status: bulkSuggestionStatus || null,
+        priority: bulkSuggestionPriority || null,
+      };
+
+      const updated = await apiFetch<ToolImprovementSuggestion[]>("/api/admin/platform/tool-improvement-suggestions/bulk-update", {
+        method: "POST",
+        token,
+        body: JSON.stringify(payload),
+      });
+
+      const updatedById = new Map(updated.map((item) => [item.id, item]));
+      setSuggestions((current) => current.map((suggestion) => updatedById.get(suggestion.id) ?? suggestion));
+      setSuggestionDrafts((current) => ({
+        ...current,
+        ...buildSuggestionDrafts(updated),
+      }));
+      setBulkSuggestionStatus("");
+      setBulkSuggestionPriority("");
+      setSelectedSuggestionIds([]);
+      toast.success("Sugestões atualizadas em massa.");
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Não foi possível aplicar a atualização em massa.");
+    } finally {
+      setSavingBulkSuggestionUpdate(false);
+    }
+  }
+
   useEffect(() => {
     if (plans.length > 0 && users.length > 0 && !subscriptionForm.userId && !editingSubscriptionId) {
       beginCreateSubscription();
@@ -439,6 +687,7 @@ function PlatformAdminPanel({ token }: { token: string }) {
             <TabButton tab="users" activeTab={activeTab} onSelect={setActiveTab} label="Usuários" />
             <TabButton tab="plans" activeTab={activeTab} onSelect={setActiveTab} label="Planos" />
             <TabButton tab="subscriptions" activeTab={activeTab} onSelect={setActiveTab} label="Assinaturas" />
+            <TabButton tab="suggestions" activeTab={activeTab} onSelect={setActiveTab} label="Sugestões" />
             <TabButton tab="settings" activeTab={activeTab} onSelect={setActiveTab} label="Configurações" />
           </div>
         </CardContent>
@@ -731,6 +980,210 @@ function PlatformAdminPanel({ token }: { token: string }) {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {!loading && activeTab === "suggestions" ? (
+        <div className="space-y-4" role="tabpanel" aria-label="Sugestões">
+          <div className="grid gap-3 md:grid-cols-5">
+            <MetricCard label="Total" value={suggestionSummary.total} />
+            <MetricCard label="Não lidas" value={suggestionSummary.unread} />
+            <MetricCard label="Em execução" value={suggestionSummary.inProgress} />
+            <MetricCard label="Postergadas" value={suggestionSummary.postponed} />
+            <MetricCard label="Feitas" value={suggestionSummary.done} />
+          </div>
+
+          <Card>
+            <CardHeader className="gap-3">
+              <div>
+                <CardTitle>Sugestões de melhorias</CardTitle>
+                <CardDescription>Centralize a triagem, a prioridade e os comentários internos do time.</CardDescription>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
+                <Input
+                  value={suggestionFilters.search}
+                  onChange={(event) => updateSuggestionFilter("search", event.target.value)}
+                  placeholder="Buscar por usuário, e-mail ou conteúdo"
+                  aria-label="Buscar sugestões"
+                />
+                <Select
+                  value={suggestionFilters.status}
+                  onChange={(event) => updateSuggestionFilter("status", event.target.value)}
+                  aria-label="Filtrar sugestões por status"
+                >
+                  <option value="all">Todos os status</option>
+                  {suggestionStatusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+                <Select
+                  value={suggestionFilters.priority}
+                  onChange={(event) => updateSuggestionFilter("priority", event.target.value)}
+                  aria-label="Filtrar sugestões por prioridade"
+                >
+                  <option value="all">Todas as prioridades</option>
+                  {suggestionPriorityOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-3 rounded-[18px] border border-border/70 bg-surface-muted p-4 lg:flex-row lg:items-end">
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSuggestionsSelected}
+                    onChange={() => toggleVisibleSuggestionSelection()}
+                    aria-label="Selecionar sugestões visíveis"
+                  />
+                  Selecionar visíveis
+                </label>
+                <div className="grid flex-1 gap-3 sm:grid-cols-2">
+                  <Field label="Status em massa">
+                    <Select
+                      value={bulkSuggestionStatus}
+                      onChange={(event) => setBulkSuggestionStatus(event.target.value as "" | ToolImprovementSuggestionStatus)}
+                      aria-label="Status em massa"
+                    >
+                      <option value="">Sem alteração</option>
+                      {suggestionStatusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Prioridade em massa">
+                    <Select
+                      value={bulkSuggestionPriority}
+                      onChange={(event) => setBulkSuggestionPriority(event.target.value as "" | ToolImprovementSuggestionPriority)}
+                      aria-label="Prioridade em massa"
+                    >
+                      <option value="">Sem alteração</option>
+                      {suggestionPriorityOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">{selectedSuggestionIds.length} selecionada(s)</span>
+                  <Button
+                    onClick={() => void applyBulkSuggestionUpdate()}
+                    disabled={savingBulkSuggestionUpdate || selectedSuggestionIds.length === 0 || (!bulkSuggestionStatus && !bulkSuggestionPriority)}
+                  >
+                    {savingBulkSuggestionUpdate ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                    Aplicar em massa
+                  </Button>
+                </div>
+              </div>
+
+              {filteredSuggestions.length === 0 ? (
+                <Notice tone="warning">Nenhuma sugestão encontrada para os filtros atuais.</Notice>
+              ) : (
+                <div className="space-y-3">
+                  {filteredSuggestions.map((suggestion) => {
+                    const draft = suggestionDrafts[suggestion.id] ?? {
+                      status: suggestion.status,
+                      priority: suggestion.priority,
+                      internalComment: suggestion.internalComment ?? "",
+                    };
+                    const saving = savingSuggestionIds.includes(suggestion.id);
+
+                    return (
+                      <Card key={suggestion.id}>
+                        <CardContent className="space-y-4 p-4">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedSuggestionIds.includes(suggestion.id)}
+                                onChange={() => toggleSuggestionSelection(suggestion.id)}
+                                aria-label={`Selecionar sugestão ${suggestion.userDisplayName}`}
+                                className="mt-1"
+                              />
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-semibold text-foreground">{suggestion.userDisplayName}</p>
+                                  <Badge variant="outline">{formatSuggestionStatus(suggestion.status)}</Badge>
+                                  <Badge variant="neutral">{formatSuggestionPriority(suggestion.priority)}</Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                                  <span>{suggestion.userEmail}</span>
+                                  <span>Enviada em {formatDateTime(suggestion.submittedAt)}</span>
+                                  {suggestion.lastReviewedAt ? (
+                                    <span>
+                                      Última revisão em {formatDateTime(suggestion.lastReviewedAt)}
+                                      {suggestion.lastReviewedByDisplayName ? ` por ${suggestion.lastReviewedByDisplayName}` : ""}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4 text-sm leading-6 text-foreground">
+                            {suggestion.suggestionText}
+                          </div>
+
+                          <div className="grid gap-4 lg:grid-cols-[220px_220px_minmax(0,1fr)]">
+                            <Field label="Status">
+                              <Select
+                                value={draft.status}
+                                onChange={(event) => updateSuggestionDraft(suggestion.id, "status", event.target.value)}
+                                aria-label={`Status da sugestão ${suggestion.userDisplayName}`}
+                              >
+                                {suggestionStatusOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </Select>
+                            </Field>
+                            <Field label="Prioridade">
+                              <Select
+                                value={draft.priority}
+                                onChange={(event) => updateSuggestionDraft(suggestion.id, "priority", event.target.value)}
+                                aria-label={`Prioridade da sugestão ${suggestion.userDisplayName}`}
+                              >
+                                {suggestionPriorityOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </Select>
+                            </Field>
+                            <Field label="Comentário interno">
+                              <Textarea
+                                value={draft.internalComment}
+                                onChange={(event) => updateSuggestionDraft(suggestion.id, "internalComment", event.target.value)}
+                                rows={4}
+                                aria-label={`Comentário interno da sugestão ${suggestion.userDisplayName}`}
+                              />
+                            </Field>
+                          </div>
+
+                          <div className="flex justify-end">
+                            <Button onClick={() => void saveSuggestion(suggestion.id)} disabled={saving}>
+                              {saving ? <Loader2 className="animate-spin" /> : <Pencil />}
+                              Salvar sugestão
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -1115,6 +1568,36 @@ function formatSubscriptionStatus(value: UserSubscriptionStatus) {
       return "Expirada";
     case "Cancelled":
       return "Cancelada";
+    default:
+      return value;
+  }
+}
+
+function formatSuggestionStatus(value: ToolImprovementSuggestionStatus) {
+  switch (value) {
+    case "NaoLido":
+      return "Não lido";
+    case "EmExecucao":
+      return "Em execução";
+    case "Postergado":
+      return "Postergado";
+    case "Feito":
+      return "Feito";
+    default:
+      return value;
+  }
+}
+
+function formatSuggestionPriority(value: ToolImprovementSuggestionPriority) {
+  switch (value) {
+    case "Baixa":
+      return "Baixa";
+    case "Media":
+      return "Média";
+    case "Alta":
+      return "Alta";
+    case "Urgente":
+      return "Urgente";
     default:
       return value;
   }

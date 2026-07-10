@@ -49,6 +49,7 @@ describe("PlatformAdminPage", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    window.localStorage.clear();
   });
 
   it("blocks users who are not SuperAdmin", async () => {
@@ -113,6 +114,10 @@ describe("PlatformAdminPage", () => {
         return [];
       }
 
+      if (path === "/api/admin/platform/tool-improvement-suggestions") {
+        return [];
+      }
+
       if (path === "/api/admin/platform/settings") {
         return {
           adminName: "",
@@ -155,6 +160,7 @@ describe("PlatformAdminPage", () => {
     expect(await screen.findByRole("tab", { name: "Usuários" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Planos" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Assinaturas" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Sugestões" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Configurações" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Planos" }));
@@ -186,6 +192,10 @@ describe("PlatformAdminPage", () => {
       }
 
       if (path === "/api/admin/platform/subscriptions") {
+        return [];
+      }
+
+      if (path === "/api/admin/platform/tool-improvement-suggestions") {
         return [];
       }
 
@@ -265,6 +275,103 @@ describe("PlatformAdminPage", () => {
         }),
       );
     });
+  });
+
+  it("filters suggestions, restores the filter from localStorage and applies bulk updates", async () => {
+    mockedUseProjectDashboard.mockReturnValue(buildDashboard("SuperAdmin"));
+    window.localStorage.setItem(
+      "homepit.platform.suggestion-filters",
+      JSON.stringify({ search: "projetos", status: "NaoLido", priority: "Alta" }),
+    );
+    mockedApiFetch
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "suggestion-1",
+          userId: "user-1",
+          userDisplayName: "Paula",
+          userEmail: "paula@homepit.dev",
+          submittedAt: "2026-07-10T12:00:00Z",
+          suggestionText: "Melhorar filtros de Projetos.",
+          status: "NaoLido",
+          priority: "Alta",
+          internalComment: null,
+          lastReviewedAt: null,
+          lastReviewedByUserId: null,
+          lastReviewedByDisplayName: null,
+        },
+        {
+          id: "suggestion-2",
+          userId: "user-2",
+          userDisplayName: "Marcos",
+          userEmail: "marcos@homepit.dev",
+          submittedAt: "2026-07-10T13:00:00Z",
+          suggestionText: "Revisar o módulo Financeiro.",
+          status: "Feito",
+          priority: "Media",
+          internalComment: "Concluído",
+          lastReviewedAt: "2026-07-10T14:00:00Z",
+          lastReviewedByUserId: "superadmin-1",
+          lastReviewedByDisplayName: "SuperAdmin",
+        },
+      ])
+      .mockResolvedValueOnce({
+        adminName: "",
+        contactEmail: "",
+        contactPhone: "",
+        managementPhone: "",
+        instagram: "",
+        addressLine1: "",
+        addressLine2: "",
+        city: "",
+        state: "",
+        postalCode: "",
+        canShowAddressOnLanding: false,
+      })
+      .mockResolvedValueOnce([
+        {
+          id: "suggestion-1",
+          userId: "user-1",
+          userDisplayName: "Paula",
+          userEmail: "paula@homepit.dev",
+          submittedAt: "2026-07-10T12:00:00Z",
+          suggestionText: "Melhorar filtros de Projetos.",
+          status: "EmExecucao",
+          priority: "Urgente",
+          internalComment: null,
+          lastReviewedAt: "2026-07-10T15:00:00Z",
+          lastReviewedByUserId: "superadmin-1",
+          lastReviewedByDisplayName: "SuperAdmin",
+        },
+      ]);
+
+    render(<PlatformAdminPage />);
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Sugestões" }));
+
+    expect(await screen.findByDisplayValue("projetos")).toBeInTheDocument();
+    expect(screen.getByText("Melhorar filtros de Projetos.")).toBeInTheDocument();
+    expect(screen.queryByText("Revisar o módulo Financeiro.")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Selecionar sugestões visíveis" }));
+    fireEvent.change(screen.getByLabelText("Status em massa"), { target: { value: "EmExecucao" } });
+    fireEvent.change(screen.getByLabelText("Prioridade em massa"), { target: { value: "Urgente" } });
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar em massa" }));
+
+    await waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalledWith(
+        "/api/admin/platform/tool-improvement-suggestions/bulk-update",
+        expect.objectContaining({
+          method: "POST",
+          token: "access-token",
+          body: expect.stringContaining('"status":"EmExecucao"'),
+        }),
+      );
+    });
+
+    expect(window.localStorage.getItem("homepit.platform.suggestion-filters")).toContain('"search":"projetos"');
   });
 });
 

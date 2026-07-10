@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<HouseholdService>();
         services.AddScoped<InstitutionalPageService>();
         services.AddScoped<PlatformSettingsService>();
+        services.AddScoped<ToolImprovementSuggestionService>();
         services.AddScoped<CommercialPlanService>();
         services.AddScoped<ManagedImageQuotaService>();
         services.AddScoped<ProjectService>();

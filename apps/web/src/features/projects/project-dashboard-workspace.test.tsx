@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Activity, HouseholdMember } from "@/lib/api";
+import type { Activity, HouseholdMember, Project, Universe } from "@/lib/api";
 import * as api from "@/lib/api";
 import { ActivityImageViewerDialog, clampActivityImageZoom, stepActivityImageZoom } from "./activity-image-viewer";
 import {
@@ -10,7 +11,9 @@ import {
   ActivityDragPreview,
   ActivityListView,
   KanbanColumnFrame,
+  ProjectDashboardWorkspace,
 } from "./project-dashboard-workspace";
+import { defaultActivityFilters } from "./project-dashboard.constants";
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -28,6 +31,14 @@ vi.mock("@/features/workspace/protected-universe-avatar", () => ({
     </div>
   ),
   useProtectedUniverseImage: () => null,
+}));
+
+vi.mock("@/features/workspace/homepit-workspace-shell", () => ({
+  HomePitWorkspaceShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  EmptyState: ({ title }: { title: string }) => <div>{title}</div>,
+  Field: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  LoadingState: ({ title }: { title: string }) => <div>{title}</div>,
+  Notice: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
 function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "title">): Activity {
@@ -73,6 +84,124 @@ function buildMember(overrides: Partial<HouseholdMember> & Pick<HouseholdMember,
     isCurrentUser: false,
     ...overrides,
   };
+}
+
+function buildUniverse(overrides: Partial<Universe> & Pick<Universe, "id" | "name">): Universe {
+  return {
+    id: overrides.id,
+    name: overrides.name,
+    imageUrl: null,
+    hasImage: false,
+    imageUpdatedAt: null,
+    createdByMemberId: null,
+    projectCount: 1,
+    isOutOfPlan: false,
+    canEdit: true,
+    canDelete: true,
+    ...overrides,
+  };
+}
+
+function buildProject(overrides: Partial<Project> & Pick<Project, "id" | "name">): Project {
+  return {
+    id: overrides.id,
+    universeId: "universe-1",
+    universeName: "Universo Alfa",
+    universeImageUrl: null,
+    universeHasImage: false,
+    universeImageUpdatedAt: null,
+    name: overrides.name,
+    createdByMemberId: null,
+    activityCount: 1,
+    isOutOfPlan: false,
+    canEdit: true,
+    canDelete: true,
+    ...overrides,
+  };
+}
+
+function buildDashboard(overrides?: {
+  universes?: Universe[];
+  projects?: Project[];
+}) {
+  const universes = overrides?.universes ?? [];
+  const projects = overrides?.projects ?? [];
+
+  return {
+    session: { accessToken: "token", user: { id: "user-1", accountState: "Active" } },
+    activeHouseholdId: "household-1",
+    activeHousehold: null,
+    members: [],
+    theme: "dark",
+    sidebarCollapsed: false,
+    loading: false,
+    error: null,
+    canShareHousehold: false,
+    canManageHousehold: false,
+    editingHousehold: null,
+    editingUniverse: null,
+    editingProject: null,
+    editingActivity: null,
+    activeModal: null,
+    setError: () => undefined,
+    setSidebarCollapsed: () => undefined,
+    setTheme: () => undefined,
+    handleHouseholdChange: () => undefined,
+    handleLogout: () => undefined,
+    refreshHouseholds: async () => undefined,
+    loadWorkspace: async () => undefined,
+    openCreateHousehold: () => undefined,
+    openEditHousehold: () => undefined,
+    openShareHousehold: () => undefined,
+    closeModal: () => undefined,
+    createHousehold: async () => undefined,
+    updateHousehold: async () => undefined,
+    deleteHousehold: async () => undefined,
+    shareHousehold: async () => undefined,
+    selectedScopeLabel: "Todos os projetos",
+    visibleActivities: [],
+    universes,
+    projects,
+    activities: [],
+    selectedUniverseId: "",
+    selectedProjectId: "",
+    selectAllScopes: () => undefined,
+    selectUniverseScope: () => undefined,
+    selectProjectScope: () => undefined,
+    openCreateUniverse: () => undefined,
+    openCreateProject: () => undefined,
+    openEditUniverse: () => undefined,
+    openEditProject: () => undefined,
+    deleteUniverse: async () => undefined,
+    deleteProject: async () => undefined,
+    filters: defaultActivityFilters,
+    updateFilter: () => undefined,
+    resetFilters: () => undefined,
+    viewMode: "kanban",
+    setViewMode: () => undefined,
+    groupedActivities: [],
+    openCreateActivity: () => undefined,
+    openActivity: () => undefined,
+    openEditActivity: () => undefined,
+    deleteActivity: async () => undefined,
+    updateActivityStatusOptimistic: async () => undefined,
+    createUniverse: async () => undefined,
+    updateUniverse: async () => undefined,
+    createProject: async () => undefined,
+    updateProject: async () => undefined,
+    activityDialogProjects: [],
+    activityDraftProjectId: "",
+    selectedActivity: null,
+    activityComments: [],
+    commentsLoading: false,
+    createComment: async () => undefined,
+    updateComment: async () => undefined,
+    deleteComment: async () => undefined,
+    moveActivity: async () => undefined,
+    closeActivity: () => undefined,
+    createActivity: async () => undefined,
+    updateActivity: async () => undefined,
+  } as never;
 }
 
 describe("project dashboard kanban drag states", () => {
@@ -294,6 +423,7 @@ describe("project dashboard kanban drag states", () => {
             name: "Projeto Alfa",
             createdByMemberId: null,
             activityCount: 1,
+            isOutOfPlan: false,
             canEdit: true,
             canDelete: true,
           },
@@ -342,6 +472,7 @@ describe("project dashboard kanban drag states", () => {
             name: "Projeto Alfa",
             createdByMemberId: null,
             activityCount: 1,
+            isOutOfPlan: false,
             canEdit: true,
             canDelete: true,
           },
@@ -540,5 +671,45 @@ describe("project dashboard kanban drag states", () => {
     expect(root).toHaveAttribute("data-drop-target", "true");
     expect(root).toHaveClass("border-primary/35");
     expect(screen.getByText("Conteúdo da coluna")).toBeInTheDocument();
+  });
+
+  it("shows the out-of-plan badge only for users who can manage the item", () => {
+    const { rerender } = render(
+      <ProjectDashboardWorkspace
+        dashboard={buildDashboard({
+          universes: [buildUniverse({ id: "universe-1", name: "Universo Alfa", isOutOfPlan: true, canEdit: false })],
+          projects: [
+            buildProject({
+              id: "project-1",
+              name: "Projeto Alfa",
+              universeId: "universe-1",
+              isOutOfPlan: true,
+              canEdit: false,
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.queryByText("Fora do plano")).not.toBeInTheDocument();
+
+    rerender(
+      <ProjectDashboardWorkspace
+        dashboard={buildDashboard({
+          universes: [buildUniverse({ id: "universe-2", name: "Universo Beta", isOutOfPlan: true, canEdit: true })],
+          projects: [
+            buildProject({
+              id: "project-2",
+              name: "Projeto Beta",
+              universeId: "universe-2",
+              isOutOfPlan: true,
+              canEdit: true,
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getAllByText("Fora do plano")).toHaveLength(2);
   });
 });
