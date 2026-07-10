@@ -19,6 +19,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<Household> Households => Set<Household>();
     public DbSet<HouseholdMember> HouseholdMembers => Set<HouseholdMember>();
+    public DbSet<HouseholdInvitation> HouseholdInvitations => Set<HouseholdInvitation>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<InstitutionalPage> InstitutionalPages => Set<InstitutionalPage>();
     public DbSet<InstitutionalBenefit> InstitutionalBenefits => Set<InstitutionalBenefit>();
@@ -190,6 +191,26 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.HasOne(member => member.User)
                 .WithMany(user => user.HouseholdMembers)
                 .HasForeignKey(member => member.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<HouseholdInvitation>(builder =>
+        {
+            builder.ToTable("household_invitations");
+            builder.Property(item => item.InviteeEmail).HasMaxLength(320).IsRequired();
+            builder.Property(item => item.Role).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.Status).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.InvitedAt).IsRequired();
+            builder.Property(item => item.RespondedAt);
+            builder.HasIndex(item => new { item.HouseholdId, item.InviteeEmail }).IsUnique();
+            builder.HasIndex(item => new { item.InviteeEmail, item.Status });
+            builder.HasOne(item => item.Household)
+                .WithMany(household => household.Invitations)
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.InviterUser)
+                .WithMany(user => user.SentHouseholdInvitations)
+                .HasForeignKey(item => item.InviterUserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

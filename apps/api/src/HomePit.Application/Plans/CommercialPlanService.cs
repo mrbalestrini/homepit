@@ -53,13 +53,13 @@ public sealed class CommercialPlanService(
         EnsureSuperAdmin();
         await EnsurePlanCatalogAsync(cancellationToken);
 
-        var plans = await db.PlanDefinitions
-            .AsNoTracking()
-            .OrderBy(item => item.SortOrder)
-            .ThenBy(item => item.Name)
-            .ToArrayAsync(cancellationToken);
+        return await ListPlanDefinitionsAsync(cancellationToken);
+    }
 
-        return plans.Select(ToPlanDefinitionDto).ToArray();
+    public async Task<IReadOnlyCollection<PlanDefinitionDto>> ListPublicPlansAsync(CancellationToken cancellationToken)
+    {
+        await EnsurePlanCatalogAsync(cancellationToken);
+        return await ListPlanDefinitionsAsync(cancellationToken);
     }
 
     public async Task<PlanDefinitionDto> UpdatePlanAsync(
@@ -616,6 +616,17 @@ public sealed class CommercialPlanService(
             item.MaxInvitedMembers,
             item.MaxOriginalImages,
             BuildImagePolicyDescription(item));
+    }
+
+    private async Task<IReadOnlyCollection<PlanDefinitionDto>> ListPlanDefinitionsAsync(CancellationToken cancellationToken)
+    {
+        var plans = await db.PlanDefinitions
+            .AsNoTracking()
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .ToArrayAsync(cancellationToken);
+
+        return plans.Select(ToPlanDefinitionDto).ToArray();
     }
 
     private static UserSubscriptionDto ToUserSubscriptionDto(UserSubscription item, UserSubscriptionStatus status)

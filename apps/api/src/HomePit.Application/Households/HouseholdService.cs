@@ -27,11 +27,25 @@ public sealed record HouseholdMemberDto(
     HouseholdRole Role,
     bool IsCurrentUser);
 
+public sealed record HouseholdInvitationDto(
+    Guid Id,
+    Guid HouseholdId,
+    string HouseholdName,
+    string InviteeEmail,
+    Guid InviterUserId,
+    string InviterDisplayName,
+    HouseholdRole Role,
+    HouseholdInvitationStatus Status,
+    DateTimeOffset InvitedAt,
+    DateTimeOffset? RespondedAt,
+    bool IsIncoming);
+
 public sealed class HouseholdService(
     IHomePitDbContext db,
     IUserContext userContext,
     HomePitDataPurgeService dataPurgeService,
-    CommercialPlanService commercialPlanService)
+    CommercialPlanService commercialPlanService,
+    TimeProvider timeProvider)
 {
     private const string SuperAdminReadOnlyMessage = "O superadmin possui acesso somente leitura nesta etapa.";
 
@@ -170,16 +184,66 @@ public sealed class HouseholdService(
             .ToArrayAsync(cancellationToken);
     }
 
-    public async Task<HouseholdMemberDto> ShareAsync(ShareHouseholdRequest request, CancellationToken cancellationToken)
+    public async Task<IReadOnlyCollection<HouseholdInvitationDto>> ListInvitationsAsync(CancellationToken cancellationToken)
+    {
+        if (userContext.SystemRole == SystemRole.SuperAdmin)
+        {
+            return Array.Empty<HouseholdInvitationDto>();
+        }
+
+        var currentUser = await db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(user => user.Id == userContext.UserId && user.IsActive, cancellationToken)
+            ?? throw new ForbiddenException("Usuário não encontrado.");
+
+        var currentEmail = NormalizeEmail(currentUser.Email);
+        var invitations = await db.HouseholdInvitations
+            .AsNoTracking()
+            .Include(item => item.Household)
+            .Include(item => item.InviterUser)
+            .Where(item =>
+                item.InviteeEmail == currentEmail ||
+                item.InviterUserId == currentUser.Id)
+            .OrderByDescending(item => item.InvitedAt)
+            .ToArrayAsync(cancellationToken);
+
+        return invitations
+            .Select(item => new HouseholdInvitationDto(
+                item.Id,
+                item.HouseholdId,
+                item.Household?.Name ?? string.Empty,
+                item.InviteeEmail,
+                item.InviterUserId,
+                item.InviterUser?.DisplayName ?? string.Empty,
+                item.Role,
+                item.Status,
+                item.InvitedAt,
+                item.RespondedAt,
+                item.InviteeEmail == currentEmail))
+            .ToArray();
+    }
+
+    public async Task<HouseholdInvitationDto> ShareAsync(ShareHouseholdRequest request, CancellationToken cancellationToken)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMembershipAsync(requireManager: true, cancellationToken);
+        var currentUserEmail = await db.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userContext.UserId && user.IsActive)
+            .Select(user => user.Email)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new ForbiddenException("Usuário não encontrado.");
         var email = NormalizeEmail(request.Email);
         var role = NormalizeSharedRole(request.Role);
 
         var user = await db.Users
             .FirstOrDefaultAsync(item => item.Email == email && item.IsActive, cancellationToken)
             ?? throw new NotFoundException("Usuário não encontrado. Peça para a pessoa criar uma conta antes de compartilhar a casa.");
+
+        if (user.Id == userContext.UserId)
+        {
+            throw new ValidationException("Não é possível convidar você mesmo.");
+        }
 
         var existingMember = await db.HouseholdMembers
             .Include(member => member.User)
@@ -193,54 +257,145 @@ public sealed class HouseholdService(
             throw new ConflictException("Este usuário já participa desta casa.");
         }
 
-        if (existingMember is not null)
-        {
-            await commercialPlanService.EnsureCanInviteMemberToHouseholdAsync(
-                currentMember.HouseholdId,
-                user.Id,
-                cancellationToken);
-            existingMember.Role = role;
-            existingMember.IsActive = true;
-
-            if (!await db.NotificationPreferences.AnyAsync(
-                preference => preference.HouseholdMemberId == existingMember.Id,
-                cancellationToken))
-            {
-                db.NotificationPreferences.Add(new NotificationPreference
-                {
-                    HouseholdId = currentMember.HouseholdId,
-                    HouseholdMemberId = existingMember.Id,
-                    WhatsAppPhoneNumber = user.PhoneNumber
-                });
-            }
-
-            await db.SaveChangesAsync(cancellationToken);
-            return ToMemberDto(existingMember, userContext.UserId);
-        }
-
         await commercialPlanService.EnsureCanInviteMemberToHouseholdAsync(
             currentMember.HouseholdId,
             user.Id,
             cancellationToken);
 
-        var member = new HouseholdMember
-        {
-            HouseholdId = currentMember.HouseholdId,
-            UserId = user.Id,
-            User = user,
-            Role = role
-        };
+        var invitation = await db.HouseholdInvitations
+            .Include(item => item.Household)
+            .Include(item => item.InviterUser)
+            .FirstOrDefaultAsync(item =>
+                item.HouseholdId == currentMember.HouseholdId &&
+                item.InviteeEmail == email,
+                cancellationToken);
 
-        db.HouseholdMembers.Add(member);
-        db.NotificationPreferences.Add(new NotificationPreference
+        if (invitation is null)
         {
-            HouseholdId = currentMember.HouseholdId,
-            HouseholdMember = member,
-            WhatsAppPhoneNumber = user.PhoneNumber
-        });
+            invitation = new HouseholdInvitation
+            {
+                HouseholdId = currentMember.HouseholdId,
+                InviterUserId = userContext.UserId,
+                InviteeEmail = email,
+                Role = role,
+                Status = HouseholdInvitationStatus.Pending,
+                InvitedAt = timeProvider.GetUtcNow()
+            };
+            db.HouseholdInvitations.Add(invitation);
+        }
+        else
+        {
+            invitation.InviterUserId = userContext.UserId;
+            invitation.InviteeEmail = email;
+            invitation.Role = role;
+            invitation.Status = HouseholdInvitationStatus.Pending;
+            invitation.InvitedAt = timeProvider.GetUtcNow();
+            invitation.RespondedAt = null;
+        }
 
         await db.SaveChangesAsync(cancellationToken);
-        return ToMemberDto(member, userContext.UserId);
+        return ToInvitationDto(invitation, currentEmail: NormalizeEmail(currentUserEmail));
+    }
+
+    public async Task<HouseholdDto> AcceptInvitationAsync(Guid invitationId, CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentUser = await db.Users
+            .FirstOrDefaultAsync(user => user.Id == userContext.UserId && user.IsActive, cancellationToken)
+            ?? throw new ForbiddenException("Usuário não encontrado.");
+
+        var currentEmail = NormalizeEmail(currentUser.Email);
+        var invitation = await db.HouseholdInvitations
+            .Include(item => item.Household)
+            .ThenInclude(household => household!.CreatedByUser)
+            .FirstOrDefaultAsync(item => item.Id == invitationId, cancellationToken)
+            ?? throw new NotFoundException("Convite não encontrado.");
+
+        if (invitation.Status != HouseholdInvitationStatus.Pending)
+        {
+            throw new ValidationException("Este convite já foi respondido.");
+        }
+
+        if (!string.Equals(invitation.InviteeEmail, currentEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ForbiddenException("Você não tem acesso a este convite.");
+        }
+
+        var member = await db.HouseholdMembers
+            .Include(item => item.Household)
+            .FirstOrDefaultAsync(item =>
+                item.HouseholdId == invitation.HouseholdId &&
+                item.UserId == currentUser.Id,
+                cancellationToken);
+
+        if (member is null)
+        {
+            member = new HouseholdMember
+            {
+                HouseholdId = invitation.HouseholdId,
+                UserId = currentUser.Id,
+                User = currentUser,
+                Role = invitation.Role,
+                IsActive = true
+            };
+            db.HouseholdMembers.Add(member);
+            db.NotificationPreferences.Add(new NotificationPreference
+            {
+                HouseholdId = invitation.HouseholdId,
+                HouseholdMember = member,
+                WhatsAppPhoneNumber = currentUser.PhoneNumber
+            });
+        }
+        else
+        {
+            member.IsActive = true;
+            member.Role = invitation.Role;
+
+            if (!await db.NotificationPreferences.AnyAsync(
+                preference => preference.HouseholdMemberId == member.Id,
+                cancellationToken))
+            {
+                db.NotificationPreferences.Add(new NotificationPreference
+                {
+                    HouseholdId = invitation.HouseholdId,
+                    HouseholdMember = member,
+                    WhatsAppPhoneNumber = currentUser.PhoneNumber
+                });
+            }
+        }
+
+        invitation.Status = HouseholdInvitationStatus.Accepted;
+        invitation.RespondedAt = timeProvider.GetUtcNow();
+        await db.SaveChangesAsync(cancellationToken);
+
+        return ToHouseholdDto(invitation.Household!, invitation.Role);
+    }
+
+    public async Task DeclineInvitationAsync(Guid invitationId, CancellationToken cancellationToken)
+    {
+        EnsureWritable();
+        var currentUser = await db.Users
+            .FirstOrDefaultAsync(user => user.Id == userContext.UserId && user.IsActive, cancellationToken)
+            ?? throw new ForbiddenException("Usuário não encontrado.");
+
+        var currentEmail = NormalizeEmail(currentUser.Email);
+        var invitation = await db.HouseholdInvitations
+            .FirstOrDefaultAsync(item => item.Id == invitationId, cancellationToken)
+            ?? throw new NotFoundException("Convite não encontrado.");
+
+        if (invitation.Status != HouseholdInvitationStatus.Pending)
+        {
+            throw new ValidationException("Este convite já foi respondido.");
+        }
+
+        if (!string.Equals(invitation.InviteeEmail, currentEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ForbiddenException("Você não tem acesso a este convite.");
+        }
+
+        invitation.Status = HouseholdInvitationStatus.Declined;
+        invitation.RespondedAt = timeProvider.GetUtcNow();
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<HouseholdMemberDto> UpdateMemberAsync(
@@ -411,6 +566,22 @@ public sealed class HouseholdService(
             member.User?.ProfilePhotoUpdatedAt,
             member.Role,
             member.UserId == currentUserId);
+    }
+
+    private static HouseholdInvitationDto ToInvitationDto(HouseholdInvitation invitation, string currentEmail)
+    {
+        return new HouseholdInvitationDto(
+            invitation.Id,
+            invitation.HouseholdId,
+            invitation.Household?.Name ?? string.Empty,
+            invitation.InviteeEmail,
+            invitation.InviterUserId,
+            invitation.InviterUser?.DisplayName ?? string.Empty,
+            invitation.Role,
+            invitation.Status,
+            invitation.InvitedAt,
+            invitation.RespondedAt,
+            invitation.InviteeEmail == currentEmail);
     }
 
     private HouseholdDto ToHouseholdDto(Household household, HouseholdRole role)

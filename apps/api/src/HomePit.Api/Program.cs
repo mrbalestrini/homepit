@@ -129,6 +129,8 @@ app.MapGet("/api/platform-settings", async (
     context.Response.Headers.CacheControl = "no-store";
     return Results.Ok(await service.GetPublicAsync(cancellationToken));
 });
+app.MapGet("/api/plans", async (CommercialPlanService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListPublicPlansAsync(cancellationToken)));
 
 var api = app.MapGroup("/api").RequireAuthorization();
 
@@ -198,7 +200,22 @@ api.MapDelete("/households/{id:guid}", async (
 api.MapGet("/households/members", async (HouseholdService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.ListMembersAsync(cancellationToken)));
 api.MapPost("/households/share", async (ShareHouseholdRequest request, HouseholdService service, CancellationToken cancellationToken) =>
-    Results.Created("/api/households/members", await service.ShareAsync(request, cancellationToken)));
+    Results.Created("/api/households/invitations", await service.ShareAsync(request, cancellationToken)));
+api.MapGet("/households/invitations", async (HouseholdService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListInvitationsAsync(cancellationToken)));
+api.MapPost("/households/invitations/{id:guid}/accept", async (
+    Guid id,
+    HouseholdService service,
+    CancellationToken cancellationToken) =>
+        Results.Ok(await service.AcceptInvitationAsync(id, cancellationToken)));
+api.MapPost("/households/invitations/{id:guid}/decline", async (
+    Guid id,
+    HouseholdService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeclineInvitationAsync(id, cancellationToken);
+    return Results.NoContent();
+});
 api.MapPut("/households/members/{id:guid}", async (
     Guid id,
     UpdateHouseholdMemberRequest request,

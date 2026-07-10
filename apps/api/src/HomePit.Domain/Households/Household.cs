@@ -14,6 +14,7 @@ public sealed class Household : AuditableEntity
     public AppUser? CreatedByUser { get; set; }
 
     public ICollection<HouseholdMember> Members { get; } = new List<HouseholdMember>();
+    public ICollection<HouseholdInvitation> Invitations { get; } = new List<HouseholdInvitation>();
     public ICollection<Universe> Universes { get; } = new List<Universe>();
     public ICollection<Prompt> Prompts { get; } = new List<Prompt>();
     public ICollection<PromptCategory> PromptCategories { get; } = new List<PromptCategory>();

@@ -105,14 +105,49 @@ describe("ProfilePage", () => {
         };
       }
 
+      if (path === "/api/plans") {
+        return [
+          {
+            id: "plan-standard",
+            slug: "standard",
+            name: "Standard",
+            currencyCode: "BRL",
+            monthlyPrice: 9.9,
+            annualPrice: 99,
+            maxOwnedHouseholds: 1,
+            maxUniverses: 3,
+            maxProjects: 5,
+            maxInvitedMembers: null,
+            maxOriginalImages: 30,
+            imagePolicyDescription: "Plano de entrada.",
+          },
+        ];
+      }
+
+      if (path === "/api/platform-settings") {
+        return {
+          contactEmail: "contato@homepit.dev",
+          contactPhone: "+55 (11) 91234-5678",
+          instagram: "@homepit",
+          addressLine1: "Rua Principal, 100",
+          addressLine2: "Sala 2",
+          city: "São Paulo",
+          state: "SP",
+          postalCode: "01000-000",
+          canShowAddressOnLanding: false,
+        };
+      }
+
       throw new Error(`Unexpected path: ${path}`);
     });
 
     render(<ProfilePage />);
 
     expect(await screen.findByText("Plano")).toBeInTheDocument();
-    expect(await screen.findByText("Standard")).toBeInTheDocument();
-    expect(screen.getByText(/R\$ 9,90\/mês/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText("Standard").length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByText(/R\$ 9,90\/mês/).length).toBeGreaterThanOrEqual(2);
+    });
     expect(screen.getAllByText("Casas").length).toBeGreaterThan(0);
     expect(screen.getByText("Universos")).toBeInTheDocument();
     expect(screen.getByText("Projetos")).toBeInTheDocument();
@@ -123,6 +158,9 @@ describe("ProfilePage", () => {
     expect(await screen.findByText("4 usados")).toBeInTheDocument();
     expect(await screen.findByText("Restante ilimitado")).toBeInTheDocument();
     expect(await screen.findByText(/novas criações ficam bloqueadas/i)).toBeInTheDocument();
+    const requestLink = await screen.findByRole("link", { name: "Solicitar assinatura" });
+    expect(screen.getByText("Abrir WhatsApp")).toBeInTheDocument();
+    expect(requestLink.getAttribute("href")).toContain("wa.me");
   });
 
   it("opens the universes modal with the user's creations", async () => {
@@ -152,6 +190,39 @@ describe("ProfilePage", () => {
             invitedMemberCount: 3,
             managedOriginalImageCount: 12,
           },
+        };
+      }
+
+      if (path === "/api/plans") {
+        return [
+          {
+            id: "plan-standard",
+            slug: "standard",
+            name: "Standard",
+            currencyCode: "BRL",
+            monthlyPrice: 9.9,
+            annualPrice: 99,
+            maxOwnedHouseholds: 1,
+            maxUniverses: 3,
+            maxProjects: 5,
+            maxInvitedMembers: 6,
+            maxOriginalImages: 30,
+            imagePolicyDescription: "Plano de entrada.",
+          },
+        ];
+      }
+
+      if (path === "/api/platform-settings") {
+        return {
+          contactEmail: "contato@homepit.dev",
+          contactPhone: "",
+          instagram: "@homepit",
+          addressLine1: "Rua Principal, 100",
+          addressLine2: "Sala 2",
+          city: "São Paulo",
+          state: "SP",
+          postalCode: "01000-000",
+          canShowAddressOnLanding: false,
         };
       }
 
@@ -314,3 +385,81 @@ function buildDashboardWithOptions({ selectedUniverseId = "universe-1" }: { sele
     handleAuthenticated: vi.fn(),
   };
 }
+
+describe("ProfilePage subscription CTA", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("falls back to e-mail when no WhatsApp number is available", async () => {
+    mockedUseProjectDashboard.mockReturnValue(buildDashboard());
+    mockedApiFetch.mockImplementation(async (path) => {
+      if (path === "/api/users/me/plan") {
+        return {
+          plan: {
+            id: "plan-standard",
+            slug: "standard",
+            name: "Standard",
+            currencyCode: "BRL",
+            monthlyPrice: 9.9,
+            annualPrice: 99,
+            maxOwnedHouseholds: 1,
+            maxUniverses: 3,
+            maxProjects: 5,
+            maxInvitedMembers: null,
+            maxOriginalImages: 30,
+            imagePolicyDescription: "Plano de entrada.",
+          },
+          activeSubscription: null,
+          usage: {
+            ownedHouseholdCount: 1,
+            universeCount: 2,
+            projectCount: 4,
+            invitedMemberCount: 3,
+            managedOriginalImageCount: 12,
+          },
+        };
+      }
+
+      if (path === "/api/plans") {
+        return [
+          {
+            id: "plan-standard",
+            slug: "standard",
+            name: "Standard",
+            currencyCode: "BRL",
+            monthlyPrice: 9.9,
+            annualPrice: 99,
+            maxOwnedHouseholds: 1,
+            maxUniverses: 3,
+            maxProjects: 5,
+            maxInvitedMembers: null,
+            maxOriginalImages: 30,
+            imagePolicyDescription: "Plano de entrada.",
+          },
+        ];
+      }
+
+      if (path === "/api/platform-settings") {
+        return {
+          contactEmail: "contato@homepit.dev",
+          contactPhone: "",
+          instagram: "@homepit",
+          addressLine1: "Rua Principal, 100",
+          addressLine2: "Sala 2",
+          city: "São Paulo",
+          state: "SP",
+          postalCode: "01000-000",
+          canShowAddressOnLanding: false,
+        };
+      }
+
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<ProfilePage />);
+
+    const requestLink = await screen.findByRole("link", { name: "Solicitar assinatura" });
+    expect(requestLink.getAttribute("href")).toContain("mailto:contato@homepit.dev");
+  });
+});

@@ -26,6 +26,19 @@ public sealed class CommercialPlanServiceTests
     }
 
     [Fact]
+    public async Task Public_plan_catalog_is_available_without_superadmin_context()
+    {
+        await using var context = CreateDbContext();
+        var user = await SeedUserAsync(context, "public-plans@homepit.dev");
+        var service = CreateCommercialPlanService(context, user.Id, SystemRole.User);
+
+        var plans = await service.ListPublicPlansAsync(CancellationToken.None);
+
+        Assert.NotEmpty(plans);
+        Assert.Contains(plans, plan => plan.Slug == PlanDefinitionCatalog.FreeSlug);
+    }
+
+    [Fact]
     public async Task Free_plan_cannot_create_household()
     {
         await using var context = CreateDbContext();

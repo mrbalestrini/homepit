@@ -11,6 +11,8 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - API global de configurações da plataforma para o `SuperAdmin`, com leitura pública separada para uso da landing.
 - Novo fluxo para usuários enviarem sugestões de melhoria pelo menu do perfil, com modal dedicada e orientações de contexto.
 - Nova aba `Sugestões` no hub `/admin/platform`, com filtros persistidos, triagem interna por status/prioridade e atualização em massa para o `SuperAdmin`.
+- Convites de casa passaram a ser pendentes, com aceite ou recusa explícitos na área de Casa e visibilidade do status para quem convidou.
+- A página `/profile` passou a listar o catálogo público de planos com CTA de solicitação de assinatura e destino automático para WhatsApp ou e-mail.
 
 ### Changed
 - O hub global da plataforma passou a separar o catálogo comercial das configurações institucionais e de contato.
@@ -20,6 +22,8 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - As cotas de universos e projetos passaram a contar o total criado pela pessoa usuária, sem depender da casa ou do universo onde os itens estão, e a edição deixou de ser bloqueada para itens já existentes acima da cota.
 - O catálogo de planos ganhou a cota opcional de membros convidados ativos por casas próprias, com `vazio = ilimitado`, e o perfil passou a mostrar consumo/restante com modal de listagem e exclusão segura para casas, universos e projetos criados pela pessoa.
 - O módulo de projetos deixou de usar a permissão de edição como atalho visual para o selo `Fora do plano`, evitando falso positivo para membros sem ownership do item.
+- O menu lateral passou a seguir a ordem `Casa > Rotinas > Projetos > Financeiro > Mercado > GSM > Prompts`, removendo `Perfil` do card de módulos e escondendo módulos quando não há casa vinculada.
+- Usuários sem casa passaram a cair em `/profile` ao acessar módulos, mantendo os atalhos globais do `SuperAdmin` como exceção operacional.
 
 ## [1.9.0] - 2026-07-09
 

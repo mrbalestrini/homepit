@@ -397,3 +397,38 @@ describe("useProjectDashboard sort persistence", () => {
     await waitFor(() => expect(window.localStorage.getItem(uiStorageKeys.projectActivitySort)).toBe("priority"));
   });
 });
+
+describe("useProjectDashboard profile redirect", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("redirects a regular user without households to /profile", async () => {
+    const session = {
+      ...buildSession(),
+      households: [],
+    };
+
+    mockedReadSession.mockReturnValue(session);
+    mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
+    mockedApiFetch.mockImplementation(async (path: string) => {
+      if (
+        path === "/api/universes" ||
+        path === "/api/projects" ||
+        path === "/api/activities" ||
+        path === "/api/households/members"
+      ) {
+        return [];
+      }
+
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    renderHook(() => useProjectDashboard());
+
+    await waitFor(() =>
+      expect((globalThis as any).__nextNavigationMock.replace).toHaveBeenCalledWith("/profile"),
+    );
+  });
+});

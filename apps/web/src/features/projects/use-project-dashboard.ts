@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Activity,
@@ -111,6 +112,8 @@ function updateProjectActivityCounts(
 }
 
 export function useProjectDashboard() {
+  const pathname = usePathname();
+  const router = useRouter();
   const [session, setSession] = useState<AuthResponse | null>(null);
   const [activeHouseholdId, setActiveHouseholdId] = useState("");
   const [universes, setUniverses] = useState<Universe[]>([]);
@@ -232,6 +235,26 @@ export function useProjectDashboard() {
   useEffect(() => {
     applyDocumentTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    if (session.user.systemRole === "SuperAdmin") {
+      return;
+    }
+
+    if (session.households.length > 0) {
+      return;
+    }
+
+    if (pathname === "/profile" || pathname === "/household") {
+      return;
+    }
+
+    router.replace("/profile");
+  }, [pathname, router, session]);
 
   useEffect(() => {
     activeHouseholdIdRef.current = activeHouseholdId;

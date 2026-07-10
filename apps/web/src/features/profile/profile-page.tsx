@@ -26,6 +26,8 @@ import {
   type DeleteOwnAccountResult,
   type PlanCreationItem,
   type PlanCreationScope,
+  type PlanDefinition,
+  type PublicPlatformSettings,
   apiFetch,
   clearSession,
   updateStoredSession,
@@ -118,6 +120,9 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   const [photoCropDraft, setPhotoCropDraft] = useState<ProfilePhotoCropDraft | null>(null);
   const [planSummary, setPlanSummary] = useState<CurrentUserPlanSummary | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
+  const [planCatalog, setPlanCatalog] = useState<PlanDefinition[]>([]);
+  const [planCatalogLoading, setPlanCatalogLoading] = useState(true);
+  const [publicPlatformSettings, setPublicPlatformSettings] = useState<PublicPlatformSettings | null>(null);
   const [creationScope, setCreationScope] = useState<PlanCreationScope | null>(null);
   const [creationItems, setCreationItems] = useState<PlanCreationItem[]>([]);
   const [creationLoading, setCreationLoading] = useState(false);
@@ -337,6 +342,62 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
     };
   }, [token]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setPlanCatalogLoading(true);
+
+        try {
+          const nextPlans = await apiFetch<PlanDefinition[]>("/api/plans");
+
+          if (!cancelled) {
+            setPlanCatalog(nextPlans);
+          }
+        } catch (exception) {
+          if (!cancelled) {
+            toast.error(exception instanceof Error ? exception.message : "Não foi possível carregar os planos.");
+          }
+        } finally {
+          if (!cancelled) {
+            setPlanCatalogLoading(false);
+          }
+        }
+      })();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const nextSettings = await apiFetch<PublicPlatformSettings>("/api/platform-settings");
+
+          if (!cancelled) {
+            setPublicPlatformSettings(nextSettings);
+          }
+        } catch {
+          if (!cancelled) {
+            setPublicPlatformSettings(null);
+          }
+        }
+      })();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+
   const quotaCards = planSummary
     ? [
         {
@@ -371,6 +432,10 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
         },
       ]
     : [];
+  const requestContact = resolveSubscriptionRequestContact(
+    publicPlatformSettings,
+    session.user.supportEmail ?? null,
+  );
 
   return (
     <div className="space-y-4">
@@ -484,6 +549,41 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                   </Button>
                 </div>
               </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Solicitar assinatura</CardTitle>
+              <CardDescription>Escolha um plano e envie a solicitação já com o valor e o contato certo.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {planCatalogLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  Carregando planos...
+                </div>
+              ) : planCatalog.length === 0 ? (
+                <Notice tone="warning">Nenhum plano público foi encontrado para solicitar no momento.</Notice>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>Destino automático:</span>
+                    <Badge variant="neutral">{requestContact.label}</Badge>
+                    <span>{requestContact.description}</span>
+                  </div>
+                  <div className="grid gap-3 xl:grid-cols-2">
+                    {planCatalog.map((plan) => (
+                      <PlanRequestCard
+                        key={plan.id}
+                        plan={plan}
+                        requestHref={buildSubscriptionRequestLink(plan, requestContact)}
+                        requestLabel={requestContact.actionLabel}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -793,6 +893,48 @@ function QuotaOverviewCard({
   );
 }
 
+function PlanRequestCard({
+  plan,
+  requestHref,
+  requestLabel,
+}: {
+  plan: PlanDefinition;
+  requestHref: string;
+  requestLabel: string;
+}) {
+  return (
+    <div className="rounded-[22px] border border-border/70 bg-surface-muted p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-foreground">{plan.name}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{plan.slug}</p>
+        </div>
+        <Badge variant="neutral">{requestLabel}</Badge>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Badge variant="outline">{formatCurrency(plan.monthlyPrice, plan.currencyCode)}/mês</Badge>
+        <Badge variant="neutral">{formatCurrency(plan.annualPrice, plan.currencyCode)}/ano</Badge>
+      </div>
+      <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
+        <p>Casas: {plan.maxOwnedHouseholds}</p>
+        <p>Universos: {plan.maxUniverses}</p>
+        <p>Projetos: {plan.maxProjects}</p>
+        <p>Membros convidados: {plan.maxInvitedMembers ?? "ilimitados"}</p>
+        <p>Imagens originais: {plan.maxOriginalImages}</p>
+      </div>
+      <p className="mt-4 text-sm leading-6 text-muted-foreground">{plan.imagePolicyDescription}</p>
+      <div className="mt-5">
+        <Button asChild className="w-full">
+          <a href={requestHref}>
+            <Sparkles />
+            Solicitar assinatura
+          </a>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function getCreationScopeLabel(scope: PlanCreationScope, singular = false) {
   switch (scope) {
     case "households":
@@ -886,4 +1028,81 @@ function formatSubscriptionStatus(value: "Scheduled" | "Active" | "Expired" | "C
     default:
       return value;
   }
+}
+
+function resolveSubscriptionRequestContact(
+  platformSettings: PublicPlatformSettings | null,
+  supportEmail: string | null,
+) {
+  const contactPhone = normalizePhoneNumber(platformSettings?.contactPhone ?? "");
+  if (contactPhone) {
+    return {
+      kind: "whatsapp" as const,
+      label: "WhatsApp",
+      description: "usando o número comercial cadastrado",
+      actionLabel: "Abrir WhatsApp",
+      destination: contactPhone,
+    };
+  }
+
+  const contactEmail = normalizeContactEmail(platformSettings?.contactEmail ?? "") ?? normalizeContactEmail(supportEmail ?? "");
+  if (contactEmail) {
+    return {
+      kind: "email" as const,
+      label: "E-mail",
+      description: "usando o e-mail de contato cadastrado",
+      actionLabel: "Enviar e-mail",
+      destination: contactEmail,
+    };
+  }
+
+  return {
+    kind: "email" as const,
+    label: "E-mail",
+    description: "usando o e-mail do superadmin",
+    actionLabel: "Enviar e-mail",
+    destination: supportEmail ?? "",
+  };
+}
+
+function buildSubscriptionRequestLink(
+  plan: PlanDefinition,
+  contact: ReturnType<typeof resolveSubscriptionRequestContact>,
+) {
+  const message = buildSubscriptionRequestMessage(plan);
+
+  if (contact.kind === "whatsapp") {
+    return `https://wa.me/${contact.destination}?text=${encodeURIComponent(message)}`;
+  }
+
+  return `mailto:${contact.destination}?subject=${encodeURIComponent(`Interesse no plano ${plan.name} - HomePit`)}&body=${encodeURIComponent(message)}`;
+}
+
+function buildSubscriptionRequestMessage(plan: PlanDefinition) {
+  return [
+    `Olá! Tenho interesse no plano ${plan.name} do HomePit.`,
+    "",
+    "Valores:",
+    `- Mensal: ${formatCurrency(plan.monthlyPrice, plan.currencyCode)}`,
+    `- Anual: ${formatCurrency(plan.annualPrice, plan.currencyCode)}`,
+    "",
+    "Limites:",
+    `- Casas: ${plan.maxOwnedHouseholds}`,
+    `- Universos: ${plan.maxUniverses}`,
+    `- Projetos: ${plan.maxProjects}`,
+    `- Membros convidados: ${plan.maxInvitedMembers ?? "ilimitados"}`,
+    `- Imagens originais: ${plan.maxOriginalImages}`,
+    "",
+    "Gostaria de receber as próximas orientações para contratar esse plano.",
+  ].join("\n");
+}
+
+function normalizePhoneNumber(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits.length > 0 ? digits : "";
+}
+
+function normalizeContactEmail(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }

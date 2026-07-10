@@ -25,7 +25,6 @@ import {
   Trash2,
   UserPlus,
   Users,
-  UserRound,
   Wallet,
   X,
 } from "lucide-react";
@@ -105,25 +104,19 @@ const moduleIcons = {
   prompts: Sparkles,
   household: ShieldCheck,
   gsm: Smartphone,
-  profile: UserRound,
-  platform: Users,
   market: ShoppingCart,
   finance: Wallet,
   routines: Repeat2,
-  institutional: Globe2,
 };
 
 const modules = [
-  { key: "projects", label: "Projetos", href: "/projects", state: "active" as const, superAdminOnly: false },
-  { key: "prompts", label: "Prompts", href: "/prompts", state: "active" as const, superAdminOnly: false },
   { key: "household", label: "Casa", href: "/household", state: "active" as const, superAdminOnly: false },
-  { key: "gsm", label: "GSM", href: "/gsm", state: "active" as const, superAdminOnly: false },
-  { key: "profile", label: "Perfil", href: "/profile", state: "active" as const, superAdminOnly: false },
-  { key: "institutional", label: "Site institucional", href: "/admin/institutional", state: "active" as const, superAdminOnly: true },
-  { key: "platform", label: "Plataforma", href: "/admin/platform", state: "active" as const, superAdminOnly: true },
-  { key: "market", label: "Mercado", href: "#", state: "roadmap" as const, superAdminOnly: false },
-  { key: "finance", label: "Financeiro", href: "/finance", state: "active" as const, superAdminOnly: false },
   { key: "routines", label: "Rotinas", href: "#", state: "roadmap" as const, superAdminOnly: false },
+  { key: "projects", label: "Projetos", href: "/projects", state: "active" as const, superAdminOnly: false },
+  { key: "finance", label: "Financeiro", href: "/finance", state: "active" as const, superAdminOnly: false },
+  { key: "market", label: "Mercado", href: "#", state: "roadmap" as const, superAdminOnly: false },
+  { key: "gsm", label: "GSM", href: "/gsm", state: "active" as const, superAdminOnly: false },
+  { key: "prompts", label: "Prompts", href: "/prompts", state: "active" as const, superAdminOnly: false },
 ];
 
 const roleLabels: Record<Household["role"], string> = {
@@ -412,63 +405,66 @@ function SidebarContent({
         </div>
       </div>
 
-      <Card>
-        <CardContent className={cn("space-y-2 p-3", collapsed && "px-2")}>
-          <p className={cn("px-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground", collapsed && "sr-only")}>
-            Módulos
-          </p>
-          {modules.map((module) => {
-            if (module.superAdminOnly && controller.session?.user.systemRole !== "SuperAdmin") {
-              return null;
-            }
+      {controller.activeHouseholdId ? (
+        <Card>
+          <CardContent className={cn("space-y-2 p-3", collapsed && "px-2")}>
+            <p
+              className={cn(
+                "px-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground",
+                collapsed && "sr-only",
+              )}
+            >
+              Módulos
+            </p>
+            {modules.map((module) => {
+              const Icon = moduleIcons[module.key as keyof typeof moduleIcons];
+              const isActive = module.key === activeModule;
+              const isEnabled = module.state === "active";
 
-            const Icon = moduleIcons[module.key as keyof typeof moduleIcons];
-            const isActive = module.key === activeModule;
-            const isEnabled = module.state === "active";
+              if (!isEnabled) {
+                return (
+                  <button
+                    key={module.key}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-[16px] px-3 py-2.5 text-left text-muted-foreground transition hover:bg-surface-muted hover:text-foreground",
+                      collapsed && "justify-center px-2",
+                    )}
+                    type="button"
+                    disabled
+                    title={`${module.label} em breve`}
+                  >
+                    <Icon className="size-4 shrink-0" />
+                    {!collapsed ? (
+                      <>
+                        <span className="min-w-0 flex-1 text-sm font-semibold">{module.label}</span>
+                        <Badge variant="neutral">Em breve</Badge>
+                      </>
+                    ) : null}
+                  </button>
+                );
+              }
 
-            if (!isEnabled) {
               return (
-                <button
+                <Link
                   key={module.key}
+                  href={module.href}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-[16px] px-3 py-2.5 text-left text-muted-foreground transition hover:bg-surface-muted hover:text-foreground",
+                    "flex w-full items-center gap-3 rounded-[16px] px-3 py-2.5 text-left transition",
+                    isActive
+                      ? "bg-highlight text-accent-foreground shadow-xs"
+                      : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
                     collapsed && "justify-center px-2",
                   )}
-                  type="button"
-                  disabled
-                  title={`${module.label} em breve`}
+                  title={module.label}
                 >
                   <Icon className="size-4 shrink-0" />
-                  {!collapsed ? (
-                    <>
-                      <span className="min-w-0 flex-1 text-sm font-semibold">{module.label}</span>
-                      <Badge variant="neutral">Em breve</Badge>
-                    </>
-                  ) : null}
-                </button>
+                  {!collapsed ? <span className="min-w-0 flex-1 text-sm font-semibold">{module.label}</span> : null}
+                </Link>
               );
-            }
-
-            return (
-              <Link
-                key={module.key}
-                href={module.href}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-[16px] px-3 py-2.5 text-left transition",
-                  isActive
-                    ? "bg-highlight text-accent-foreground shadow-xs"
-                    : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
-                  collapsed && "justify-center px-2",
-                )}
-                title={module.label}
-              >
-                <Icon className="size-4 shrink-0" />
-                {!collapsed ? <span className="min-w-0 flex-1 text-sm font-semibold">{module.label}</span> : null}
-              </Link>
-            );
-          })}
-        </CardContent>
-      </Card>
+            })}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardContent className={cn("space-y-3 p-3", collapsed && "px-2")}>
@@ -788,6 +784,30 @@ function SidebarUserMenu({
             Perfil
           </Link>
         </DropdownMenuItem>
+        {user.systemRole === "SuperAdmin" ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Administração</DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+              <Link href="/admin/platform">
+                <Users className="size-4" />
+                Plataforma
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/admin/institutional">
+                <Globe2 className="size-4" />
+                Site institucional
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/admin/users">
+                <ShieldCheck className="size-4" />
+                Usuários
+              </Link>
+            </DropdownMenuItem>
+          </>
+        ) : null}
         <DropdownMenuItem onClick={onOpenToolImprovementSuggestion}>
           <Sparkles className="size-4" />
           Sugestão melhoria ferramenta

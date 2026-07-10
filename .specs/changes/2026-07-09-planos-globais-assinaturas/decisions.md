@@ -61,3 +61,21 @@
   governança global do `SuperAdmin` em uma única área.
 - Comentários do `SuperAdmin` são apenas internos nesta entrega; a pessoa autora não recebe
   histórico, retorno ou acompanhamento de status pela interface comum.
+## 2026-07-10 - convites de casa viram pendências aceitas manualmente
+
+- Compartilhamento de casa deixa de criar vínculo ativo na hora e passa a gerar convite
+  pendente com aceite ou recusa explícitos.
+- A resposta ao convite aparece na área de Casa do emissor e do convidado, mantendo o
+  status visível dentro da própria experiência da casa.
+- A lista de convites fica disponível mesmo quando a pessoa usuária ainda nao tem casa
+  vinculada.
+
+## 2026-07-10 - perfil concentra solicitação de assinatura
+
+- A página `/profile` expõe o catálogo público de planos e um CTA por plano para iniciar a
+  solicitação de assinatura.
+- O destino prioritário da solicitação é WhatsApp quando houver telefone comercial
+  cadastrado; na ausência dele, usa o e-mail de contato; se ambos estiverem ausentes, o
+  fallback é o e-mail do `SuperAdmin` vindo da sessão.
+- A mensagem enviada para contato inclui o nome do plano, valores mensal e anual e os
+  limites principais da oferta escolhida.

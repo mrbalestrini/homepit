@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Layers, Pencil, Share2, ShieldCheck, Sparkles, UserMinus } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, Inbox, Loader2, Layers, Pencil, Share2, ShieldCheck, Sparkles, UserMinus, XCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,8 +15,9 @@ import {
   Notice,
   HomePitWorkspaceShell,
 } from "@/features/workspace/homepit-workspace-shell";
-import { type HouseholdMember } from "@/lib/api";
+import { apiFetch, type Household, type HouseholdInvitation, type HouseholdMember } from "@/lib/api";
 import { useProjectDashboard } from "@/features/projects/use-project-dashboard";
+import { toast } from "sonner";
 
 export function HouseholdDashboard() {
   const dashboard = useProjectDashboard();
@@ -36,7 +37,6 @@ function HouseholdDashboardWorkspace({ dashboard }: { dashboard: ReturnType<type
   const households = dashboard.session?.households ?? [];
   const adminCount = dashboard.members.filter((member) => member.role === "Admin").length;
   const ownerCount = dashboard.members.filter((member) => member.role === "Owner").length;
-  const memberCount = dashboard.members.filter((member) => member.role === "Member").length;
   const headerStats = [
     { label: "Membros", value: dashboard.members.length },
     { label: "Proprietários", value: ownerCount },
@@ -82,19 +82,248 @@ function HouseholdDashboardWorkspace({ dashboard }: { dashboard: ReturnType<type
       visibleCount={dashboard.members.length}
       visibleLabel="pessoas"
       headerStats={headerStats}
+      requireHousehold={false}
     >
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Troca rápida</p>
-            <h2 className="mt-2 text-2xl font-semibold text-foreground">Navegue entre as casas e crie uma nova aqui mesmo</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Use esse painel para trocar de contexto sem sair da administração e abrir uma nova casa quando precisar.
-            </p>
-          </div>
+      <HouseholdWorkspaceContent dashboard={dashboard} households={households} />
+    </HomePitWorkspaceShell>
+  );
+}
 
-          <div className="flex flex-col gap-2 sm:flex-row lg:min-w-[360px] lg:justify-end">
-            {households.length > 1 ? (
+function HouseholdWorkspaceContent({
+  dashboard,
+  households,
+}: {
+  dashboard: ReturnType<typeof useProjectDashboard>;
+  households: Household[];
+}) {
+  const [invitations, setInvitations] = useState<HouseholdInvitation[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(true);
+  const [busyInvitationId, setBusyInvitationId] = useState<string | null>(null);
+  const adminCount = useMemo(() => dashboard.members.filter((member) => member.role === "Admin").length, [dashboard.members]);
+  const ownerCount = useMemo(() => dashboard.members.filter((member) => member.role === "Owner").length, [dashboard.members]);
+  const memberCount = useMemo(() => dashboard.members.filter((member) => member.role === "Member").length, [dashboard.members]);
+
+  const token = dashboard.session?.accessToken ?? "";
+
+  const incomingInvitations = useMemo(
+    () => invitations.filter((invitation) => invitation.isIncoming),
+    [invitations],
+  );
+  const outgoingInvitations = useMemo(
+    () => invitations.filter((invitation) => !invitation.isIncoming),
+    [invitations],
+  );
+
+  const loadInvitations = useCallback(async () => {
+    if (!token) {
+      setInvitesLoading(false);
+      return;
+    }
+
+    setInvitesLoading(true);
+
+    try {
+      const nextInvitations = await apiFetch<HouseholdInvitation[]>("/api/households/invitations", {
+        token,
+      });
+      setInvitations(nextInvitations);
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Não foi possível carregar os convites.");
+    } finally {
+      setInvitesLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadInvitations();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadInvitations]);
+
+  async function acceptInvitation(invitation: HouseholdInvitation) {
+    if (!token) {
+      return;
+    }
+
+    setBusyInvitationId(invitation.id);
+
+    try {
+      const household = await apiFetch<Household>(`/api/households/invitations/${invitation.id}/accept`, {
+        method: "POST",
+        token,
+      });
+
+      await dashboard.refreshHouseholds();
+      dashboard.handleHouseholdChange(household.id);
+      await loadInvitations();
+      toast.success(`Convite da casa ${invitation.householdName} aceito.`);
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Não foi possível aceitar o convite.");
+    } finally {
+      setBusyInvitationId(null);
+    }
+  }
+
+  async function declineInvitation(invitation: HouseholdInvitation) {
+    if (!token) {
+      return;
+    }
+
+    setBusyInvitationId(invitation.id);
+
+    try {
+      await apiFetch<void>(`/api/households/invitations/${invitation.id}/decline`, {
+        method: "POST",
+        token,
+      });
+
+      await loadInvitations();
+      toast.success(`Convite da casa ${invitation.householdName} recusado.`);
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Não foi possível recusar o convite.");
+    } finally {
+      setBusyInvitationId(null);
+    }
+  }
+
+  if (dashboard.loading && dashboard.members.length === 0 && invitesLoading) {
+    return (
+      <LoadingState
+        title="Carregando administração da casa"
+        description="Estamos reunindo membros, convites e atalhos antes de mostrar o painel."
+        icon={<ShieldCheck className="size-5 animate-pulse" />}
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_360px]">
+      <div className="space-y-3">
+        <HouseholdInviteSection
+          invitesLoading={invitesLoading}
+          incomingInvitations={incomingInvitations}
+          outgoingInvitations={outgoingInvitations}
+          busyInvitationId={busyInvitationId}
+          onAcceptInvitation={acceptInvitation}
+          onDeclineInvitation={declineInvitation}
+        />
+
+        <Card className="overflow-hidden">
+          <CardContent className="grid gap-6 p-0">
+            <div className="border-b border-border/70 bg-gradient-to-br from-surface-strong via-surface to-highlight/20 p-5 sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="max-w-2xl">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Administração da casa
+                  </p>
+                  <h1 className="mt-2 text-3xl font-semibold text-foreground">
+                    {dashboard.activeHousehold?.name ?? "Casa sem nome"}
+                  </h1>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+                    Centralize o nome da casa, o acesso das pessoas e os atalhos mais importantes em uma visão
+                    mais operacional, sem perder o histórico do que já foi feito.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">{dashboard.activeHousehold?.role ?? "Membro"}</Badge>
+                  <Badge variant="neutral">
+                    {dashboard.canShareHousehold ? "Pode convidar pessoas" : "Acesso limitado"}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Button onClick={dashboard.openEditHousehold} disabled={!dashboard.canManageHousehold}>
+                  <Pencil />
+                  Editar nome
+                </Button>
+                <Button variant="secondary" onClick={dashboard.openShareHousehold} disabled={!dashboard.canShareHousehold}>
+                  <Share2 />
+                  Compartilhar
+                </Button>
+                <Button asChild variant="ghost">
+                  <Link href="/projects">
+                    <Layers />
+                    Projetos
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost">
+                  <Link href="/prompts">
+                    <Sparkles />
+                    Prompts
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-3 px-5 pb-5 sm:px-6 lg:grid-cols-3">
+              <MetricCard label="Pessoas" value={dashboard.members.length} description="Pessoas vinculadas à casa" />
+              <MetricCard label="Admins" value={adminCount + ownerCount} description="Capazes de compartilhar a casa" />
+              <MetricCard label="Membros" value={memberCount} description="Pessoas com acesso básico" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Membros</CardTitle>
+            <CardDescription>Os vínculos da casa preservam histórico, comentários e autoria.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {dashboard.members.length ? (
+              dashboard.members.map((member) => (
+                <MemberRow
+                  key={`${member.id}-${member.role}`}
+                  member={member}
+                  householdId={dashboard.activeHouseholdId}
+                  token={dashboard.session?.accessToken}
+                  canManageHousehold={dashboard.canManageHousehold}
+                  onUpdateRole={dashboard.updateHouseholdMember}
+                  onRemove={dashboard.removeHouseholdMember}
+                />
+              ))
+            ) : (
+              <Notice tone="warning">Ainda não há membros carregados para esta casa.</Notice>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-3">
+        {!dashboard.activeHouseholdId ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Sem casa vinculada</CardTitle>
+              <CardDescription>Veja os convites pendentes ou crie uma nova casa para começar.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {incomingInvitations.length === 0 ? (
+                <Notice tone="warning">Nenhum convite aguardando sua resposta no momento.</Notice>
+              ) : null}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button onClick={dashboard.openCreateHousehold}>
+                  <ShieldCheck />
+                  Nova casa
+                </Button>
+                <Button variant="secondary" onClick={() => void loadInvitations()} disabled={invitesLoading}>
+                  <Inbox />
+                  Atualizar convites
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {households.length > 1 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Troca rápida</CardTitle>
+              <CardDescription>Troque de casa sem sair da administração.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
               <Select
                 value={dashboard.activeHouseholdId}
                 onChange={(event) => dashboard.handleHouseholdChange(event.target.value)}
@@ -106,111 +335,80 @@ function HouseholdDashboardWorkspace({ dashboard }: { dashboard: ReturnType<type
                   </option>
                 ))}
               </Select>
-            ) : null}
-            <Button onClick={dashboard.openCreateHousehold}>
-              <ShieldCheck />
-              Nova casa
-            </Button>
+              <Button onClick={dashboard.openCreateHousehold}>
+                <ShieldCheck />
+                Nova casa
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function HouseholdInviteSection({
+  invitesLoading,
+  incomingInvitations,
+  outgoingInvitations,
+  busyInvitationId,
+  onAcceptInvitation,
+  onDeclineInvitation,
+}: {
+  invitesLoading: boolean;
+  incomingInvitations: HouseholdInvitation[];
+  outgoingInvitations: HouseholdInvitation[];
+  busyInvitationId: string | null;
+  onAcceptInvitation: (invitation: HouseholdInvitation) => Promise<void>;
+  onDeclineInvitation: (invitation: HouseholdInvitation) => Promise<void>;
+}) {
+  if (invitesLoading && incomingInvitations.length === 0 && outgoingInvitations.length === 0) {
+    return (
+      <LoadingState
+        title="Carregando convites"
+        description="Estamos reunindo os convites recebidos e enviados."
+        icon={<Inbox className="size-5 animate-pulse" />}
+      />
+    );
+  }
+
+  if (incomingInvitations.length === 0 && outgoingInvitations.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Convites</CardTitle>
+        <CardDescription>Convites recebidos aparecem aqui para aceitar ou recusar. Os enviados mostram o status atual.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {incomingInvitations.length > 0 ? (
+          <div className="space-y-2">
+            <SectionLabel>Recebidos</SectionLabel>
+            {incomingInvitations.map((invitation) => (
+              <InvitationRow
+                key={invitation.id}
+                invitation={invitation}
+                busy={busyInvitationId === invitation.id}
+                onAccept={() => void onAcceptInvitation(invitation)}
+                onDecline={() => void onDeclineInvitation(invitation)}
+                incoming
+              />
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        ) : null}
 
-      {dashboard.loading && dashboard.members.length === 0 ? (
-        <LoadingState
-          title="Carregando administração da casa"
-          description="Estamos reunindo membros, permissões e atalhos antes de mostrar o painel."
-          icon={<ShieldCheck className="size-5 animate-pulse" />}
-        />
-      ) : (
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_360px]">
-          <div className="space-y-3">
-            <Card className="overflow-hidden">
-              <CardContent className="grid gap-6 p-0">
-                <div className="border-b border-border/70 bg-gradient-to-br from-surface-strong via-surface to-highlight/20 p-5 sm:p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="max-w-2xl">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                        Administração da casa
-                      </p>
-                      <h1 className="mt-2 text-3xl font-semibold text-foreground">
-                        {dashboard.activeHousehold?.name ?? "Casa sem nome"}
-                      </h1>
-                      <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-                        Centralize o nome da casa, o acesso das pessoas e os atalhos mais importantes em uma visão
-                        mais operacional, sem perder o histórico do que já foi feito.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">{dashboard.activeHousehold?.role ?? "Membro"}</Badge>
-                      <Badge variant="neutral">
-                        {dashboard.canShareHousehold ? "Pode convidar pessoas" : "Acesso limitado"}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <Button onClick={dashboard.openEditHousehold} disabled={!dashboard.canManageHousehold}>
-                      <Pencil />
-                      Editar nome
-                    </Button>
-                    <Button variant="secondary" onClick={dashboard.openShareHousehold} disabled={!dashboard.canShareHousehold}>
-                      <Share2 />
-                      Compartilhar
-                    </Button>
-                    <Button asChild variant="ghost">
-                      <Link href="/projects">
-                        <Layers />
-                        Projetos
-                      </Link>
-                    </Button>
-                    <Button asChild variant="ghost">
-                      <Link href="/prompts">
-                        <Sparkles />
-                        Prompts
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 px-5 pb-5 sm:px-6 lg:grid-cols-3">
-                  <MetricCard label="Pessoas" value={dashboard.members.length} description="Pessoas vinculadas à casa" />
-                  <MetricCard label="Admins" value={adminCount} description="Capazes de compartilhar a casa" />
-                  <MetricCard label="Membros" value={memberCount} description="Pessoas com acesso básico" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Membros</CardTitle>
-                <CardDescription>Os vínculos da casa preservam histórico, comentários e autoria.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {dashboard.members.length ? (
-                  dashboard.members.map((member) => (
-                    <MemberRow
-                      key={`${member.id}-${member.role}`}
-                      member={member}
-                      householdId={dashboard.activeHouseholdId}
-                      token={dashboard.session?.accessToken}
-                      canManageHousehold={dashboard.canManageHousehold}
-                      onUpdateRole={dashboard.updateHouseholdMember}
-                      onRemove={dashboard.removeHouseholdMember}
-                    />
-                  ))
-                ) : (
-                  <Notice tone="warning">Ainda não há membros carregados para esta casa.</Notice>
-                )}
-              </CardContent>
-            </Card>
+        {outgoingInvitations.length > 0 ? (
+          <div className="space-y-2">
+            <SectionLabel>Enviados</SectionLabel>
+            {outgoingInvitations.map((invitation) => (
+              <InvitationRow key={invitation.id} invitation={invitation} busy={false} incoming={false} />
+            ))}
           </div>
-
-          <div className="space-y-3">
-          </div>
-        </div>
-      )}
-    </HomePitWorkspaceShell>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -230,6 +428,73 @@ function MetricCard({
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
     </div>
   );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{children}</p>;
+}
+
+function InvitationRow({
+  invitation,
+  busy,
+  incoming,
+  onAccept,
+  onDecline,
+}: {
+  invitation: HouseholdInvitation;
+  busy: boolean;
+  incoming: boolean;
+  onAccept?: () => void;
+  onDecline?: () => void;
+}) {
+  const statusLabel =
+    invitation.status === "Pending"
+      ? "Pendente"
+      : invitation.status === "Accepted"
+        ? "Aceito"
+        : "Recusado";
+
+  return (
+    <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-semibold text-foreground">{invitation.householdName}</p>
+            <Badge variant={invitation.status === "Pending" ? "neutral" : invitation.status === "Accepted" ? "success" : "danger"}>
+              {statusLabel}
+            </Badge>
+            <Badge variant="outline">{invitation.role}</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {incoming ? `Convidado por ${invitation.inviterDisplayName || "outro membro"}` : `Enviado para ${invitation.inviteeEmail}`}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Enviado em {formatDateTime(invitation.invitedAt)}
+            {invitation.respondedAt ? ` • Respondido em ${formatDateTime(invitation.respondedAt)}` : ""}
+          </p>
+        </div>
+        {incoming && invitation.status === "Pending" ? (
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={onAccept} disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+              Aceitar
+            </Button>
+            <Button variant="secondary" onClick={onDecline} disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" /> : <XCircle />}
+              Recusar
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function ShortcutButton({

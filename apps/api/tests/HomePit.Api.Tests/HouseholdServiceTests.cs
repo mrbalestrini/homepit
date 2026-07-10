@@ -89,6 +89,106 @@ public sealed class HouseholdServiceTests
         Assert.False(member.IsCurrentUser);
     }
 
+    [Fact]
+    public async Task Owner_can_create_pending_invitation_and_invitee_can_list_it()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var invitee = new AppUser
+        {
+            Email = "invitee@homepit.dev",
+            PasswordHash = "hash",
+            DisplayName = "Invitee",
+            SystemRole = SystemRole.User
+        };
+        context.Users.Add(invitee);
+        await context.SaveChangesAsync();
+
+        var ownerService = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+        var invitation = await ownerService.ShareAsync(
+            new ShareHouseholdRequest(invitee.Email, HouseholdRole.Admin),
+            CancellationToken.None);
+
+        Assert.Equal(HouseholdInvitationStatus.Pending, invitation.Status);
+        Assert.False(invitation.IsIncoming);
+        Assert.Equal(fixture.HouseholdId, invitation.HouseholdId);
+
+        var storedInvitation = await context.HouseholdInvitations.SingleAsync(item => item.Id == invitation.Id);
+        Assert.Equal(invitee.Email, storedInvitation.InviteeEmail);
+        Assert.Equal(HouseholdInvitationStatus.Pending, storedInvitation.Status);
+
+        var inviteeService = CreateService(context, invitee.Id, null);
+        var invitations = await inviteeService.ListInvitationsAsync(CancellationToken.None);
+
+        var listed = Assert.Single(invitations);
+        Assert.True(listed.IsIncoming);
+        Assert.Equal(invitation.Id, listed.Id);
+        Assert.Equal(invitation.HouseholdId, listed.HouseholdId);
+    }
+
+    [Fact]
+    public async Task Invitee_can_accept_pending_invitation_and_join_household()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var invitee = new AppUser
+        {
+            Email = "invitee-accept@homepit.dev",
+            PasswordHash = "hash",
+            DisplayName = "Invitee",
+            SystemRole = SystemRole.User
+        };
+        context.Users.Add(invitee);
+        await context.SaveChangesAsync();
+
+        var ownerService = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+        var invitation = await ownerService.ShareAsync(
+            new ShareHouseholdRequest(invitee.Email, HouseholdRole.Member),
+            CancellationToken.None);
+
+        var inviteeService = CreateService(context, invitee.Id, null);
+        var household = await inviteeService.AcceptInvitationAsync(invitation.Id, CancellationToken.None);
+
+        Assert.Equal(fixture.HouseholdId, household.Id);
+        Assert.Equal(HouseholdRole.Member, household.Role);
+
+        var member = await context.HouseholdMembers.SingleAsync(item => item.UserId == invitee.Id && item.HouseholdId == fixture.HouseholdId);
+        Assert.True(member.IsActive);
+        Assert.Equal(HouseholdRole.Member, member.Role);
+
+        var storedInvitation = await context.HouseholdInvitations.SingleAsync(item => item.Id == invitation.Id);
+        Assert.Equal(HouseholdInvitationStatus.Accepted, storedInvitation.Status);
+        Assert.NotNull(storedInvitation.RespondedAt);
+    }
+
+    [Fact]
+    public async Task Invitee_can_decline_pending_invitation()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var invitee = new AppUser
+        {
+            Email = "invitee-decline@homepit.dev",
+            PasswordHash = "hash",
+            DisplayName = "Invitee",
+            SystemRole = SystemRole.User
+        };
+        context.Users.Add(invitee);
+        await context.SaveChangesAsync();
+
+        var ownerService = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId);
+        var invitation = await ownerService.ShareAsync(
+            new ShareHouseholdRequest(invitee.Email, HouseholdRole.Member),
+            CancellationToken.None);
+
+        var inviteeService = CreateService(context, invitee.Id, null);
+        await inviteeService.DeclineInvitationAsync(invitation.Id, CancellationToken.None);
+
+        var storedInvitation = await context.HouseholdInvitations.SingleAsync(item => item.Id == invitation.Id);
+        Assert.Equal(HouseholdInvitationStatus.Declined, storedInvitation.Status);
+        Assert.NotNull(storedInvitation.RespondedAt);
+    }
+
     private static HomePitDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<HomePitDbContext>()
@@ -98,7 +198,7 @@ public sealed class HouseholdServiceTests
         return new HomePitDbContext(options);
     }
 
-    private static HouseholdService CreateService(HomePitDbContext context, Guid userId, Guid householdId)
+    private static HouseholdService CreateService(HomePitDbContext context, Guid userId, Guid? householdId)
     {
         var userContext = new TestUserContext(userId, householdId);
         var storage = new FakeObjectStorage();
@@ -108,7 +208,8 @@ public sealed class HouseholdServiceTests
             context,
             userContext,
             new HomePitDataPurgeService(context, storage),
-            commercialPlanService);
+            commercialPlanService,
+            TimeProvider.System);
     }
 
     private static async Task<HouseholdFixture> SeedFixtureAsync(HomePitDbContext context, bool includeSecondOwner = true)
@@ -131,7 +232,8 @@ public sealed class HouseholdServiceTests
         };
         var household = new Household
         {
-            Name = "Casa Teste"
+            Name = "Casa Teste",
+            CreatedByUserId = ownerUser.Id
         };
         var ownerMember = new HouseholdMember
         {

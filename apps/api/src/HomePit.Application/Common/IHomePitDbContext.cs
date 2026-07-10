@@ -16,6 +16,7 @@ public interface IHomePitDbContext
     DbSet<AppUser> Users { get; }
     DbSet<Household> Households { get; }
     DbSet<HouseholdMember> HouseholdMembers { get; }
+    DbSet<HouseholdInvitation> HouseholdInvitations { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
     DbSet<InstitutionalPage> InstitutionalPages { get; }
     DbSet<InstitutionalBenefit> InstitutionalBenefits { get; }

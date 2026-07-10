@@ -24,6 +24,22 @@ export type HouseholdMember = {
   isCurrentUser: boolean;
 };
 
+export type HouseholdInvitationStatus = "Pending" | "Accepted" | "Declined";
+
+export type HouseholdInvitation = {
+  id: string;
+  householdId: string;
+  householdName: string;
+  inviteeEmail: string;
+  inviterUserId: string;
+  inviterDisplayName: string;
+  role: "Owner" | "Admin" | "Member";
+  status: HouseholdInvitationStatus;
+  invitedAt: string;
+  respondedAt?: string | null;
+  isIncoming: boolean;
+};
+
 export type User = {
   id: string;
   email: string;
@@ -101,6 +117,18 @@ export type PlatformSettings = {
   contactEmail: string;
   contactPhone: string;
   managementPhone: string;
+  instagram: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  canShowAddressOnLanding: boolean;
+};
+
+export type PublicPlatformSettings = {
+  contactEmail: string;
+  contactPhone: string;
   instagram: string;
   addressLine1: string;
   addressLine2: string;

@@ -101,6 +101,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PublicPlatformSettings"
+  /api/plans:
+    get:
+      security: []
+      responses:
+        "200":
+          description: Public catalog of commercial plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanDefinition"
   /api/admin/institutional-page:
     get:
       responses:
@@ -215,11 +227,50 @@ paths:
               $ref: "#/components/schemas/ShareHouseholdRequest"
       responses:
         "201":
-          description: Household shared with existing user
+          description: Household invitation created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HouseholdMember"
+                $ref: "#/components/schemas/HouseholdInvitation"
+  /api/households/invitations:
+    get:
+      responses:
+        "200":
+          description: Household invitations visible to the current user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HouseholdInvitation"
+  /api/households/invitations/{id}/accept:
+    post:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Household accepted from a pending invitation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Household"
+  /api/households/invitations/{id}/decline:
+    post:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Invitation declined
   /api/households/members/{id}:
     put:
       parameters:
@@ -2682,6 +2733,43 @@ components:
           type: string
           format: date-time
         isOwnedByCurrentUser:
+          type: boolean
+    HouseholdInvitationStatus:
+      type: string
+      enum: [Pending, Accepted, Declined]
+    HouseholdInvitation:
+      type: object
+      required:
+        [id, householdId, householdName, inviteeEmail, inviterUserId, inviterDisplayName, role, status, invitedAt, isIncoming]
+      properties:
+        id:
+          type: string
+          format: uuid
+        householdId:
+          type: string
+          format: uuid
+        householdName:
+          type: string
+        inviteeEmail:
+          type: string
+          format: email
+        inviterUserId:
+          type: string
+          format: uuid
+        inviterDisplayName:
+          type: string
+        role:
+          enum: [Owner, Admin, Member]
+        status:
+          $ref: "#/components/schemas/HouseholdInvitationStatus"
+        invitedAt:
+          type: string
+          format: date-time
+        respondedAt:
+          type: string
+          format: date-time
+          nullable: true
+        isIncoming:
           type: boolean
     HouseholdMember:
       type: object
