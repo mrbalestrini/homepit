@@ -801,6 +801,57 @@ namespace HomePit.Infrastructure.Migrations
                     b.ToTable("households", "homepit");
                 });
 
+            modelBuilder.Entity("HomePit.Domain.Households.HouseholdInvitation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("InviteeEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<DateTimeOffset>("InvitedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("InviterUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId", "InviteeEmail")
+                        .IsUnique();
+
+                    b.HasIndex("InviteeEmail", "Status");
+
+                    b.HasIndex("InviterUserId");
+
+                    b.ToTable("household_invitations", "homepit");
+                });
+
             modelBuilder.Entity("HomePit.Domain.Households.HouseholdMember", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2309,6 +2360,25 @@ namespace HomePit.Infrastructure.Migrations
                     b.Navigation("CreatedByUser");
                 });
 
+            modelBuilder.Entity("HomePit.Domain.Households.HouseholdInvitation", b =>
+                {
+                    b.HasOne("HomePit.Domain.Households.Household", "Household")
+                        .WithMany("Invitations")
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HomePit.Domain.Households.AppUser", "InviterUser")
+                        .WithMany("SentHouseholdInvitations")
+                        .HasForeignKey("InviterUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Household");
+
+                    b.Navigation("InviterUser");
+                });
+
             modelBuilder.Entity("HomePit.Domain.Households.HouseholdMember", b =>
                 {
                     b.HasOne("HomePit.Domain.Households.Household", "Household")
@@ -2659,6 +2729,8 @@ namespace HomePit.Infrastructure.Migrations
 
                     b.Navigation("RefreshTokens");
 
+                    b.Navigation("SentHouseholdInvitations");
+
                     b.Navigation("Subscriptions");
                 });
 
@@ -2684,6 +2756,8 @@ namespace HomePit.Infrastructure.Migrations
 
                     b.Navigation("GsmRecharges");
 
+                    b.Navigation("Invitations");
+
                     b.Navigation("Members");
 
                     b.Navigation("MemberEffortAllocations");
@@ -2695,6 +2769,13 @@ namespace HomePit.Infrastructure.Migrations
                     b.Navigation("Prompts");
 
                     b.Navigation("Universes");
+                });
+
+            modelBuilder.Entity("HomePit.Domain.Households.HouseholdInvitation", b =>
+                {
+                    b.Navigation("Household");
+
+                    b.Navigation("InviterUser");
                 });
 
             modelBuilder.Entity("HomePit.Domain.Households.HouseholdMember", b =>
