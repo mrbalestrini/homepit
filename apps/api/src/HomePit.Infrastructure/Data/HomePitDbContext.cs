@@ -653,14 +653,16 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
 
         modelBuilder.Entity<MemberEffortAllocation>(builder =>
         {
-            builder.ToTable("member_effort_allocations");
+            builder.ToTable("member_effort_allocations", tableBuilder =>
+            {
+                tableBuilder.HasCheckConstraint("CK_member_effort_allocations_points_non_negative", "\"Points\" >= 0");
+                tableBuilder.HasCheckConstraint(
+                    "CK_member_effort_allocations_scope",
+                    "(\"ScopeType\" = 'Household' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Universe' AND \"UniverseId\" IS NOT NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Project' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NOT NULL)");
+            });
             builder.Property(item => item.ScopeType).HasConversion<string>().HasMaxLength(20).IsRequired();
             builder.Property(item => item.Weekday).HasConversion<string>().HasMaxLength(20).IsRequired();
             builder.Property(item => item.Points).HasPrecision(8, 2);
-            builder.HasCheckConstraint("CK_member_effort_allocations_points_non_negative", "\"Points\" >= 0");
-            builder.HasCheckConstraint(
-                "CK_member_effort_allocations_scope",
-                "(\"ScopeType\" = 'Household' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Universe' AND \"UniverseId\" IS NOT NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Project' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NOT NULL)");
             builder.HasIndex(item => new { item.HouseholdMemberId, item.Weekday })
                 .IsUnique()
                 .HasFilter("\"ScopeType\" = 'Household'");
