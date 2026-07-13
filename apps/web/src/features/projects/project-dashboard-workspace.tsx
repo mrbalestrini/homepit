@@ -905,13 +905,16 @@ export function ActivityListView({ dashboard }: { dashboard: ProjectDashboardCon
                           <div className="mt-0.5 text-xs text-muted-foreground">{activity.pendingCount} pendências</div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <ActivityActionMenu
-                            activity={activity}
-                            onOpen={() => dashboard.openActivity(activity)}
-                            onEdit={activity.canEdit ? () => dashboard.openEditActivity(activity) : undefined}
-                            onDelete={
-                              activity.canDelete
-                                ? () => void dashboard.deleteActivity(activity).catch(() => undefined)
+              <ActivityActionMenu
+                activity={activity}
+                onOpen={() => dashboard.openActivity(activity)}
+                onAssignToMe={
+                  dashboard.canAssignActivityToMe(activity) ? () => void dashboard.assignActivityToMe(activity).catch(() => undefined) : undefined
+                }
+                onEdit={activity.canEdit ? () => dashboard.openEditActivity(activity) : undefined}
+                onDelete={
+                  activity.canDelete
+                    ? () => void dashboard.deleteActivity(activity).catch(() => undefined)
                                 : undefined
                             }
                           />
@@ -1137,6 +1140,9 @@ function KanbanColumn({
                 householdId={dashboard.activeHouseholdId}
                 onOpenImage={onOpenImage}
                 onOpen={() => dashboard.openActivity(activity)}
+                onAssignToMe={
+                  dashboard.canAssignActivityToMe(activity) ? () => void dashboard.assignActivityToMe(activity).catch(() => undefined) : undefined
+                }
                 onEdit={activity.canEdit ? () => dashboard.openEditActivity(activity) : undefined}
                 onDelete={
                   activity.canDelete
@@ -1208,6 +1214,7 @@ function SortableActivityCard({
   householdId,
   onOpenImage,
   onOpen,
+  onAssignToMe,
   onEdit,
   onDelete,
   isDropTarget,
@@ -1218,6 +1225,7 @@ function SortableActivityCard({
   householdId?: string;
   onOpenImage: (title: string, imageUrl: string) => void;
   onOpen: () => void;
+  onAssignToMe?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
   isDropTarget: boolean;
@@ -1241,6 +1249,7 @@ function SortableActivityCard({
         householdId={householdId}
         onOpenImage={onOpenImage}
         onOpen={onOpen}
+        onAssignToMe={onAssignToMe}
         onEdit={onEdit}
         onDelete={onDelete}
         dragHandleProps={activity.canEdit ? { ...attributes, ...listeners } : undefined}
@@ -1258,6 +1267,7 @@ export function ActivityCard({
   householdId,
   onOpenImage,
   onOpen,
+  onAssignToMe,
   onEdit,
   onDelete,
   dragging = false,
@@ -1270,6 +1280,7 @@ export function ActivityCard({
   householdId?: string;
   onOpenImage?: (title: string, imageUrl: string) => void;
   onOpen: () => void;
+  onAssignToMe?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
   dragging?: boolean;
@@ -1337,7 +1348,13 @@ export function ActivityCard({
               </button>
             ) : null}
 
-            <ActivityActionMenu activity={activity} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
+            <ActivityActionMenu
+              activity={activity}
+              onOpen={onOpen}
+              onAssignToMe={onAssignToMe}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
           </div>
         </div>
 
@@ -1489,11 +1506,13 @@ export function ActivityDragPreview({
 function ActivityActionMenu({
   activity,
   onOpen,
+  onAssignToMe,
   onEdit,
   onDelete,
 }: {
   activity: Activity;
   onOpen: () => void;
+  onAssignToMe?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
 }) {
@@ -1507,6 +1526,7 @@ function ActivityActionMenu({
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Atividade</DropdownMenuLabel>
         <DropdownMenuItem onClick={onOpen}>Abrir detalhes</DropdownMenuItem>
+        {onAssignToMe ? <DropdownMenuItem onClick={onAssignToMe}>Atribuir-me</DropdownMenuItem> : null}
         {onEdit ? <DropdownMenuItem onClick={onEdit}>Editar</DropdownMenuItem> : null}
         {onDelete ? (
           <>

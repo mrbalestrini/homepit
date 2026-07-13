@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Activity, AuthResponse, Project } from "@/lib/api";
+import type { Activity, AuthResponse, HouseholdMember, Project } from "@/lib/api";
 import * as api from "@/lib/api";
 import { readStoredActiveHouseholdId, storeActiveHouseholdId } from "@/lib/household-selection";
 import { uiStorageKeys } from "./project-dashboard.constants";
@@ -82,6 +82,21 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
     commentCount: 4,
     canEdit: true,
     canDelete: true,
+    ...overrides,
+  };
+}
+
+function buildMember(overrides: Partial<HouseholdMember> & Pick<HouseholdMember, "id" | "userId" | "displayName">): HouseholdMember {
+  return {
+    id: overrides.id,
+    userId: overrides.userId,
+    displayName: overrides.displayName,
+    email: "member@homepit.dev",
+    phoneNumber: null,
+    hasProfilePhoto: false,
+    profilePhotoUpdatedAt: null,
+    role: "Member",
+    isCurrentUser: false,
     ...overrides,
   };
 }
@@ -271,6 +286,69 @@ describe("useProjectDashboard activity status optimism", () => {
     });
 
     expect(result.current.projects.find((item) => item.id === project.id)?.activityCount).toBe(0);
+  });
+
+  it("assigns an activity to the logged-in member with the quick action", async () => {
+    const session = buildSession();
+    const activity = buildActivity({ id: "activity-assign", title: "Atribuir rápido" });
+    const currentMember = buildMember({
+      id: "member-1",
+      userId: session.user.id,
+      displayName: session.user.displayName,
+      isCurrentUser: true,
+    });
+
+    mockedReadSession.mockReturnValue(session);
+    mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
+    mockedApiFetch.mockImplementation(async (path: string) => {
+      if (path === "/api/universes" || path === "/api/projects") {
+        return [];
+      }
+
+      if (path === "/api/activities") {
+        return [activity];
+      }
+
+      if (path === "/api/households/members") {
+        return [currentMember];
+      }
+
+      if (path === `/api/activities/${activity.id}`) {
+        return {
+          ...activity,
+          responsibleMemberId: currentMember.id,
+          responsibleName: currentMember.displayName,
+        };
+      }
+
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const { result } = renderHook(() => useProjectDashboard());
+
+    await waitFor(() => expect(result.current.activities).toHaveLength(1));
+    await waitFor(() => expect(result.current.canAssignActivityToMe(activity)).toBe(true));
+
+    await act(async () => {
+      await result.current.assignActivityToMe(activity);
+    });
+
+    const updateCall = mockedApiFetch.mock.calls.find(([path]) => path === `/api/activities/${activity.id}`);
+    expect(updateCall).toBeTruthy();
+    expect(updateCall?.[1]).toEqual(
+      expect.objectContaining({
+        method: "PUT",
+        token: session.accessToken,
+        householdId: "household-1",
+      }),
+    );
+    expect(JSON.parse(String((updateCall?.[1] as { body?: BodyInit } | undefined)?.body))).toMatchObject({
+      projectId: activity.projectId,
+      title: activity.title,
+      responsibleMemberId: currentMember.id,
+    });
+    expect(result.current.activities.find((item) => item.id === activity.id)?.responsibleMemberId).toBe(currentMember.id);
+    expect(mockedToast.success).toHaveBeenCalledWith("Atividade atribuída a você.");
   });
 });
 

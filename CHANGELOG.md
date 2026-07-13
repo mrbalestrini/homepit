@@ -9,6 +9,7 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 ### Added
 - Cada membro agora pode configurar esforço semanal pessoal, de segunda a domingo, na Casa, nos Universos e nos Projetos.
 - A ordenação `Mais relevantes` apresenta uma fila diária com score de prioridade, prazo, antiguidade e atribuição, respeitando os pontos disponíveis.
+- O menu de ações das atividades ganhou o atalho `Atribuir-me` para assumir rapidamente o responsável logado.
 
 ### Changed
 - O campo de tamanho das atividades passou a ser apresentado como esforço em pontos, mantendo compatibilidade com o contrato existente.

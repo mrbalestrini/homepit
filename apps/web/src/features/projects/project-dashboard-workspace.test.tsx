@@ -138,6 +138,7 @@ function buildDashboard(overrides?: {
     error: null,
     canShareHousehold: false,
     canManageHousehold: false,
+    canAssignActivityToMe: () => false,
     editingHousehold: null,
     editingUniverse: null,
     editingProject: null,
@@ -201,6 +202,7 @@ function buildDashboard(overrides?: {
     closeActivity: () => undefined,
     createActivity: async () => undefined,
     updateActivity: async () => undefined,
+    assignActivityToMe: async () => undefined,
   } as never;
 }
 
@@ -299,6 +301,8 @@ describe("project dashboard kanban drag states", () => {
             session: { accessToken: "token" },
             activeHouseholdId: "household-1",
             openActivity: () => undefined,
+            canAssignActivityToMe: () => false,
+            assignActivityToMe: async () => undefined,
             openEditActivity: () => undefined,
             deleteActivity: async () => undefined,
           } as never
@@ -609,6 +613,8 @@ describe("project dashboard kanban drag states", () => {
             session: { accessToken: "token" },
             activeHouseholdId: "household-1",
             openActivity: () => undefined,
+            canAssignActivityToMe: () => false,
+            assignActivityToMe: async () => undefined,
             openEditActivity: () => undefined,
             deleteActivity: async () => undefined,
           } as never

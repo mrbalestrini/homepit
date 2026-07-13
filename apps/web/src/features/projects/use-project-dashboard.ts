@@ -363,6 +363,16 @@ export function useProjectDashboard() {
     ? activities.find((activity) => activity.id === selectedActivity.id) ?? selectedActivity
     : null;
 
+  const currentHouseholdMember = useMemo(
+    () => members.find((member) => member.isCurrentUser) ?? members.find((member) => member.userId === session?.user.id) ?? null,
+    [members, session?.user.id],
+  );
+
+  const canAssignActivityToMe = useCallback(
+    (activity: Activity) => Boolean(currentHouseholdMember && activity.canEdit && activity.responsibleMemberId !== currentHouseholdMember.id),
+    [currentHouseholdMember],
+  );
+
   const groupedActivities = useMemo(() => {
     return activityColumns.map((column) => ({
       ...column,
@@ -1063,7 +1073,13 @@ export function useProjectDashboard() {
     }
   }
 
-  async function updateActivity(activityId: string, input: ActivityFormInput) {
+  async function updateActivity(
+    activityId: string,
+    input: ActivityFormInput,
+    options?: {
+      successMessage?: string;
+    },
+  ) {
     if (!session || !activeHouseholdId) {
       return;
     }
@@ -1096,10 +1112,42 @@ export function useProjectDashboard() {
         await deleteActivityImage(updated.id);
       }
 
-      toast.success("Atividade atualizada.");
+      toast.success(options?.successMessage ?? "Atividade atualizada.");
     } catch (exception) {
       reportError(exception, "Não foi possível salvar a atividade.");
     }
+  }
+
+  async function assignActivityToMe(activity: Activity) {
+    if (!session || !activeHouseholdId || !activity.canEdit) {
+      return;
+    }
+
+    if (!currentHouseholdMember) {
+      reportError(new Error("Seu vínculo com a casa não foi encontrado."), "Não foi possível atribuir a atividade.");
+      return;
+    }
+
+    if (activity.responsibleMemberId === currentHouseholdMember.id) {
+      return;
+    }
+
+    await updateActivity(
+      activity.id,
+      {
+        projectId: activity.projectId,
+        title: activity.title,
+        description: activity.description ?? undefined,
+        dueDate: activity.dueDate ?? "",
+        status: activity.status,
+        priority: activity.priority,
+        size: activity.size ?? undefined,
+        responsibleMemberId: currentHouseholdMember.id,
+      },
+      {
+        successMessage: "Atividade atribuída a você.",
+      },
+    );
   }
 
   async function deleteActivity(activity: Activity) {
@@ -1500,6 +1548,7 @@ export function useProjectDashboard() {
     editingActivity,
     activityDraftProjectId,
     selectedActivity: selectedActivitySnapshot,
+    canAssignActivityToMe,
     activityComments,
     commentsLoading,
     loading,
@@ -1544,6 +1593,7 @@ export function useProjectDashboard() {
     deleteProject,
     createActivity,
     updateActivity,
+    assignActivityToMe,
     deleteActivity,
     shareHousehold,
     updateHouseholdMember,
