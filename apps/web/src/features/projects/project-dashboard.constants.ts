@@ -40,7 +40,8 @@ export const viewModeOptions: Array<{ value: ProjectViewMode; label: string }> =
 
 export const activitySortOptions: Array<{ value: ActivitySortState; label: string }> = [
   { value: "priority", label: "Prioridade" },
-  { value: "size", label: "Tamanho" },
+  { value: "relevance", label: "Mais relevantes" },
+  { value: "size", label: "Esforço" },
   { value: "project", label: "Projeto" },
   { value: "responsible", label: "Responsável" },
   { value: "title", label: "Título" },

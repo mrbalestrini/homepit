@@ -4,6 +4,17 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.11.0] - 2026-07-13
+
+### Added
+- Cada membro agora pode configurar esforço semanal pessoal, de segunda a domingo, na Casa, nos Universos e nos Projetos.
+- A ordenação `Mais relevantes` apresenta uma fila diária com score de prioridade, prazo, antiguidade e atribuição, respeitando os pontos disponíveis.
+
+### Changed
+- O campo de tamanho das atividades passou a ser apresentado como esforço em pontos, mantendo compatibilidade com o contrato existente.
+- Atividades abertas sem pontos permanecem visíveis ao final da fila para que possam receber uma estimativa.
+- O contrato da API e `/api/system/info` passaram a expor a versão `0.4.0`.
+
 ## [1.10.0] - 2026-07-10
 
 ### Added

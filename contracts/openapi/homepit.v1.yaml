@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: HomePit API
-  version: 0.3.0
+  version: 0.4.0
 servers:
   - url: http://localhost:8080
 security:
@@ -1693,6 +1693,57 @@ paths:
       responses:
         "204":
           description: Prompt category deleted
+  /api/effort-plan:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      responses:
+        "200":
+          description: Personal weekly effort plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffortPlan"
+    put:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEffortPlanRequest"
+      responses:
+        "200":
+          description: Updated personal weekly effort plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffortPlan"
+  /api/activities/relevance:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/HouseholdHeader"
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: utcOffsetMinutes
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: -840
+            maximum: 840
+      responses:
+        "200":
+          description: Personal relevance queue for the requested local date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityRelevanceResponse"
   /api/activities:
     get:
       parameters:
@@ -4482,6 +4533,123 @@ components:
     Priority:
       type: string
       enum: [Baixa, Media, Alta, Urgente]
+    EffortScopeType:
+      type: string
+      enum: [Household, Universe, Project]
+    EffortWeekday:
+      type: string
+      enum: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+    EffortPlanDay:
+      type: object
+      required: [weekday, effectivePoints, sharedPoints]
+      properties:
+        weekday:
+          $ref: "#/components/schemas/EffortWeekday"
+        explicitPoints:
+          type: number
+          nullable: true
+        effectivePoints:
+          type: number
+        sharedPoints:
+          type: number
+    EffortPlanScope:
+      type: object
+      required: [scopeType, name, days]
+      properties:
+        scopeType:
+          $ref: "#/components/schemas/EffortScopeType"
+        scopeId:
+          type: string
+          format: uuid
+          nullable: true
+        parentScopeId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/EffortPlanDay"
+    EffortPlan:
+      type: object
+      required: [householdId, householdMemberId, scopes]
+      properties:
+        householdId:
+          type: string
+          format: uuid
+        householdMemberId:
+          type: string
+          format: uuid
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/EffortPlanScope"
+    EffortAllocationInput:
+      type: object
+      required: [scopeType, weekday, points]
+      properties:
+        scopeType:
+          $ref: "#/components/schemas/EffortScopeType"
+        scopeId:
+          type: string
+          format: uuid
+          nullable: true
+        weekday:
+          $ref: "#/components/schemas/EffortWeekday"
+        points:
+          type: number
+          minimum: 0
+    UpdateEffortPlanRequest:
+      type: object
+      required: [allocations]
+      properties:
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/EffortAllocationInput"
+    ActivityRelevanceQueueState:
+      type: string
+      enum: [Scheduled, Overflow, MissingEstimate]
+    ActivityRelevance:
+      type: object
+      required: [activityId, position, score, priorityScore, dueDateScore, ageScore, assignmentScore, queueState]
+      properties:
+        activityId:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        score:
+          type: integer
+        priorityScore:
+          type: integer
+        dueDateScore:
+          type: integer
+        ageScore:
+          type: integer
+        assignmentScore:
+          type: integer
+        queueState:
+          $ref: "#/components/schemas/ActivityRelevanceQueueState"
+    ActivityRelevanceResponse:
+      type: object
+      required: [date, weekday, capacityPoints, scheduledPoints, items]
+      properties:
+        date:
+          type: string
+          format: date
+        weekday:
+          $ref: "#/components/schemas/EffortWeekday"
+        capacityPoints:
+          type: number
+        scheduledPoints:
+          type: number
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityRelevance"
     Activity:
       type: object
       required:

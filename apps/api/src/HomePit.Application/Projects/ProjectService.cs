@@ -449,6 +449,8 @@ public sealed class ProjectService(
             await EnsureMemberAsync(currentMember.HouseholdId, request.ResponsibleMemberId.Value, cancellationToken);
         }
 
+        ValidateActivitySize(request.Size);
+
         var activity = new Activity
         {
             HouseholdId = currentMember.HouseholdId,
@@ -490,6 +492,8 @@ public sealed class ProjectService(
         {
             await EnsureMemberAsync(currentMember.HouseholdId, request.ResponsibleMemberId.Value, cancellationToken);
         }
+
+        ValidateActivitySize(request.Size);
 
         activity.ProjectId = project.Id;
         activity.ResponsibleMemberId = request.ResponsibleMemberId;
@@ -905,6 +909,14 @@ public sealed class ProjectService(
     private static string? NormalizeOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static void ValidateActivitySize(decimal? size)
+    {
+        if (size < 0)
+        {
+            throw new ValidationException("O esforço da atividade não pode ser negativo.");
+        }
     }
 
     private static string? NormalizeImageUrl(string? value)

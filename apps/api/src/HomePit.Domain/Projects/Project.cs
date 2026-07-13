@@ -15,4 +15,5 @@ public sealed class Project : AuditableEntity, IHouseholdScoped
 
     public required string Name { get; set; }
     public ICollection<Activity> Activities { get; } = new List<Activity>();
+    public ICollection<MemberEffortAllocation> EffortAllocations { get; } = new List<MemberEffortAllocation>();
 }

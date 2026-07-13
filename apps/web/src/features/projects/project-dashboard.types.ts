@@ -1,12 +1,12 @@
 import type { ActivityStatus, Priority } from "@/lib/api";
 
-export type ActiveModal = "household" | "universe" | "project" | "activity" | "share" | null;
+export type ActiveModal = "household" | "universe" | "project" | "activity" | "share" | "effort" | null;
 
 export type AppTheme = "cozy" | "earthy" | "dark";
 
 export type ProjectViewMode = "list" | "kanban";
 
-export type ActivitySortState = "priority" | "size" | "project" | "responsible" | "title";
+export type ActivitySortState = "priority" | "size" | "project" | "responsible" | "title" | "relevance";
 
 export type ActivityStatusFilter = ActivityStatus | "all";
 

@@ -91,7 +91,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/system/info", () => Results.Ok(new
 {
     name = "HomePit API",
-    version = "0.3.0",
+    version = "0.4.0",
     timezone = "America/Sao_Paulo"
 }));
 
@@ -693,6 +693,19 @@ api.MapGet("/activities", async (
     ProjectService service,
     CancellationToken cancellationToken) =>
         Results.Ok(await service.ListActivitiesAsync(projectId, status, cancellationToken)));
+api.MapGet("/activities/relevance", async (
+    DateOnly date,
+    int utcOffsetMinutes,
+    EffortPlanningService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetRelevanceAsync(date, utcOffsetMinutes, cancellationToken)));
+api.MapGet("/effort-plan", async (EffortPlanningService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetPlanAsync(cancellationToken)));
+api.MapPut("/effort-plan", async (
+    UpdateEffortPlanRequest request,
+    EffortPlanningService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdatePlanAsync(request, cancellationToken)));
 api.MapPost("/activities", async (CreateActivityRequest request, ProjectService service, CancellationToken cancellationToken) =>
     Results.Created("/api/activities", await service.CreateActivityAsync(request, cancellationToken)));
 api.MapPut("/activities/{id:guid}", async (

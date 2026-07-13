@@ -12,6 +12,7 @@
 - `Program.cs` registra DI, JWT, CORS, middleware de erros, migrations, storage e Minimal APIs.
 - A regra de negocio fica principalmente em `AuthService`, `HouseholdService`,
   `ProjectService`, `PromptService`, `GsmNumberService` e `DailyDigestService`.
+- `EffortPlanningService` concentra a capacidade semanal pessoal e o cálculo diário de relevância das atividades.
 - `GsmNumberService` tambem concentra o historico de recargas do modulo GSM, mantendo o
   resumo `LastRechargeOn` derivado do lancamento mais recente.
 - PostgreSQL e acessado por EF Core/Npgsql; o schema padrao e `homepit`.

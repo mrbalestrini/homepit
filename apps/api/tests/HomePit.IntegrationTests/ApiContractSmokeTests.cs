@@ -87,4 +87,17 @@ public sealed class ApiContractSmokeTests
         Assert.Contains("scheduledDeletionAt:", contract);
         Assert.Contains("householdName:", contract);
     }
+
+    [Fact]
+    public void Openapi_contract_lists_effort_and_relevance_routes()
+    {
+        var contractPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "..", "contracts", "openapi", "homepit.v1.yaml"));
+        var contract = File.ReadAllText(contractPath);
+
+        Assert.Contains("/api/effort-plan:", contract);
+        Assert.Contains("/api/activities/relevance:", contract);
+        Assert.Contains("EffortPlan:", contract);
+        Assert.Contains("ActivityRelevanceResponse:", contract);
+        Assert.Contains("enum: [Scheduled, Overflow, MissingEstimate]", contract);
+    }
 }

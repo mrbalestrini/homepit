@@ -108,6 +108,7 @@ export function sortActivities(items: Activity[], sort: ActivitySortState) {
       case "title":
         return left.title.localeCompare(right.title) || priorityDifference || statusDifference;
       case "priority":
+      case "relevance":
       default:
         return priorityDifference || statusDifference || left.title.localeCompare(right.title);
     }

@@ -20,6 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -37,7 +38,18 @@ import {
   Trash2,
 } from "lucide-react";
 import { ChangeEvent, FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import type { Activity, ActivityComment, ActivityStatus, HouseholdMember, Priority, Project, Universe } from "@/lib/api";
+import type {
+  Activity,
+  ActivityComment,
+  ActivityStatus,
+  EffortPlan,
+  EffortScopeType,
+  EffortWeekday,
+  HouseholdMember,
+  Priority,
+  Project,
+  Universe,
+} from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -288,6 +300,16 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
             : dashboard.createActivity(input)
         }
       />
+
+      {dashboard.effortPlan ? (
+        <EffortPlanDialog
+          key={`${dashboard.effortPlan.householdId}-${dashboard.activeModal}`}
+          open={dashboard.activeModal === "effort"}
+          plan={dashboard.effortPlan}
+          onOpenChange={(open) => !open && dashboard.closeModal()}
+          onSave={dashboard.saveEffortPlan}
+        />
+      ) : null}
 
       {dashboard.selectedActivity ? (
         <ActivityDetailsSheet
@@ -627,6 +649,10 @@ function WorkspaceBoard({
 
             <div className="flex flex-wrap items-center gap-2">
               <ViewModeToggle value={dashboard.viewMode} onChange={dashboard.setViewMode} />
+              <Button variant="secondary" onClick={dashboard.openEffortPlan} disabled={!dashboard.effortPlan}>
+                <CalendarDays />
+                Esforço semanal
+              </Button>
               <Button onClick={() => dashboard.openCreateActivity()} disabled={dashboard.projects.length === 0}>
                 <Plus />
                 Nova atividade
@@ -673,19 +699,21 @@ function WorkspaceBoard({
                 ))}
               </Select>
 
-              <Select
-                className="min-w-[10.5rem] flex-1 text-[12px] leading-none xl:text-[13px]"
-                value={dashboard.filters.responsibleMemberId}
-                onChange={(event) => dashboard.updateFilter("responsibleMemberId", event.target.value)}
-              >
-                <option value="all">Todos os responsáveis</option>
-                <option value="">Sem responsável</option>
-                {dashboard.members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.displayName}
-                  </option>
-                ))}
-              </Select>
+              {dashboard.filters.sort !== "relevance" ? (
+                <Select
+                  className="min-w-[10.5rem] flex-1 text-[12px] leading-none xl:text-[13px]"
+                  value={dashboard.filters.responsibleMemberId}
+                  onChange={(event) => dashboard.updateFilter("responsibleMemberId", event.target.value)}
+                >
+                  <option value="all">Todos os responsáveis</option>
+                  <option value="">Sem responsável</option>
+                  {dashboard.members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.displayName}
+                    </option>
+                  ))}
+                </Select>
+              ) : null}
 
               <Select
                 className="min-w-[10rem] flex-1 text-[12px] leading-none xl:text-[13px]"
@@ -774,6 +802,10 @@ function ViewModeToggle({
 }
 
 export function ActivityListView({ dashboard }: { dashboard: ProjectDashboardController }) {
+  if (dashboard.filters?.sort === "relevance") {
+    return <RelevanceQueue dashboard={dashboard} />;
+  }
+
   return (
     <div className="space-y-3">
       {dashboard.groupedActivities.map((group) => (
@@ -799,7 +831,7 @@ export function ActivityListView({ dashboard }: { dashboard: ProjectDashboardCon
                       <TableHead>Escopo</TableHead>
                       <TableHead>Responsável</TableHead>
                       <TableHead>Prioridade</TableHead>
-                      <TableHead>Tamanho</TableHead>
+                      <TableHead>Esforço</TableHead>
                       <TableHead>Prazo</TableHead>
                       <TableHead>Volume</TableHead>
                       <TableHead className="w-[60px] text-right">Ações</TableHead>
@@ -862,7 +894,7 @@ export function ActivityListView({ dashboard }: { dashboard: ProjectDashboardCon
                         </TableCell>
                         <TableCell>
                           <span className="text-[13px] text-foreground">
-                            {activity.size != null ? `${activity.size} pts` : "Sem tamanho"}
+                            {activity.size != null ? `${activity.size} pts` : "Sem estimativa"}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -894,6 +926,78 @@ export function ActivityListView({ dashboard }: { dashboard: ProjectDashboardCon
         </Card>
       ))}
     </div>
+  );
+}
+
+function RelevanceQueue({ dashboard }: { dashboard: ProjectDashboardController }) {
+  const relevanceByActivityId = new Map((dashboard.relevance?.items ?? []).map((item) => [item.activityId, item]));
+  const stateLabels = {
+    Scheduled: "Sugerida hoje",
+    Overflow: "Fora da capacidade",
+    MissingEstimate: "Sem estimativa",
+  } as const;
+
+  return (
+    <Card className="border-primary/20 bg-surface-elevated">
+      <CardHeader className="border-b border-border/60 pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">Fila de hoje</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {dashboard.relevance
+                ? `${dashboard.relevance.scheduledPoints} de ${dashboard.relevance.capacityPoints} pontos sugeridos.`
+                : "Calculando a prioridade das atividades."}
+            </p>
+          </div>
+          <Badge variant="neutral">{dashboard.visibleActivities.length} atividades</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b border-border/60 bg-surface-muted hover:bg-surface-muted">
+                <TableHead>#</TableHead>
+                <TableHead>Atividade</TableHead>
+                <TableHead>Escopo</TableHead>
+                <TableHead>Esforço</TableHead>
+                <TableHead>Score</TableHead>
+                <TableHead>Hoje</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dashboard.visibleActivities.map((activity) => {
+                const item = relevanceByActivityId.get(activity.id);
+                return (
+                  <TableRow key={activity.id}>
+                    <TableCell>{item?.position ?? "—"}</TableCell>
+                    <TableCell className="min-w-[260px]">
+                      <button className="text-left" type="button" onClick={() => dashboard.openActivity(activity)}>
+                        <div className="text-sm font-semibold text-foreground hover:text-primary">{activity.title}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {priorityLabels[activity.priority]} · prazo {formatDateOnly(activity.dueDate)}
+                        </div>
+                      </button>
+                    </TableCell>
+                    <TableCell>{activity.universeName} / {activity.projectName}</TableCell>
+                    <TableCell>{activity.size && activity.size > 0 ? `${activity.size} pts` : "Informar pontos"}</TableCell>
+                    <TableCell>
+                      <span className="font-semibold text-foreground">{item?.score ?? "—"}</span>
+                      {item ? (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          P {item.priorityScore} · prazo {item.dueDateScore} · idade {item.ageScore}
+                        </span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>{item ? <Badge variant="neutral">{stateLabels[item.queueState]}</Badge> : "—"}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1832,7 +1936,7 @@ export function ActivityDialog({
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar atividade" : "Nova atividade"}</DialogTitle>
-          <DialogDescription>Use um título direto e deixe descrição, prazo e tamanho para dar contexto operacional.</DialogDescription>
+          <DialogDescription>Use um título direto e informe prazo e esforço quando ajudarem a organizar a atividade.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
@@ -1938,7 +2042,7 @@ export function ActivityDialog({
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Tamanho">
+            <Field label="Esforço (pontos)">
               <Input type="number" step="0.5" min="0" value={size} onChange={(event) => setSize(event.target.value)} />
             </Field>
             <Field label="Responsável">
@@ -1959,6 +2063,140 @@ export function ActivityDialog({
             <Button type="submit" disabled={saving || projects.length === 0}>
               {isEditing ? "Salvar atividade" : "Criar atividade"}
             </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const effortWeekdayLabels: Record<EffortWeekday, string> = {
+  Monday: "Seg",
+  Tuesday: "Ter",
+  Wednesday: "Qua",
+  Thursday: "Qui",
+  Friday: "Sex",
+  Saturday: "Sáb",
+  Sunday: "Dom",
+};
+
+function effortDraftKey(scopeType: EffortScopeType, scopeId: string | null | undefined, weekday: EffortWeekday) {
+  return `${scopeType}:${scopeId ?? "household"}:${weekday}`;
+}
+
+function EffortPlanDialog({
+  open,
+  plan,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  plan: EffortPlan;
+  onOpenChange: (open: boolean) => void;
+  onSave: (allocations: Array<{ scopeType: EffortScopeType; scopeId?: string | null; weekday: EffortWeekday; points: number }>) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState(() =>
+    Object.fromEntries(
+      plan.scopes.flatMap((scope) =>
+        scope.days.map((day) => [
+          effortDraftKey(scope.scopeType, scope.scopeId, day.weekday),
+          day.explicitPoints == null ? "" : String(day.explicitPoints),
+        ]),
+      ),
+    ),
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    const allocations: Array<{ scopeType: EffortScopeType; scopeId?: string | null; weekday: EffortWeekday; points: number }> = [];
+
+    for (const scope of plan.scopes) {
+      for (const day of scope.days) {
+        const value = draft[effortDraftKey(scope.scopeType, scope.scopeId, day.weekday)]?.trim() ?? "";
+        if (!value) {
+          continue;
+        }
+
+        const points = Number(value);
+        if (!Number.isFinite(points) || points < 0) {
+          setError("Informe pontos iguais ou maiores que zero.");
+          return;
+        }
+
+        allocations.push({ scopeType: scope.scopeType, scopeId: scope.scopeId, weekday: day.weekday, points });
+      }
+    }
+
+    setSaving(true);
+    try {
+      await onSave(allocations);
+      onOpenChange(false);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar o esforço semanal.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] max-w-6xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Esforço semanal</DialogTitle>
+          <DialogDescription>Defina os pontos disponíveis em cada dia. Deixe vazio para usar a capacidade livre do nível acima.</DialogDescription>
+        </DialogHeader>
+        <form className="space-y-4" onSubmit={submit}>
+          <div className="overflow-x-auto rounded-xl border border-border/70">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-surface-muted hover:bg-surface-muted">
+                  <TableHead className="min-w-[190px]">Escopo</TableHead>
+                  {plan.scopes[0]?.days.map((day) => (
+                    <TableHead key={day.weekday} className="min-w-[112px] text-center">{effortWeekdayLabels[day.weekday]}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {plan.scopes.map((scope) => (
+                  <TableRow key={`${scope.scopeType}:${scope.scopeId ?? "household"}`}>
+                    <TableCell>
+                      <div className={cn(scope.scopeType !== "Household" && "pl-4", scope.scopeType === "Project" && "pl-8")}>
+                        <div className="font-medium text-foreground">{scope.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {scope.scopeType === "Household" ? "Capacidade total" : scope.scopeType === "Universe" ? "Reserva do universo" : "Reserva do projeto"}
+                        </div>
+                      </div>
+                    </TableCell>
+                    {scope.days.map((day) => {
+                      const key = effortDraftKey(scope.scopeType, scope.scopeId, day.weekday);
+                      return (
+                        <TableCell key={day.weekday} className="align-top">
+                          <Input
+                            aria-label={`${scope.name} ${effortWeekdayLabels[day.weekday]}`}
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={draft[key] ?? ""}
+                            onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))}
+                            placeholder="Livre"
+                          />
+                          <p className="mt-1 text-center text-[11px] text-muted-foreground">Atual: {day.effectivePoints} pts</p>
+                          {day.sharedPoints > 0 ? <p className="text-center text-[11px] text-muted-foreground">Livre: {day.sharedPoints} pts</p> : null}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {error ? <Notice tone="danger">{error}</Notice> : null}
+          <DialogFooter>
+            <Button variant="secondary" type="button" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar esforço"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -2078,7 +2316,7 @@ export function ActivityDetailsSheet({
                 )
               }
             />
-            <DetailCard label="Tamanho" value={activity.size != null ? `${activity.size} pts` : "Sem tamanho"} />
+            <DetailCard label="Esforço" value={activity.size != null ? `${activity.size} pts` : "Sem estimativa"} />
             <DetailCard label="Prazo esperado" value={formatDateOnly(activity.dueDate)} />
             <DetailCard label="Criada em" value={formatDateTime(activity.createdAt)} />
           </div>

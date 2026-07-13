@@ -19,6 +19,7 @@ public sealed class HouseholdMember : AuditableEntity, IHouseholdScoped
     public bool IsActive { get; set; } = true;
 
     public ICollection<Activity> AssignedActivities { get; } = new List<Activity>();
+    public ICollection<MemberEffortAllocation> EffortAllocations { get; } = new List<MemberEffortAllocation>();
     public ICollection<Universe> CreatedUniverses { get; } = new List<Universe>();
     public ICollection<Project> CreatedProjects { get; } = new List<Project>();
     public ICollection<Activity> CreatedActivities { get; } = new List<Activity>();

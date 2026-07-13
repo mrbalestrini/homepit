@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<ToolImprovementSuggestionService>();
         services.AddScoped<CommercialPlanService>();
         services.AddScoped<ManagedImageQuotaService>();
+        services.AddScoped<EffortPlanningService>();
         services.AddScoped<ProjectService>();
         services.AddScoped<PromptService>();
 

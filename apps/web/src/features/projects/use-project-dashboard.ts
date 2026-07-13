@@ -6,7 +6,12 @@ import { toast } from "sonner";
 import {
   Activity,
   ActivityComment,
+  ActivityRelevance,
+  ActivityRelevanceResponse,
   AuthResponse,
+  EffortPlan,
+  EffortScopeType,
+  EffortWeekday,
   Household,
   HouseholdMember,
   Project,
@@ -46,6 +51,7 @@ function applyDocumentTheme(theme: AppTheme) {
 function isActivitySortState(value: string | null): value is ActivitySortState {
   return (
     value === "priority" ||
+    value === "relevance" ||
     value === "size" ||
     value === "project" ||
     value === "responsible" ||
@@ -119,6 +125,8 @@ export function useProjectDashboard() {
   const [universes, setUniverses] = useState<Universe[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [effortPlan, setEffortPlan] = useState<EffortPlan | null>(null);
+  const [relevance, setRelevance] = useState<ActivityRelevanceResponse | null>(null);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
   const [selectedUniverseId, setSelectedUniverseId] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
@@ -145,6 +153,8 @@ export function useProjectDashboard() {
     setUniverses([]);
     setProjects([]);
     setActivities([]);
+    setEffortPlan(null);
+    setRelevance(null);
     setMembers([]);
     setSelectedUniverseId("");
     setSelectedProjectId("");
@@ -300,6 +310,7 @@ export function useProjectDashboard() {
   }, [activityDraftProjectId, filteredProjects, projects]);
 
   const visibleActivities = useMemo(() => {
+    const relevanceByActivityId = new Map((relevance?.items ?? []).map((item) => [item.activityId, item]));
     const normalizedSearch = filters.search.trim().toLowerCase();
     const scopedActivities = activities.filter((activity) => {
       const matchesUniverse = !selectedUniverseId || activity.universeId === selectedUniverseId;
@@ -316,16 +327,27 @@ export function useProjectDashboard() {
         activity.universeName.toLowerCase().includes(normalizedSearch) ||
         (activity.description ?? "").toLowerCase().includes(normalizedSearch);
 
-      const matchesStatus = filters.status === "all" || activity.status === filters.status;
+      const matchesRelevance = filters.sort !== "relevance" || relevanceByActivityId.has(activity.id);
+      const matchesStatus =
+        filters.sort === "relevance" ? isOpenActivity(activity.status) : filters.status === "all" || activity.status === filters.status;
       const matchesPriority = filters.priority === "all" || activity.priority === filters.priority;
       const matchesResponsible =
+        filters.sort === "relevance" ||
         filters.responsibleMemberId === "all" || activity.responsibleMemberId === filters.responsibleMemberId;
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesResponsible;
+      return matchesSearch && matchesRelevance && matchesStatus && matchesPriority && matchesResponsible;
     });
 
+    if (filters.sort === "relevance") {
+      return [...filteredActivities].sort(
+        (left, right) =>
+          (relevanceByActivityId.get(left.id)?.position ?? Number.MAX_SAFE_INTEGER) -
+          (relevanceByActivityId.get(right.id)?.position ?? Number.MAX_SAFE_INTEGER),
+      );
+    }
+
     return sortActivities(filteredActivities, filters.sort);
-  }, [activities, filters, selectedProjectId, selectedUniverseId]);
+  }, [activities, filters, relevance, selectedProjectId, selectedUniverseId]);
 
   const selectedScopeLabel = useMemo(() => {
     const project = projects.find((item) => item.id === selectedProjectId);
@@ -365,10 +387,18 @@ export function useProjectDashboard() {
   }, []);
 
   const updateFilter = useCallback(<T extends keyof ActivityFilterState>(key: T, value: ActivityFilterState[T]) => {
-    setFilters((current) => ({ ...current, [key]: value }));
+    setFilters((current) =>
+      key === "sort" && value === "relevance"
+        ? { ...current, sort: "relevance", status: "all", responsibleMemberId: "all" }
+        : { ...current, [key]: value },
+    );
 
     if (key === "sort") {
       storeActivitySort(value as ActivitySortState);
+      if (value === "relevance") {
+        setViewModeState("list");
+        window.localStorage.setItem(uiStorageKeys.projectViewMode, "list");
+      }
     }
   }, []);
 
@@ -409,6 +439,11 @@ export function useProjectDashboard() {
         setProjects(nextProjects);
         setActivities(nextActivities);
         setMembers(nextMembers);
+        if (session?.user.systemRole !== "SuperAdmin") {
+          void apiFetch<EffortPlan>("/api/effort-plan", { token, householdId })
+            .then(setEffortPlan)
+            .catch(() => setEffortPlan(null));
+        }
       } catch (exception) {
         setError(getErrorMessage(exception, "Falha ao carregar dados."));
       } finally {
@@ -417,6 +452,22 @@ export function useProjectDashboard() {
     },
     [activeHouseholdId, session?.accessToken, session?.user],
   );
+
+  useEffect(() => {
+    if (filters.sort !== "relevance" || !session?.accessToken || !activeHouseholdId || session.user.systemRole === "SuperAdmin") {
+      return;
+    }
+
+    const current = new Date();
+    const date = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`;
+    const utcOffsetMinutes = -current.getTimezoneOffset();
+    void apiFetch<ActivityRelevanceResponse>(`/api/activities/relevance?date=${date}&utcOffsetMinutes=${utcOffsetMinutes}`, {
+      token: session.accessToken,
+      householdId: activeHouseholdId,
+    })
+      .then(setRelevance)
+      .catch((exception) => setError(getErrorMessage(exception, "Não foi possível calcular a fila de hoje.")));
+  }, [activeHouseholdId, activities, effortPlan, filters.sort, session]);
 
   const loadComments = useCallback(
     async (activityId: string) => {
@@ -692,6 +743,10 @@ export function useProjectDashboard() {
     setEditingActivity(null);
     setActivityDraftProjectId(projectId ?? selectedProjectId);
     setActiveModal("activity");
+  }
+
+  function openEffortPlan() {
+    setActiveModal("effort");
   }
 
   function openShareHousehold() {
@@ -1401,6 +1456,27 @@ export function useProjectDashboard() {
     setSelectedProjectId(project.id);
   }
 
+  async function saveEffortPlan(
+    allocations: Array<{ scopeType: EffortScopeType; scopeId?: string | null; weekday: EffortWeekday; points: number }>,
+  ) {
+    if (!session || !activeHouseholdId) {
+      throw new Error("Selecione uma casa antes de salvar o esforço.");
+    }
+
+    try {
+      const nextPlan = await apiFetch<EffortPlan>("/api/effort-plan", {
+        method: "PUT",
+        token: session.accessToken,
+        householdId: activeHouseholdId,
+        body: JSON.stringify({ allocations }),
+      });
+      setEffortPlan(nextPlan);
+      toast.success("Esforço semanal atualizado.");
+    } catch (exception) {
+      reportError(exception, "Não foi possível salvar o esforço semanal.");
+    }
+  }
+
   return {
     session,
     activeHouseholdId,
@@ -1408,6 +1484,8 @@ export function useProjectDashboard() {
     universes,
     projects,
     activities,
+    effortPlan,
+    relevance,
     members,
     selectedUniverseId,
     selectedProjectId,
@@ -1454,6 +1532,7 @@ export function useProjectDashboard() {
     openCreateProject,
     openEditProject,
     openCreateActivity,
+    openEffortPlan,
     openShareHousehold,
     openEditActivity,
     closeModal,
@@ -1481,6 +1560,7 @@ export function useProjectDashboard() {
     selectAllScopes,
     selectUniverseScope,
     selectProjectScope,
+    saveEffortPlan,
   };
 }
 

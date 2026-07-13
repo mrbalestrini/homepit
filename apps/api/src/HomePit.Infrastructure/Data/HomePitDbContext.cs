@@ -41,6 +41,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<GsmRecharge> GsmRecharges => Set<GsmRecharge>();
     public DbSet<Universe> Universes => Set<Universe>();
     public DbSet<Project> Projects => Set<Project>();
+    public DbSet<MemberEffortAllocation> MemberEffortAllocations => Set<MemberEffortAllocation>();
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<ActivityComment> ActivityComments => Set<ActivityComment>();
     public DbSet<PendingItem> PendingItems => Set<PendingItem>();
@@ -648,6 +649,43 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
                 .WithMany(member => member.CreatedProjects)
                 .HasForeignKey(project => project.CreatedByMemberId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<MemberEffortAllocation>(builder =>
+        {
+            builder.ToTable("member_effort_allocations");
+            builder.Property(item => item.ScopeType).HasConversion<string>().HasMaxLength(20).IsRequired();
+            builder.Property(item => item.Weekday).HasConversion<string>().HasMaxLength(20).IsRequired();
+            builder.Property(item => item.Points).HasPrecision(8, 2);
+            builder.HasCheckConstraint("CK_member_effort_allocations_points_non_negative", "\"Points\" >= 0");
+            builder.HasCheckConstraint(
+                "CK_member_effort_allocations_scope",
+                "(\"ScopeType\" = 'Household' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Universe' AND \"UniverseId\" IS NOT NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Project' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NOT NULL)");
+            builder.HasIndex(item => new { item.HouseholdMemberId, item.Weekday })
+                .IsUnique()
+                .HasFilter("\"ScopeType\" = 'Household'");
+            builder.HasIndex(item => new { item.HouseholdMemberId, item.UniverseId, item.Weekday })
+                .IsUnique()
+                .HasFilter("\"ScopeType\" = 'Universe'");
+            builder.HasIndex(item => new { item.HouseholdMemberId, item.ProjectId, item.Weekday })
+                .IsUnique()
+                .HasFilter("\"ScopeType\" = 'Project'");
+            builder.HasOne(item => item.Household)
+                .WithMany(household => household.MemberEffortAllocations)
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.HouseholdMember)
+                .WithMany(member => member.EffortAllocations)
+                .HasForeignKey(item => item.HouseholdMemberId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.Universe)
+                .WithMany(universe => universe.EffortAllocations)
+                .HasForeignKey(item => item.UniverseId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.Project)
+                .WithMany(project => project.EffortAllocations)
+                .HasForeignKey(item => item.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Activity>(builder =>

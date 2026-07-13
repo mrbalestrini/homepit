@@ -43,6 +43,7 @@
 - Casas na sessao agora incluem `CreatedAt`, permitindo fallback por recencia quando a
   selecao salva nao existe mais.
 - Hooks de feature funcionam como controladores de estado e mutacao.
+- O plano de esforço usa `GET` e `PUT /api/effort-plan`; a fila calculada usa `GET /api/activities/relevance` com data e offset local explícitos.
 - Telas reutilizam `HomePitWorkspaceShell` e componentes em `components/ui`.
 - Next.js gera output `standalone`; Docker usa build multi-stage e usuario nao root na web.
 - Testes backend usam xUnit, EF InMemory e WebApplicationFactory com fakes de storage.

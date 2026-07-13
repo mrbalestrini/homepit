@@ -38,6 +38,7 @@ public interface IHomePitDbContext
     DbSet<GsmRecharge> GsmRecharges { get; }
     DbSet<Universe> Universes { get; }
     DbSet<Project> Projects { get; }
+    DbSet<MemberEffortAllocation> MemberEffortAllocations { get; }
     DbSet<Activity> Activities { get; }
     DbSet<ActivityComment> ActivityComments { get; }
     DbSet<PendingItem> PendingItems { get; }

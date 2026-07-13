@@ -20,6 +20,10 @@
 - Responsavel de atividade deve ser membro ativo da mesma casa.
 - Status: `NaoIniciada`, `EmAndamento`, `Concluido`.
 - Prioridade: `Baixa`, `Media`, `Alta`, `Urgente`.
+- Cada membro ativo pode configurar esforço recorrente de segunda a domingo para Casa, Universo e Projeto.
+- Esforço de filhos reserva capacidade do pai; campo vazio herda ou deriva a capacidade e zero bloqueia o escopo no dia.
+- A fila pessoal inclui atividades abertas atribuídas ao membro e sem responsável; atividades atribuídas a outros membros não entram.
+- Atividades sem pontos permanecem no fim da fila relevante e não consomem capacidade.
 - Todo prompt pertence a uma casa, exige titulo, texto e ao menos uma categoria valida.
 - Texto do prompt aceita no maximo 20000 caracteres.
 - Titulo e URL do link devem existir juntos; URL deve ser HTTP ou HTTPS.

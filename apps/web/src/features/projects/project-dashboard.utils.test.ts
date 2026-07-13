@@ -35,7 +35,12 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
 
 describe("project dashboard activity sorting", () => {
   it("exposes size as a sort option", () => {
-    expect(activitySortOptions).toEqual(expect.arrayContaining([{ value: "size", label: "Tamanho" }]));
+    expect(activitySortOptions).toEqual(
+      expect.arrayContaining([
+        { value: "size", label: "Esforço" },
+        { value: "relevance", label: "Mais relevantes" },
+      ]),
+    );
   });
 
   it("sorts activities by size from smallest to largest and keeps missing values last", () => {

@@ -18,5 +18,6 @@ public sealed class Universe : AuditableEntity, IHouseholdScoped
     public string? ImageContentType { get; set; }
     public DateTimeOffset? ImageUpdatedAt { get; set; }
     public ICollection<Project> Projects { get; } = new List<Project>();
+    public ICollection<MemberEffortAllocation> EffortAllocations { get; } = new List<MemberEffortAllocation>();
     public ICollection<Prompt> Prompts { get; } = new List<Prompt>();
 }

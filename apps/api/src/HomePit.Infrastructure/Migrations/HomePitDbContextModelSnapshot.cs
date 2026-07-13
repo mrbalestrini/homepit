@@ -1499,6 +1499,104 @@ namespace HomePit.Infrastructure.Migrations
                     b.ToTable("tool_improvement_suggestions", "homepit");
                 });
 
+            modelBuilder.Entity("HomePit.Domain.Projects.MemberEffortAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("HouseholdMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Points")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ScopeType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UniverseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Weekday")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("UniverseId");
+
+                    b.HasIndex("HouseholdMemberId", "ProjectId", "Weekday")
+                        .IsUnique()
+                        .HasFilter("\"ScopeType\" = 'Project'");
+
+                    b.HasIndex("HouseholdMemberId", "UniverseId", "Weekday")
+                        .IsUnique()
+                        .HasFilter("\"ScopeType\" = 'Universe'");
+
+                    b.HasIndex("HouseholdMemberId", "Weekday")
+                        .IsUnique()
+                        .HasFilter("\"ScopeType\" = 'Household'");
+
+                    b.ToTable("member_effort_allocations", "homepit", t =>
+                        {
+                            t.HasCheckConstraint("CK_member_effort_allocations_points_non_negative", "\"Points\" >= 0");
+                            t.HasCheckConstraint("CK_member_effort_allocations_scope", "(\"ScopeType\" = 'Household' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Universe' AND \"UniverseId\" IS NOT NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Project' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("HomePit.Domain.Projects.MemberEffortAllocation", b =>
+                {
+                    b.HasOne("HomePit.Domain.Households.Household", "Household")
+                        .WithMany("MemberEffortAllocations")
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HomePit.Domain.Households.HouseholdMember", "HouseholdMember")
+                        .WithMany("EffortAllocations")
+                        .HasForeignKey("HouseholdMemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HomePit.Domain.Projects.Project", "Project")
+                        .WithMany("EffortAllocations")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("HomePit.Domain.Projects.Universe", "Universe")
+                        .WithMany("EffortAllocations")
+                        .HasForeignKey("UniverseId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Household");
+
+                    b.Navigation("HouseholdMember");
+
+                    b.Navigation("Project");
+
+                    b.Navigation("Universe");
+                });
+
             modelBuilder.Entity("HomePit.Domain.Projects.Activity", b =>
                 {
                     b.Property<Guid>("Id")

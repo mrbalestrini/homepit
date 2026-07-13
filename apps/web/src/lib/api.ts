@@ -247,6 +247,49 @@ export type Project = {
 
 export type ActivityStatus = "NaoIniciada" | "EmAndamento" | "Concluido";
 export type Priority = "Baixa" | "Media" | "Alta" | "Urgente";
+export type EffortScopeType = "Household" | "Universe" | "Project";
+export type EffortWeekday = "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
+export type ActivityRelevanceQueueState = "Scheduled" | "Overflow" | "MissingEstimate";
+
+export type EffortPlanDay = {
+  weekday: EffortWeekday;
+  explicitPoints?: number | null;
+  effectivePoints: number;
+  sharedPoints: number;
+};
+
+export type EffortPlanScope = {
+  scopeType: EffortScopeType;
+  scopeId?: string | null;
+  parentScopeId?: string | null;
+  name: string;
+  days: EffortPlanDay[];
+};
+
+export type EffortPlan = {
+  householdId: string;
+  householdMemberId: string;
+  scopes: EffortPlanScope[];
+};
+
+export type ActivityRelevance = {
+  activityId: string;
+  position: number;
+  score: number;
+  priorityScore: number;
+  dueDateScore: number;
+  ageScore: number;
+  assignmentScore: number;
+  queueState: ActivityRelevanceQueueState;
+};
+
+export type ActivityRelevanceResponse = {
+  date: string;
+  weekday: EffortWeekday;
+  capacityPoints: number;
+  scheduledPoints: number;
+  items: ActivityRelevance[];
+};
 
 export type Activity = {
   id: string;
