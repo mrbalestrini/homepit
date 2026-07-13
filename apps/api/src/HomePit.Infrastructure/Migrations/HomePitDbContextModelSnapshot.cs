@@ -2686,6 +2686,8 @@ namespace HomePit.Infrastructure.Migrations
 
                     b.Navigation("Members");
 
+                    b.Navigation("MemberEffortAllocations");
+
                     b.Navigation("NotificationRuns");
 
                     b.Navigation("PromptCategories");
@@ -2729,6 +2731,8 @@ namespace HomePit.Infrastructure.Migrations
 
                     b.Navigation("CreatedUniverses");
 
+                    b.Navigation("EffortAllocations");
+
                     b.Navigation("NotificationPreference");
                 });
 
@@ -2754,10 +2758,14 @@ namespace HomePit.Infrastructure.Migrations
             modelBuilder.Entity("HomePit.Domain.Projects.Project", b =>
                 {
                     b.Navigation("Activities");
+
+                    b.Navigation("EffortAllocations");
                 });
 
             modelBuilder.Entity("HomePit.Domain.Projects.Universe", b =>
                 {
+                    b.Navigation("EffortAllocations");
+
                     b.Navigation("Projects");
 
                     b.Navigation("Prompts");
