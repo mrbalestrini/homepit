@@ -36,8 +36,20 @@ public partial class AddIntegrationConnections : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_integration_connections", x => x.Id);
-                table.ForeignKey("FK_integration_connections_households_HouseholdId", x => x.HouseholdId, "homepit", "households", "Id", onDelete: ReferentialAction.Cascade);
-                table.ForeignKey("FK_integration_connections_users_UserId", x => x.UserId, "homepit", "users", "Id", onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_integration_connections_households_HouseholdId",
+                    column: x => x.HouseholdId,
+                    principalSchema: "homepit",
+                    principalTable: "households",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_integration_connections_users_UserId",
+                    column: x => x.UserId,
+                    principalSchema: "homepit",
+                    principalTable: "users",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
             });
 
         migrationBuilder.CreateTable(
@@ -59,7 +71,13 @@ public partial class AddIntegrationConnections : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_integration_audit_events", x => x.Id);
-                table.ForeignKey("FK_integration_audit_events_integration_connections_IntegrationConnectionId", x => x.IntegrationConnectionId, "homepit", "integration_connections", "Id", onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_integration_audit_events_integration_connections_IntegrationConnectionId",
+                    column: x => x.IntegrationConnectionId,
+                    principalSchema: "homepit",
+                    principalTable: "integration_connections",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
             });
 
         migrationBuilder.CreateTable(
@@ -81,7 +99,13 @@ public partial class AddIntegrationConnections : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_integration_idempotency_records", x => x.Id);
-                table.ForeignKey("FK_integration_idempotency_records_integration_connections_IntegrationConnectionId", x => x.IntegrationConnectionId, "homepit", "integration_connections", "Id", onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_integration_idempotency_records_integration_connections_IntegrationConnectionId",
+                    column: x => x.IntegrationConnectionId,
+                    principalSchema: "homepit",
+                    principalTable: "integration_connections",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
             });
 
         migrationBuilder.CreateIndex("IX_integration_connections_HouseholdId", "integration_connections", "HouseholdId", schema: "homepit");
