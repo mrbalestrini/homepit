@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using HomePit.Api.Security;
+using HomePit.Api.Mcp;
 using HomePit.Application;
 using HomePit.Application.Auth;
 using HomePit.Application.Common;
@@ -8,6 +10,7 @@ using HomePit.Application.Finance;
 using HomePit.Application.Gsm;
 using HomePit.Application.Households;
 using HomePit.Application.Institutional;
+using HomePit.Application.Integrations;
 using HomePit.Application.Platform;
 using HomePit.Application.Plans;
 using HomePit.Application.Prompts;
@@ -17,7 +20,11 @@ using HomePit.Infrastructure.Auth;
 using HomePit.Infrastructure.Data;
 using HomePit.Infrastructure.ObjectStorage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
+using ModelContextProtocol.Server;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,9 +54,39 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
             ClockSkew = TimeSpan.FromMinutes(1)
         };
-    });
+    })
+    .AddScheme<AuthenticationSchemeOptions, IntegrationTokenAuthenticationHandler>(
+        IntegrationTokenAuthenticationHandler.SchemeName,
+        _ => { });
 
 builder.Services.AddAuthorization();
+builder.Services.AddMcpServer()
+    .WithHttpTransport(options => options.Stateless = true)
+    .WithTools<IntegrationMcpTools>()
+    .WithResources<IntegrationMcpResources>();
+var integrationRequestsPerMinute = builder.Configuration.GetValue("Integrations:RequestsPerMinute", 60);
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = (context, _) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        return ValueTask.CompletedTask;
+    };
+    options.AddPolicy("integrations", context =>
+    {
+        var key = context.User.FindFirst("integration_connection_id")?.Value
+            ?? context.Connection.RemoteIpAddress?.ToString()
+            ?? "anonymous";
+        return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = integrationRequestsPerMinute,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("web", policy =>
@@ -74,6 +111,7 @@ app.UseHomePitErrors();
 app.UseCors("web");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseAccountStateGuard();
 
 var applyMigrationsOnStartup = app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true);
@@ -91,7 +129,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/system/info", () => Results.Ok(new
 {
     name = "HomePit API",
-    version = "0.4.0",
+    version = "0.5.0",
     timezone = "America/Sao_Paulo"
 }));
 
@@ -248,6 +286,26 @@ api.MapPost("/users/me/tool-improvement-suggestions", async (
     ToolImprovementSuggestionService service,
     CancellationToken cancellationToken) =>
         Results.Created("/api/users/me/tool-improvement-suggestions", await service.SubmitAsync(request, cancellationToken)));
+api.MapGet("/users/me/integration-connections", async (IntegrationConnectionService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListCurrentUserAsync(cancellationToken)));
+api.MapPost("/users/me/integration-connections", async (
+    CreateIntegrationConnectionRequest request,
+    HttpContext context,
+    IntegrationConnectionService service,
+    CancellationToken cancellationToken) =>
+{
+    var created = await service.CreateAsync(request, cancellationToken);
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.Created($"/api/users/me/integration-connections/{created.Connection.Id}", created);
+});
+api.MapPost("/users/me/integration-connections/{id:guid}/revoke", async (
+    Guid id,
+    IntegrationConnectionService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.RevokeCurrentUserConnectionAsync(id, cancellationToken);
+    return Results.NoContent();
+});
 api.MapPost("/users/me/profile-photo", async (
     HttpRequest request,
     AuthService service,
@@ -901,6 +959,212 @@ api.MapDelete("/prompt-categories/{id:guid}", async (
     await service.DeleteCategoryAsync(id, replacementCategoryId, cancellationToken);
     return Results.NoContent();
 });
+
+// This surface is deliberately separate from the web API. A connection carries its
+// household context, so callers cannot select a household with X-Household-Id.
+var integrations = app.MapGroup("/api/integrations/v1")
+    .RequireAuthorization(new AuthorizeAttribute
+    {
+        AuthenticationSchemes = IntegrationTokenAuthenticationHandler.SchemeName
+    })
+    .RequireRateLimiting("integrations")
+    .AddEndpointFilter(IntegrationRequestGuard.InvokeAsync)
+    .AddEndpointFilter(IntegrationAuditFilter.InvokeAsync);
+
+integrations.MapGet("/space", async (IntegrationConnectionService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetCurrentSpaceAsync(cancellationToken)));
+
+var integrationFinance = integrations.MapGroup("/finance");
+integrationFinance.MapGet("/periods", async (FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListPeriodsAsync(cancellationToken)));
+integrationFinance.MapGet("/periods/{year:int}/{month:int}", async (int year, int month, FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetPeriodAsync(year, month, cancellationToken)));
+integrationFinance.MapPost("/periods/{year:int}/{month:int}/generate", async (
+    int year, int month, GenerateFinancePeriodRequest request, HttpRequest httpRequest,
+    FinanceService service, IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("finance_generate_period", httpRequest.Headers["Idempotency-Key"].ToString(),
+        new { year, month, request }, () => service.GeneratePeriodAsync(year, month, request, cancellationToken), cancellationToken);
+    return Results.Ok(result);
+});
+integrationFinance.MapGet("/categories", async (FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListCategoriesAsync(cancellationToken)));
+integrationFinance.MapPost("/categories", async (
+    CreateFinanceCategoryRequest request, HttpRequest httpRequest, FinanceService service,
+    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("finance_create_category", httpRequest.Headers["Idempotency-Key"].ToString(), request,
+        () => service.CreateCategoryAsync(request, cancellationToken), cancellationToken);
+    return Results.Created("/api/integrations/v1/finance/categories", result);
+});
+integrationFinance.MapPut("/categories/{id:guid}", async (Guid id, UpdateFinanceCategoryRequest request, FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateCategoryAsync(id, request, cancellationToken)));
+integrationFinance.MapDelete("/categories/{id:guid}", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
+{
+    await service.DeleteCategoryAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+integrationFinance.MapGet("/recurring-templates", async (FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListRecurringTemplatesAsync(cancellationToken)));
+integrationFinance.MapPost("/recurring-templates", async (
+    CreateFinanceRecurringTemplateRequest request, HttpRequest httpRequest, FinanceService service,
+    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("finance_create_recurring_template", httpRequest.Headers["Idempotency-Key"].ToString(), request,
+        () => service.CreateRecurringTemplateAsync(request, cancellationToken), cancellationToken);
+    return Results.Created("/api/integrations/v1/finance/recurring-templates", result);
+});
+integrationFinance.MapPut("/recurring-templates/{id:guid}", async (Guid id, UpdateFinanceRecurringTemplateRequest request, FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateRecurringTemplateAsync(id, request, cancellationToken)));
+integrationFinance.MapDelete("/recurring-templates/{id:guid}", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
+{
+    await service.DeleteRecurringTemplateAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+integrationFinance.MapGet("/entries", async (HttpRequest request, FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListEntriesAsync(ReadOptionalIntQuery(request, "year"), ReadOptionalIntQuery(request, "month"), cancellationToken)));
+integrationFinance.MapPost("/entries", async (
+    CreateFinanceEntryRequest request, HttpRequest httpRequest, FinanceService service,
+    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("finance_create_entry", httpRequest.Headers["Idempotency-Key"].ToString(), request,
+        () => service.CreateEntryAsync(request, cancellationToken), cancellationToken);
+    return Results.Created("/api/integrations/v1/finance/entries", result);
+});
+integrationFinance.MapPut("/entries/{id:guid}", async (Guid id, UpdateFinanceEntryRequest request, FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateEntryAsync(id, request, cancellationToken)));
+integrationFinance.MapDelete("/entries/{id:guid}", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
+{
+    await service.DeleteEntryAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+integrationFinance.MapGet("/assets", async (FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListAssetsAsync(cancellationToken)));
+integrationFinance.MapPost("/assets", async (
+    CreateAssetRequest request, HttpRequest httpRequest, FinanceService service,
+    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("finance_create_asset", httpRequest.Headers["Idempotency-Key"].ToString(), request,
+        () => service.CreateAssetAsync(request, cancellationToken), cancellationToken);
+    return Results.Created("/api/integrations/v1/finance/assets", result);
+});
+integrationFinance.MapPut("/assets/{id:guid}", async (Guid id, UpdateAssetRequest request, FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateAssetAsync(id, request, cancellationToken)));
+integrationFinance.MapDelete("/assets/{id:guid}", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
+{
+    await service.DeleteAssetAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+integrationFinance.MapGet("/assets/{id:guid}/valuations", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListAssetValuationsAsync(id, cancellationToken)));
+integrationFinance.MapPost("/assets/{id:guid}/valuations", async (
+    Guid id, CreateAssetValuationRequest request, HttpRequest httpRequest, FinanceService service,
+    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("finance_create_asset_valuation", httpRequest.Headers["Idempotency-Key"].ToString(), new { id, request },
+        () => service.CreateAssetValuationAsync(id, request, cancellationToken), cancellationToken);
+    return Results.Created($"/api/integrations/v1/finance/assets/{id}/valuations", result);
+});
+integrationFinance.MapGet("/credit-cards", async (FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListCreditCardAccountsAsync(cancellationToken)));
+integrationFinance.MapPost("/credit-cards", async (
+    CreateCreditCardAccountRequest request, HttpRequest httpRequest, FinanceService service,
+    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("finance_create_credit_card", httpRequest.Headers["Idempotency-Key"].ToString(), request,
+        () => service.CreateCreditCardAccountAsync(request, cancellationToken), cancellationToken);
+    return Results.Created("/api/integrations/v1/finance/credit-cards", result);
+});
+integrationFinance.MapGet("/credit-cards/{id:guid}/transactions", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListCreditCardTransactionsAsync(id, cancellationToken)));
+integrationFinance.MapPost("/credit-cards/{id:guid}/transactions", async (
+    Guid id, CreateCreditCardTransactionRequest request, HttpRequest httpRequest, FinanceService service,
+    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("finance_create_credit_card_transaction", httpRequest.Headers["Idempotency-Key"].ToString(), new { id, request },
+        () => service.CreateCreditCardTransactionAsync(id, request, cancellationToken), cancellationToken);
+    return Results.Created($"/api/integrations/v1/finance/credit-cards/{id}/transactions", result);
+});
+integrationFinance.MapPost("/credit-cards/{id:guid}/transactions/import", async (
+    Guid id, ImportCreditCardTransactionsRequest request, HttpRequest httpRequest, FinanceService service,
+    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("finance_import_credit_card_transactions", httpRequest.Headers["Idempotency-Key"].ToString(), new { id, request },
+        () => service.ImportCreditCardTransactionsAsync(id, request, cancellationToken), cancellationToken);
+    return Results.Ok(result);
+});
+integrationFinance.MapGet("/credit-cards/{id:guid}/statements", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListCreditCardStatementsAsync(id, cancellationToken)));
+
+var integrationProjects = integrations.MapGroup("/projects");
+integrationProjects.MapGet("/universes", async (ProjectService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListUniversesAsync(cancellationToken)));
+integrationProjects.MapPost("/universes", async (CreateUniverseRequest request, HttpRequest httpRequest, ProjectService service, IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("projects_create_universe", httpRequest.Headers["Idempotency-Key"].ToString(), request,
+        () => service.CreateUniverseAsync(request, cancellationToken), cancellationToken);
+    return Results.Created("/api/integrations/v1/projects/universes", result);
+});
+integrationProjects.MapPut("/universes/{id:guid}", async (Guid id, UpdateUniverseRequest request, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateUniverseAsync(id, request, cancellationToken)));
+integrationProjects.MapDelete("/universes/{id:guid}", async (Guid id, ProjectService service, CancellationToken cancellationToken) =>
+{
+    await service.DeleteUniverseAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+integrationProjects.MapGet("/items", async (Guid? universeId, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListProjectsAsync(universeId, cancellationToken)));
+integrationProjects.MapPost("/items", async (CreateProjectRequest request, HttpRequest httpRequest, ProjectService service, IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("projects_create_project", httpRequest.Headers["Idempotency-Key"].ToString(), request,
+        () => service.CreateProjectAsync(request, cancellationToken), cancellationToken);
+    return Results.Created("/api/integrations/v1/projects/items", result);
+});
+integrationProjects.MapPut("/items/{id:guid}", async (Guid id, UpdateProjectRequest request, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateProjectAsync(id, request, cancellationToken)));
+integrationProjects.MapDelete("/items/{id:guid}", async (Guid id, ProjectService service, CancellationToken cancellationToken) =>
+{
+    await service.DeleteProjectAsync(id, cancellationToken);
+    return Results.NoContent();
+});
+integrationProjects.MapGet("/activities", async (Guid? projectId, HomePit.Domain.Projects.ActivityStatus? status, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListActivitiesAsync(projectId, status, cancellationToken)));
+integrationProjects.MapPost("/activities", async (CreateActivityRequest request, HttpRequest httpRequest, ProjectService service, IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("projects_create_activity", httpRequest.Headers["Idempotency-Key"].ToString(), request,
+        () => service.CreateActivityAsync(request, cancellationToken), cancellationToken);
+    return Results.Created("/api/integrations/v1/projects/activities", result);
+});
+integrationProjects.MapPut("/activities/{id:guid}", async (Guid id, UpdateActivityRequest request, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateActivityAsync(id, request, cancellationToken)));
+integrationProjects.MapPatch("/activities/{id:guid}/status", async (Guid id, UpdateActivityStatusRequest request, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateActivityStatusAsync(id, request, cancellationToken)));
+integrationProjects.MapGet("/activities/{id:guid}/comments", async (Guid id, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListActivityCommentsAsync(id, cancellationToken)));
+integrationProjects.MapPost("/activities/{id:guid}/comments", async (Guid id, CreateActivityCommentRequest request, HttpRequest httpRequest, ProjectService service, IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("projects_create_comment", httpRequest.Headers["Idempotency-Key"].ToString(), new { id, request },
+        () => service.CreateActivityCommentAsync(id, request, cancellationToken), cancellationToken);
+    return Results.Created($"/api/integrations/v1/projects/activities/{id}/comments", result);
+});
+integrationProjects.MapGet("/activities/{id:guid}/pending-items", async (Guid id, ProjectService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListPendingItemsAsync(id, cancellationToken)));
+integrationProjects.MapPost("/activities/{id:guid}/pending-items", async (Guid id, CreatePendingItemRequest request, HttpRequest httpRequest, ProjectService service, IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("projects_create_pending_item", httpRequest.Headers["Idempotency-Key"].ToString(), new { id, request },
+        () => service.CreatePendingItemAsync(id, request, cancellationToken), cancellationToken);
+    return Results.Created($"/api/integrations/v1/projects/activities/{id}/pending-items", result);
+});
+
+if (app.Configuration.GetValue("Mcp:Enabled", false))
+{
+    app.MapMcp("/mcp")
+        .RequireAuthorization(new AuthorizeAttribute
+        {
+            AuthenticationSchemes = IntegrationTokenAuthenticationHandler.SchemeName
+        })
+        .RequireRateLimiting("integrations");
+}
 
 await app.RunAsync();
 

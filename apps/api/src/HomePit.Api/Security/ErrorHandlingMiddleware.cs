@@ -16,15 +16,15 @@ public static class ErrorHandlingMiddleware
             }
             catch (Exception exception)
             {
-                var (status, title) = exception switch
+                var (status, title, code, retryable) = exception switch
                 {
-                    UnauthorizedException => (StatusCodes.Status401Unauthorized, "Sessão inválida"),
-                    ValidationException => (StatusCodes.Status400BadRequest, "Requisição inválida"),
-                    LockedException => (StatusCodes.Status423Locked, "Conta desativada"),
-                    ForbiddenException => (StatusCodes.Status403Forbidden, "Acesso negado"),
-                    NotFoundException => (StatusCodes.Status404NotFound, "Não encontrado"),
-                    ConflictException => (StatusCodes.Status409Conflict, "Conflito"),
-                    _ => (StatusCodes.Status500InternalServerError, "Erro inesperado")
+                    UnauthorizedException => (StatusCodes.Status401Unauthorized, "Sessão inválida", "unauthorized", false),
+                    ValidationException => (StatusCodes.Status400BadRequest, "Requisição inválida", "validation_error", false),
+                    LockedException => (StatusCodes.Status423Locked, "Conta desativada", "account_locked", false),
+                    ForbiddenException => (StatusCodes.Status403Forbidden, "Acesso negado", "forbidden", false),
+                    NotFoundException => (StatusCodes.Status404NotFound, "Não encontrado", "not_found", false),
+                    ConflictException => (StatusCodes.Status409Conflict, "Conflito", "conflict", false),
+                    _ => (StatusCodes.Status500InternalServerError, "Erro inesperado", "internal_error", true)
                 };
 
                 var logger = context.RequestServices
@@ -58,6 +58,9 @@ public static class ErrorHandlingMiddleware
                     Title = title,
                     Detail = exception is AppException ? exception.Message : "Não foi possível concluir a operação."
                 };
+                problem.Extensions["code"] = code;
+                problem.Extensions["traceId"] = context.TraceIdentifier;
+                problem.Extensions["retryable"] = retryable;
 
                 context.Response.StatusCode = status;
                 await context.Response.WriteAsJsonAsync(problem);

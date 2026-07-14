@@ -15,8 +15,9 @@
 
 ## 2026-07-13 - compatibilidade de migrations no deploy
 
-- O modelo já continha `HouseholdInvitation`, mas não havia migration correspondente nem
-  entidade no snapshot; isso fazia o EF acusar quatro operações pendentes ao aplicar a
-  migration de esforço.
-- A migration de esforço publicada foi preservada. Foi criada uma migration posterior para
-  `household_invitations`, mantendo compatibilidade com bancos que já aplicaram esforço.
+- O modelo já continha `HouseholdInvitation`, mas não havia migration correspondente nem entidade no snapshot; isso fazia o EF acusar quatro operações pendentes ao aplicar a migration de esforço.
+- A migration de esforço publicada foi preservada. Foi criada uma migration posterior para `household_invitations`, mantendo compatibilidade com bancos que já aplicaram esforço.
+
+## 2026-07-14 - encerramento
+
+- A mudança foi encerrada com as validações .NET disponibilizadas pelo solicitante: 95 testes unitários e 39 testes de integração aprovados.

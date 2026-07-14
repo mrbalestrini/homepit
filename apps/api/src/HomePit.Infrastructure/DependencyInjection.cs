@@ -1,6 +1,7 @@
 using HomePit.Application.Auth;
 using HomePit.Application.Common;
 using HomePit.Application.Images;
+using HomePit.Application.Integrations;
 using HomePit.Application.Notifications;
 using HomePit.Application.Storage;
 using HomePit.Infrastructure.Auth;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<IntegrationOptions>(configuration.GetSection(IntegrationOptions.SectionName));
         services.Configure<SuperAdminOptions>(configuration.GetSection(SuperAdminOptions.SectionName));
         services.Configure<AccountDeletionWorkerOptions>(configuration.GetSection(AccountDeletionWorkerOptions.SectionName));
         services.Configure<EvolutionOptions>(configuration.GetSection(EvolutionOptions.SectionName));

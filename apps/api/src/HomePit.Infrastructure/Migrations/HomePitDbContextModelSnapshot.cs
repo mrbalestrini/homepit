@@ -813,13 +813,13 @@ namespace HomePit.Infrastructure.Migrations
                     b.Property<Guid>("HouseholdId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset>("InvitedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("InviteeEmail")
                         .IsRequired()
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)");
-
-                    b.Property<DateTimeOffset>("InvitedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("InviterUserId")
                         .HasColumnType("uuid");
@@ -842,12 +842,12 @@ namespace HomePit.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InviterUserId");
+
                     b.HasIndex("HouseholdId", "InviteeEmail")
                         .IsUnique();
 
                     b.HasIndex("InviteeEmail", "Status");
-
-                    b.HasIndex("InviterUserId");
 
                     b.ToTable("household_invitations", "homepit");
                 });
@@ -1159,6 +1159,175 @@ namespace HomePit.Infrastructure.Migrations
                     b.ToTable("institutional_steps", "homepit");
                 });
 
+            modelBuilder.Entity("HomePit.Domain.Integrations.IntegrationAuditEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("IntegrationConnectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid?>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResourceType")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Surface")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("TraceId")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("IntegrationConnectionId", "CreatedAt");
+
+                    b.ToTable("integration_audit_events", "homepit");
+                });
+
+            modelBuilder.Entity("HomePit.Domain.Integrations.IntegrationConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccessMode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CredentialKind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("KeyId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("OAuthAuthorizationId")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SecretHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("TokenPrefix")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId");
+
+                    b.HasIndex("KeyId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "HouseholdId", "ExpiresAt");
+
+                    b.ToTable("integration_connections", "homepit");
+                });
+
+            modelBuilder.Entity("HomePit.Domain.Integrations.IntegrationIdempotencyRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("IntegrationConnectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("IntegrationConnectionId", "Operation", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("integration_idempotency_records", "homepit");
+                });
+
             modelBuilder.Entity("HomePit.Domain.Notifications.NotificationPreference", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1264,6 +1433,11 @@ namespace HomePit.Infrastructure.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
 
+                    b.Property<bool>("IsPopular")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<int?>("MaxInvitedMembers")
                         .HasColumnType("integer");
 
@@ -1283,20 +1457,15 @@ namespace HomePit.Infrastructure.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)");
 
-                    b.Property<bool>("ShowInCatalog")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true);
-
-                    b.Property<bool>("IsPopular")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
+
+                    b.Property<bool>("ShowInCatalog")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("Slug")
                         .IsRequired()
@@ -1560,118 +1729,20 @@ namespace HomePit.Infrastructure.Migrations
                     b.ToTable("tool_improvement_suggestions", "homepit");
                 });
 
-            modelBuilder.Entity("HomePit.Domain.Projects.MemberEffortAllocation", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("HouseholdId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("HouseholdMemberId")
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Points")
-                        .HasPrecision(8, 2)
-                        .HasColumnType("numeric(8,2)");
-
-                    b.Property<Guid?>("ProjectId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ScopeType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UniverseId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Weekday")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("HouseholdId");
-
-                    b.HasIndex("ProjectId");
-
-                    b.HasIndex("UniverseId");
-
-                    b.HasIndex("HouseholdMemberId", "ProjectId", "Weekday")
-                        .IsUnique()
-                        .HasFilter("\"ScopeType\" = 'Project'");
-
-                    b.HasIndex("HouseholdMemberId", "UniverseId", "Weekday")
-                        .IsUnique()
-                        .HasFilter("\"ScopeType\" = 'Universe'");
-
-                    b.HasIndex("HouseholdMemberId", "Weekday")
-                        .IsUnique()
-                        .HasFilter("\"ScopeType\" = 'Household'");
-
-                    b.ToTable("member_effort_allocations", "homepit", t =>
-                        {
-                            t.HasCheckConstraint("CK_member_effort_allocations_points_non_negative", "\"Points\" >= 0");
-                            t.HasCheckConstraint("CK_member_effort_allocations_scope", "(\"ScopeType\" = 'Household' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Universe' AND \"UniverseId\" IS NOT NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Project' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NOT NULL)");
-                        });
-                });
-
-            modelBuilder.Entity("HomePit.Domain.Projects.MemberEffortAllocation", b =>
-                {
-                    b.HasOne("HomePit.Domain.Households.Household", "Household")
-                        .WithMany("MemberEffortAllocations")
-                        .HasForeignKey("HouseholdId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("HomePit.Domain.Households.HouseholdMember", "HouseholdMember")
-                        .WithMany("EffortAllocations")
-                        .HasForeignKey("HouseholdMemberId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("HomePit.Domain.Projects.Project", "Project")
-                        .WithMany("EffortAllocations")
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("HomePit.Domain.Projects.Universe", "Universe")
-                        .WithMany("EffortAllocations")
-                        .HasForeignKey("UniverseId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.Navigation("Household");
-
-                    b.Navigation("HouseholdMember");
-
-                    b.Navigation("Project");
-
-                    b.Navigation("Universe");
-                });
-
             modelBuilder.Entity("HomePit.Domain.Projects.Activity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("CreatedByMemberId")
                         .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
                         .HasMaxLength(4000)
@@ -1768,6 +1839,72 @@ namespace HomePit.Infrastructure.Migrations
                     b.HasIndex("HouseholdId", "ActivityId", "CreatedAt");
 
                     b.ToTable("activity_comments", "homepit");
+                });
+
+            modelBuilder.Entity("HomePit.Domain.Projects.MemberEffortAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("HouseholdMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Points")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ScopeType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("UniverseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Weekday")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("UniverseId");
+
+                    b.HasIndex("HouseholdMemberId", "Weekday")
+                        .IsUnique()
+                        .HasFilter("\"ScopeType\" = 'Household'");
+
+                    b.HasIndex("HouseholdMemberId", "ProjectId", "Weekday")
+                        .IsUnique()
+                        .HasFilter("\"ScopeType\" = 'Project'");
+
+                    b.HasIndex("HouseholdMemberId", "UniverseId", "Weekday")
+                        .IsUnique()
+                        .HasFilter("\"ScopeType\" = 'Universe'");
+
+                    b.ToTable("member_effort_allocations", "homepit", t =>
+                        {
+                            t.HasCheckConstraint("CK_member_effort_allocations_points_non_negative", "\"Points\" >= 0");
+
+                            t.HasCheckConstraint("CK_member_effort_allocations_scope", "(\"ScopeType\" = 'Household' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Universe' AND \"UniverseId\" IS NOT NULL AND \"ProjectId\" IS NULL) OR (\"ScopeType\" = 'Project' AND \"UniverseId\" IS NULL AND \"ProjectId\" IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("HomePit.Domain.Projects.PendingItem", b =>
@@ -2444,6 +2581,47 @@ namespace HomePit.Infrastructure.Migrations
                     b.Navigation("InstitutionalPage");
                 });
 
+            modelBuilder.Entity("HomePit.Domain.Integrations.IntegrationAuditEvent", b =>
+                {
+                    b.HasOne("HomePit.Domain.Integrations.IntegrationConnection", "IntegrationConnection")
+                        .WithMany()
+                        .HasForeignKey("IntegrationConnectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("IntegrationConnection");
+                });
+
+            modelBuilder.Entity("HomePit.Domain.Integrations.IntegrationConnection", b =>
+                {
+                    b.HasOne("HomePit.Domain.Households.Household", "Household")
+                        .WithMany()
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HomePit.Domain.Households.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Household");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("HomePit.Domain.Integrations.IntegrationIdempotencyRecord", b =>
+                {
+                    b.HasOne("HomePit.Domain.Integrations.IntegrationConnection", "IntegrationConnection")
+                        .WithMany()
+                        .HasForeignKey("IntegrationConnectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("IntegrationConnection");
+                });
+
             modelBuilder.Entity("HomePit.Domain.Notifications.NotificationPreference", b =>
                 {
                     b.HasOne("HomePit.Domain.Households.Household", "Household")
@@ -2572,6 +2750,39 @@ namespace HomePit.Infrastructure.Migrations
                     b.Navigation("Activity");
 
                     b.Navigation("AuthorMember");
+                });
+
+            modelBuilder.Entity("HomePit.Domain.Projects.MemberEffortAllocation", b =>
+                {
+                    b.HasOne("HomePit.Domain.Households.Household", "Household")
+                        .WithMany("MemberEffortAllocations")
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HomePit.Domain.Households.HouseholdMember", "HouseholdMember")
+                        .WithMany("EffortAllocations")
+                        .HasForeignKey("HouseholdMemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HomePit.Domain.Projects.Project", "Project")
+                        .WithMany("EffortAllocations")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("HomePit.Domain.Projects.Universe", "Universe")
+                        .WithMany("EffortAllocations")
+                        .HasForeignKey("UniverseId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Household");
+
+                    b.Navigation("HouseholdMember");
+
+                    b.Navigation("Project");
+
+                    b.Navigation("Universe");
                 });
 
             modelBuilder.Entity("HomePit.Domain.Projects.PendingItem", b =>
@@ -2771,9 +2982,9 @@ namespace HomePit.Infrastructure.Migrations
 
                     b.Navigation("Invitations");
 
-                    b.Navigation("Members");
-
                     b.Navigation("MemberEffortAllocations");
+
+                    b.Navigation("Members");
 
                     b.Navigation("NotificationRuns");
 
@@ -2782,13 +2993,6 @@ namespace HomePit.Infrastructure.Migrations
                     b.Navigation("Prompts");
 
                     b.Navigation("Universes");
-                });
-
-            modelBuilder.Entity("HomePit.Domain.Households.HouseholdInvitation", b =>
-                {
-                    b.Navigation("Household");
-
-                    b.Navigation("InviterUser");
                 });
 
             modelBuilder.Entity("HomePit.Domain.Households.HouseholdMember", b =>

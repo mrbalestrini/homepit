@@ -1,0 +1,11 @@
+# HomePit Integrations v1
+
+Status: especificação; confirme feature flags antes de usar.
+
+- `README.md`: início rápido e limites da conexão.
+- `rest-api.md`: Bearer token, Casa fixada, cursor, ETag e idempotência.
+- `mcp.md`: MCP Streamable HTTP, OAuth PKCE, tools e bridge stdio.
+- `security.md`: expiração, revogação, rate limit, auditoria e erros.
+- `recipes.md`: fluxos seguros para Financeiro e Projetos.
+
+Regras para agentes: nunca solicitar ou registrar token; usar variáveis de ambiente; não enviar `X-Household-Id`; confirmar modo e expiração com `GET /space`; ler o OpenAPI externo antes de formar payloads; usar idempotência em escrita; usar ETag/If-Match em update/delete; solicitar prévia antes de exclusão MCP. A conexão não amplia permissões do criador.

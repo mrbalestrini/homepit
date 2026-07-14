@@ -1,0 +1,223 @@
+openapi: 3.1.0
+info:
+  title: HomePit Integrations API
+  version: 1.0.0
+  description: API externa para conexões HomePit. A Casa é definida pela credencial e X-Household-Id é recusado.
+servers:
+  - url: https://{host}/api/integrations/v1
+    variables:
+      host:
+        default: app.homepit.example
+security:
+  - integrationToken: []
+paths:
+  /space:
+    get:
+      operationId: space_get
+      summary: Lê o contexto efetivo da conexão.
+      responses:
+        '200': { $ref: '#/components/responses/Space' }
+        '401': { $ref: '#/components/responses/Error' }
+  /finance/periods:
+    get:
+      operationId: finance_list_periods
+      responses: { '200': { $ref: '#/components/responses/List' } }
+  /finance/periods/{year}/{month}:
+    get:
+      operationId: finance_get_period
+      parameters: [ { $ref: '#/components/parameters/Year' }, { $ref: '#/components/parameters/Month' } ]
+      responses: { '200': { $ref: '#/components/responses/Object' } }
+  /finance/periods/{year}/{month}/generate:
+    post:
+      operationId: finance_generate_period
+      parameters: [ { $ref: '#/components/parameters/Year' }, { $ref: '#/components/parameters/Month' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '409': { $ref: '#/components/responses/Error' } }
+  /finance/categories:
+    get:
+      operationId: finance_list_categories
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: finance_create_category
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' }, '409': { $ref: '#/components/responses/Error' } }
+  /finance/categories/{id}:
+    put:
+      operationId: finance_update_category
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '412': { $ref: '#/components/responses/Error' } }
+    delete:
+      operationId: finance_delete_category
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses: { '204': { description: Excluído }, '412': { $ref: '#/components/responses/Error' } }
+  /finance/recurring-templates:
+    get:
+      operationId: finance_list_recurring_templates
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: finance_create_recurring_template
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' } }
+  /finance/entries:
+    get:
+      operationId: finance_list_entries
+      parameters:
+        - { name: year, in: query, schema: { type: integer }, required: false }
+        - { name: month, in: query, schema: { type: integer, minimum: 1, maximum: 12 }, required: false }
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: finance_create_entry
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' }, '409': { $ref: '#/components/responses/Error' } }
+  /finance/entries/{id}:
+    put:
+      operationId: finance_update_entry
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' } }
+    delete:
+      operationId: finance_delete_entry
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses: { '204': { description: Excluído } }
+  /finance/assets:
+    get:
+      operationId: finance_list_assets
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: finance_create_asset
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' } }
+  /finance/credit-cards:
+    get:
+      operationId: finance_list_credit_cards
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: finance_create_credit_card
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' } }
+  /finance/credit-cards/{id}/transactions:
+    get:
+      operationId: finance_list_credit_card_transactions
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: finance_create_credit_card_transaction
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' } }
+  /finance/credit-cards/{id}/transactions/import:
+    post:
+      operationId: finance_import_credit_card_transactions
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '409': { $ref: '#/components/responses/Error' } }
+  /projects/universes:
+    get:
+      operationId: projects_list_universes
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: projects_create_universe
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' } }
+  /projects/items:
+    get:
+      operationId: projects_list_projects
+      parameters: [ { name: universeId, in: query, schema: { type: string, format: uuid }, required: false } ]
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: projects_create_project
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' } }
+  /projects/activities:
+    get:
+      operationId: projects_list_activities
+      parameters:
+        - { name: projectId, in: query, schema: { type: string, format: uuid }, required: false }
+        - { name: status, in: query, schema: { type: string }, required: false }
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: projects_create_activity
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' } }
+  /projects/activities/{id}/comments:
+    get:
+      operationId: projects_list_comments
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: projects_create_comment
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' } }
+  /projects/activities/{id}/pending-items:
+    get:
+      operationId: projects_list_pending_items
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: projects_create_pending_item
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' } }
+components:
+  securitySchemes:
+    integrationToken:
+      type: http
+      scheme: bearer
+      bearerFormat: HomePit integration token
+  parameters:
+    Id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    Year: { name: year, in: path, required: true, schema: { type: integer } }
+    Month: { name: month, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 12 } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }
+    IfMatch: { name: If-Match, in: header, required: true, schema: { type: string } }
+  requestBodies:
+    Object:
+      required: true
+      content: { application/json: { schema: { type: object, additionalProperties: true } } }
+  responses:
+    Object:
+      description: Resultado do domínio.
+      headers: { ETag: { schema: { type: string }, description: Versão para operações mutáveis. } }
+      content: { application/json: { schema: { type: object, additionalProperties: true } } }
+    List:
+      description: Coleção do domínio.
+      content: { application/json: { schema: { type: array, items: { type: object, additionalProperties: true } } } }
+    Space:
+      description: Contexto efetivo da conexão.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [id, name, householdRole, accessMode, expiresAt, timezone, contractVersion]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              householdRole: { type: string }
+              accessMode: { type: string, enum: [ReadOnly, ReadWrite] }
+              expiresAt: { type: string, format: date-time }
+              timezone: { type: string, example: America/Sao_Paulo }
+              contractVersion: { type: string, example: 1.0.0 }
+    Error:
+      description: Problem Details estável.
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required: [status, title, code, traceId, retryable]
+            properties:
+              status: { type: integer }
+              title: { type: string }
+              detail: { type: string }
+              code: { type: string }
+              traceId: { type: string }
+              retryable: { type: boolean }

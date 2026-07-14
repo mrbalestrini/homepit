@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "@/lib/api";
-import type { CurrentUserPlanSummary, PlanDefinition } from "@/lib/api";
+import type { CurrentUserPlanSummary, IntegrationConnection, PlanDefinition } from "@/lib/api";
 import { useProjectDashboard } from "@/features/projects/use-project-dashboard";
 import { ProfilePage } from "./profile-page";
 
@@ -56,9 +56,112 @@ const mockedApiFetch = vi.mocked(api.apiFetch);
 const mockedUseProjectDashboard = vi.mocked(useProjectDashboard);
 
 describe("ProfilePage", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.removeAttribute("data-scroll-locked");
+    document.body.removeAttribute("style");
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     cleanup();
+    window.history.replaceState({}, "", "/profile");
+  });
+
+  it("navigates to the connection tab and creates a connection with a revealed token", async () => {
+    window.history.replaceState({}, "", "/profile?tab=connection");
+    mockedUseProjectDashboard.mockReturnValue(buildDashboard());
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const createdConnection = buildIntegrationConnection();
+    mockedApiFetch.mockImplementation(async (path, options) => {
+      if (path === "/api/users/me/integration-connections" && !options?.method) {
+        return [];
+      }
+
+      if (path === "/api/users/me/integration-connections" && options?.method === "POST") {
+        return {
+          connection: createdConnection,
+          token: "hp_int_secret_once",
+          restApiUrl: "https://api.homepit.dev/api/integrations/v1",
+          mcpUrl: "https://api.homepit.dev/mcp",
+        };
+      }
+
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<ProfilePage />);
+
+    expect(await screen.findByText("Conexões")).toBeInTheDocument();
+    expect(screen.getByText("Nenhuma conexão criada")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Nova conexão" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /nome/i }), { target: { value: "Automação financeira" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /permissão/i }), { target: { value: "ReadWrite" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar conexão" }));
+
+    await waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalledWith(
+        "/api/users/me/integration-connections",
+        expect.objectContaining({
+          method: "POST",
+          token: "access-token",
+          body: expect.stringContaining('"accessMode":"ReadWrite"'),
+        }),
+      );
+    });
+
+    const revealDialog = await screen.findByRole("dialog", { name: "Guarde sua chave" });
+    expect(revealDialog).toBeInTheDocument();
+    expect(screen.getByDisplayValue("hp_int_secret_once")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Copiar chave" }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("hp_int_secret_once");
+    });
+    expect(screen.getByText("Automação financeira")).toBeInTheDocument();
+    fireEvent.click(within(revealDialog).getAllByRole("button", { name: "Fechar" })[0]);
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Guarde sua chave" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("revokes an active connection from the connection tab", async () => {
+    window.history.replaceState({}, "", "/profile?tab=connection");
+    mockedUseProjectDashboard.mockReturnValue(buildDashboard());
+    const connection = buildIntegrationConnection();
+    mockedApiFetch.mockImplementation(async (path, options) => {
+      if (path === "/api/users/me/integration-connections" && !options?.method) {
+        return [connection];
+      }
+
+      if (path === `/api/users/me/integration-connections/${connection.id}/revoke` && options?.method === "POST") {
+        return undefined;
+      }
+
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<ProfilePage />);
+
+    expect(await screen.findByText("Automação financeira")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Revogar" }));
+    expect(await screen.findByRole("dialog", { name: "Revogar conexão" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Revogar conexão" }));
+
+    await waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalledWith(
+        "/api/users/me/integration-connections/connection-1/revoke",
+        expect.objectContaining({ method: "POST", token: "access-token" }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Revogar conexão" })).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("Revogada")).toBeInTheDocument();
   });
 
   it("shows the current plan, usage and quota states", async () => {
@@ -529,6 +632,24 @@ function buildPlanDefinition(overrides: Partial<PlanDefinition> = {}): PlanDefin
   };
 }
 
+function buildIntegrationConnection(overrides: Partial<IntegrationConnection> = {}): IntegrationConnection {
+  return {
+    id: "connection-1",
+    name: "Automação financeira",
+    credentialKind: "ManualToken",
+    accessMode: "ReadWrite",
+    householdId: "household-1",
+    householdName: "Casa",
+    tokenPrefix: "hp_int_abcd",
+    expiresAt: "2026-10-12T23:59:59Z",
+    revokedAt: null,
+    lastUsedAt: null,
+    createdAt: "2026-07-14T12:00:00Z",
+    isActive: true,
+    ...overrides,
+  };
+}
+
 function buildCurrentUserPlanSummary(
   overrides: Partial<CurrentUserPlanSummary> = {},
 ): CurrentUserPlanSummary {
@@ -549,6 +670,8 @@ function buildCurrentUserPlanSummary(
 describe("ProfilePage subscription CTA", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cleanup();
+    window.history.replaceState({}, "", "/profile");
   });
 
   it("falls back to e-mail when no WhatsApp number is available", async () => {
@@ -589,6 +712,8 @@ describe("ProfilePage subscription CTA", () => {
     });
 
     render(<ProfilePage />);
+
+    await screen.findByText("Standard");
 
     fireEvent.click(screen.getAllByRole("button", { name: "Assinatura" })[0]);
 

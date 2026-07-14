@@ -1,23 +1,21 @@
-# Finance Module
+# Módulo Financeiro
 
-Planned after the projects MVP.
+O Financeiro é um módulo interno compartilhado pela Casa, disponível em `/finance`. Ele organiza o fluxo mensal em Caixa, Cartões e Patrimônio.
 
-## Notion Mapping
+## Capacidades atuais
 
-- `Cálculo Mensal` becomes `MonthlyPeriod`.
-- `Despesas Mensais` becomes `CashItem`.
-- recurring fixed expenses become `MonthlyTemplate`.
-- `Meus carros`, `Meus imóveis` and `Meus Bens (relacionamento)` become `Vehicle`, `Property` and `Asset`.
+- Períodos mensais únicos por Casa, com criação de itens recorrentes ausentes ou duplicação explícita de todos os itens ativos.
+- Lançamentos de caixa com entrada/saída, valor, data, verificação e classificações opcionais por categoria, universo e projeto.
+- Recorrências mensais e anuais, incluindo geração para um período.
+- Categorias financeiras padrão imutáveis e categorias personalizadas da Casa. Excluir uma categoria personalizada apenas desvincula os registros associados.
+- Cartões, compras, fechamento de fatura e lançamento consolidado no Caixa. A visão analítica evita contar a fatura e as compras duas vezes.
+- Importação atômica de compras de cartão por JSON no formato `{"transactions":[...]}`, com revisão antes da gravação e criação de categorias inexistentes por nome.
+- Patrimônio com bens do tipo imóvel, veículo ou outro e referências anuais de valor.
 
-## Initial Entities
+## Permissões
 
-- `MonthlyPeriod`: month/year, notes and computed totals.
-- `CashItem`: item, type `Entrada`/`Saida`, amount, reference date, verified flag and notes.
-- `MonthlyTemplate`: recurring item copied into new monthly periods.
-- `Asset`: normalized asset record with value, remaining debt and paid-off status.
-- `Vehicle`: brand, model, year, Renavam and FIPE values.
-- `Property`: registry, property inscription, private area, debt check date and notes.
+`Owner` e `Admin` gerenciam os registros da Casa. `Member` gerencia somente o conteúdo que criou. `SuperAdmin` permanece somente leitura nos módulos das Casas.
 
-## First Workflow
+## Limites atuais
 
-The first finance feature should reproduce the Notion button "Adicionar Itens Mensais": create a new month and copy active templates into it.
+Não há conciliação bancária, parcelamento, anexos de comprovante nem importação automática por SMS, XLS, OCR ou serviços externos. A integração externa planejada está documentada em [Integrações](../integrations/README.md); sua disponibilidade depende da liberação da feature e não substitui as rotas internas atuais.

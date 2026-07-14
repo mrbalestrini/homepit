@@ -58,6 +58,37 @@ export type DeleteOwnAccountResult = {
   scheduledDeletionAt?: string | null;
 };
 
+export type IntegrationConnectionAccessMode = "ReadOnly" | "ReadWrite";
+
+export type IntegrationConnection = {
+  id: string;
+  name: string;
+  credentialKind: string;
+  accessMode: IntegrationConnectionAccessMode;
+  householdId: string;
+  householdName: string;
+  tokenPrefix?: string | null;
+  expiresAt: string;
+  revokedAt?: string | null;
+  lastUsedAt?: string | null;
+  createdAt: string;
+  isActive: boolean;
+};
+
+export type CreateIntegrationConnectionRequest = {
+  name: string;
+  householdId: string;
+  accessMode: IntegrationConnectionAccessMode;
+  expiresAt: string;
+};
+
+export type CreateIntegrationConnectionResult = {
+  connection: IntegrationConnection;
+  token: string;
+  restApiUrl: string;
+  mcpUrl: string;
+};
+
 export type AdminUserListItem = {
   id: string;
   email: string;

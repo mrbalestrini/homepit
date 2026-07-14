@@ -36,7 +36,10 @@ import { useProjectDashboard } from "@/features/projects/use-project-dashboard";
 import { COMMON_IMAGE_ACCEPT } from "@/lib/image-upload";
 import { ProfilePhotoCropDialog, type ProfilePhotoCropDraft } from "@/features/profile/profile-photo-crop-dialog";
 import { cropProfilePhotoFile } from "@/features/profile/profile-photo-utils";
+import { ConnectionTab } from "@/features/profile/connection-tab";
 import { cn } from "@/lib/utils";
+
+type ProfileTab = "profile" | "connection";
 
 export function ProfilePage() {
   const dashboard = useProjectDashboard();
@@ -129,6 +132,20 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   const [creationItems, setCreationItems] = useState<PlanCreationItem[]>([]);
   const [creationLoading, setCreationLoading] = useState(false);
   const [deletingCreation, setDeletingCreation] = useState<PlanCreationItem | null>(null);
+  const [activeTab, setActiveTab] = useState<ProfileTab>(getProfileTab);
+
+  useEffect(() => {
+    const handlePopState = () => setActiveTab(getProfileTab());
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  function selectTab(tab: ProfileTab) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.pushState({}, "", url);
+    setActiveTab(tab);
+  }
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -476,9 +493,13 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Gestão pessoal</p>
-              <h1 className="mt-2 text-3xl font-semibold text-foreground sm:text-4xl">Sua identidade no HomePit</h1>
+              <h1 className="mt-2 text-3xl font-semibold text-foreground sm:text-4xl">
+                {activeTab === "profile" ? "Sua identidade no HomePit" : "Conecte suas ferramentas"}
+              </h1>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Atualize sua foto, revise seus dados e acompanhe os limites da conta em um só lugar.
+                {activeTab === "profile"
+                  ? "Atualize sua foto, revise seus dados e acompanhe os limites da conta em um só lugar."
+                  : "Crie chaves com o acesso necessário para usar suas automações com segurança."}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -489,21 +510,36 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
           <div className="mt-6 flex flex-wrap gap-2">
             <button
               type="button"
-              className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm"
+              className={cn(
+                "rounded-full px-4 py-2 text-sm font-semibold transition",
+                activeTab === "profile"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "border border-border/70 text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+              )}
+              onClick={() => selectTab("profile")}
+              aria-current={activeTab === "profile" ? "page" : undefined}
             >
               Perfil
             </button>
             <button
               type="button"
-              className="rounded-full border border-border/70 px-4 py-2 text-sm font-semibold text-muted-foreground"
-              disabled
+              className={cn(
+                "rounded-full px-4 py-2 text-sm font-semibold transition",
+                activeTab === "connection"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "border border-border/70 text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+              )}
+              onClick={() => selectTab("connection")}
+              aria-current={activeTab === "connection" ? "page" : undefined}
             >
-              Preferências
+              Conexão
             </button>
           </div>
         </div>
       </Card>
 
+      {activeTab === "profile" ? (
+        <>
       <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Card className="overflow-hidden">
           <CardContent className="space-y-5 p-6">
@@ -846,8 +882,20 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
         }}
         onConfirm={deleteCreationItem}
       />
+        </>
+      ) : (
+        <ConnectionTab token={token} households={session.households} />
+      )}
     </div>
   );
+}
+
+function getProfileTab(): ProfileTab {
+  if (typeof window === "undefined") {
+    return "profile";
+  }
+
+  return new URLSearchParams(window.location.search).get("tab") === "connection" ? "connection" : "profile";
 }
 
 function Field({

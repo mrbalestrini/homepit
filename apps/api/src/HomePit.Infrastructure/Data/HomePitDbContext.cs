@@ -4,6 +4,7 @@ using HomePit.Domain.Finance;
 using HomePit.Domain.Gsm;
 using HomePit.Domain.Households;
 using HomePit.Domain.Institutional;
+using HomePit.Domain.Integrations;
 using HomePit.Domain.Notifications;
 using HomePit.Domain.Platform;
 using HomePit.Domain.Plans;
@@ -21,6 +22,9 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<HouseholdMember> HouseholdMembers => Set<HouseholdMember>();
     public DbSet<HouseholdInvitation> HouseholdInvitations => Set<HouseholdInvitation>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<IntegrationConnection> IntegrationConnections => Set<IntegrationConnection>();
+    public DbSet<IntegrationAuditEvent> IntegrationAuditEvents => Set<IntegrationAuditEvent>();
+    public DbSet<IntegrationIdempotencyRecord> IntegrationIdempotencyRecords => Set<IntegrationIdempotencyRecord>();
     public DbSet<InstitutionalPage> InstitutionalPages => Set<InstitutionalPage>();
     public DbSet<InstitutionalBenefit> InstitutionalBenefits => Set<InstitutionalBenefit>();
     public DbSet<InstitutionalStep> InstitutionalSteps => Set<InstitutionalStep>();
@@ -59,6 +63,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
         modelBuilder.HasDefaultSchema("homepit");
 
         ConfigureHouseholds(modelBuilder);
+        ConfigureIntegrations(modelBuilder);
         ConfigureFinance(modelBuilder);
         ConfigureGsm(modelBuilder);
         ConfigureInstitutional(modelBuilder);
@@ -223,6 +228,61 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.HasOne(token => token.User)
                 .WithMany(user => user.RefreshTokens)
                 .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureIntegrations(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<IntegrationConnection>(builder =>
+        {
+            builder.ToTable("integration_connections");
+            builder.Property(item => item.Name).HasMaxLength(120).IsRequired();
+            builder.Property(item => item.CredentialKind).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.AccessMode).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(item => item.KeyId).HasMaxLength(64);
+            builder.Property(item => item.SecretHash).HasMaxLength(128);
+            builder.Property(item => item.TokenPrefix).HasMaxLength(32);
+            builder.Property(item => item.OAuthAuthorizationId).HasMaxLength(160);
+            builder.HasIndex(item => item.KeyId).IsUnique();
+            builder.HasIndex(item => new { item.UserId, item.HouseholdId, item.ExpiresAt });
+            builder.HasOne(item => item.User)
+                .WithMany()
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(item => item.Household)
+                .WithMany()
+                .HasForeignKey(item => item.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<IntegrationAuditEvent>(builder =>
+        {
+            builder.ToTable("integration_audit_events");
+            builder.Property(item => item.Surface).HasMaxLength(24).IsRequired();
+            builder.Property(item => item.Operation).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.ResourceType).HasMaxLength(80);
+            builder.Property(item => item.TraceId).HasMaxLength(160).IsRequired();
+            builder.HasIndex(item => new { item.IntegrationConnectionId, item.CreatedAt });
+            builder.HasIndex(item => item.CreatedAt);
+            builder.HasOne(item => item.IntegrationConnection)
+                .WithMany()
+                .HasForeignKey(item => item.IntegrationConnectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<IntegrationIdempotencyRecord>(builder =>
+        {
+            builder.ToTable("integration_idempotency_records");
+            builder.Property(item => item.Operation).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.IdempotencyKey).HasMaxLength(128).IsRequired();
+            builder.Property(item => item.RequestHash).HasMaxLength(128).IsRequired();
+            builder.Property(item => item.ResponseJson).IsRequired();
+            builder.HasIndex(item => new { item.IntegrationConnectionId, item.Operation, item.IdempotencyKey }).IsUnique();
+            builder.HasIndex(item => item.ExpiresAt);
+            builder.HasOne(item => item.IntegrationConnection)
+                .WithMany()
+                .HasForeignKey(item => item.IntegrationConnectionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

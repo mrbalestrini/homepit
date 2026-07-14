@@ -7,6 +7,9 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 ## [1.11.1] - 2026-07-14
 
 ### Changed
+- A API interna passou para `0.5.0` e ganhou conexões de integração por Casa, com chave revelada uma única vez, expiração, permissão de leitura/escrita, revogação, limite técnico, idempotência e auditoria sem payloads.
+- O perfil ganhou a aba `Conexão`, com criação, listagem, cópia única do segredo e revogação de conexões.
+- A plataforma passou a expor a API externa inicial em `/api/integrations/v1` e o endpoint MCP Streamable HTTP em `/mcp`, ambos protegidos por feature flags.
 - A página `/profile` passou a mostrar o `Plano` antes do fluxo de assinatura, sem exibir os valores do plano atual nessa seção.
 - A solicitação de assinatura virou uma modal acionada por botão, com cards de plano mais visuais e destaque para o plano popular.
 - O catálogo comercial passou a registrar um plano popular por destaque, com o Gold vindo marcado por padrão e o SuperAdmin podendo alternar esse selo.

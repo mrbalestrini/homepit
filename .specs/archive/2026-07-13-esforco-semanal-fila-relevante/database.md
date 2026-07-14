@@ -15,7 +15,7 @@ Criar chaves estrangeiras para Casa, membro, Universo e Projeto, índices único
 ## Testes e validação
 
 - A migration declara `[DbContext(typeof(HomePitDbContext))]` e `[Migration("20260713160000_AddMemberEffortAllocations")]` no próprio arquivo para descoberta pelo EF.
-- A compilação e `dotnet ef migrations list` não foram executados: o repositório exige SDK .NET 10.0.100 e o ambiente possui apenas SDK 9.0.304.
+- `dotnet test HomePit.sln`: 95 testes unitários e 39 testes de integração aprovados em 2026-07-14.
 
 ## Validação explícita antes de DDL/DML
 

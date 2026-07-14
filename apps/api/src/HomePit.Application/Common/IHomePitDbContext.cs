@@ -1,4 +1,5 @@
 using HomePit.Domain.Households;
+using HomePit.Domain.Integrations;
 using HomePit.Domain.Institutional;
 using HomePit.Domain.Finance;
 using HomePit.Domain.Gsm;
@@ -18,6 +19,9 @@ public interface IHomePitDbContext
     DbSet<HouseholdMember> HouseholdMembers { get; }
     DbSet<HouseholdInvitation> HouseholdInvitations { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
+    DbSet<IntegrationConnection> IntegrationConnections { get; }
+    DbSet<IntegrationAuditEvent> IntegrationAuditEvents { get; }
+    DbSet<IntegrationIdempotencyRecord> IntegrationIdempotencyRecords { get; }
     DbSet<InstitutionalPage> InstitutionalPages { get; }
     DbSet<InstitutionalBenefit> InstitutionalBenefits { get; }
     DbSet<InstitutionalStep> InstitutionalSteps { get; }

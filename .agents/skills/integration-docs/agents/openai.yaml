@@ -1,0 +1,4 @@
+interface:
+  display_name: "Documentação de Integrações"
+  short_description: "Manter guias REST e MCP do HomePit"
+  default_prompt: "Use $integration-docs para revisar a documentação da integração HomePit."
