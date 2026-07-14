@@ -22,6 +22,7 @@ public static class PlanDefinitionCatalog
             MaxProjects: 3,
             MaxInvitedMembers: null,
             MaxOriginalImages: 30,
+            IsPopular: false,
             SortOrder: 0),
         new(
             StandardSlug,
@@ -34,6 +35,7 @@ public static class PlanDefinitionCatalog
             MaxProjects: 3,
             MaxInvitedMembers: null,
             MaxOriginalImages: 30,
+            IsPopular: false,
             SortOrder: 1),
         new(
             BronzeSlug,
@@ -46,6 +48,7 @@ public static class PlanDefinitionCatalog
             MaxProjects: 6,
             MaxInvitedMembers: null,
             MaxOriginalImages: 50,
+            IsPopular: false,
             SortOrder: 2),
         new(
             SilverSlug,
@@ -58,6 +61,7 @@ public static class PlanDefinitionCatalog
             MaxProjects: 9,
             MaxInvitedMembers: null,
             MaxOriginalImages: 100,
+            IsPopular: false,
             SortOrder: 3),
         new(
             GoldSlug,
@@ -70,6 +74,7 @@ public static class PlanDefinitionCatalog
             MaxProjects: 15,
             MaxInvitedMembers: null,
             MaxOriginalImages: 300,
+            IsPopular: true,
             SortOrder: 4)
     ];
 
@@ -84,5 +89,6 @@ public static class PlanDefinitionCatalog
         int MaxProjects,
         int? MaxInvitedMembers,
         int MaxOriginalImages,
+        bool IsPopular,
         int SortOrder);
 }

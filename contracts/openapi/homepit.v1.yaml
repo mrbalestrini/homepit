@@ -2574,7 +2574,7 @@ components:
     PlanDefinition:
       type: object
       required:
-        [id, slug, name, currencyCode, monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniverses, maxProjects, maxOriginalImages, imagePolicyDescription]
+        [id, slug, name, currencyCode, monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniverses, maxProjects, maxOriginalImages, isPopular, imagePolicyDescription]
       properties:
         id:
           type: string
@@ -2600,6 +2600,8 @@ components:
           nullable: true
         maxOriginalImages:
           type: integer
+        isPopular:
+          type: boolean
         imagePolicyDescription:
           type: string
     UpdatePlanDefinitionRequest:

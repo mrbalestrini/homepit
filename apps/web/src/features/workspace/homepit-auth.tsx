@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Layers, Sparkles, Users } from "lucide-react";
+import { Home, Layers, Repeat2, Users } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { AuthResponse, apiFetch } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -87,7 +87,7 @@ export function HomePitAuth({
                 description="Compartilhe a casa com permissões coerentes para cada pessoa."
               />
               <HighlightCard
-                icon={<Sparkles className="size-5" />}
+                icon={<Repeat2 className="size-5" />}
                 title="Reuso real"
                 description="Transforme prompts bons em ativos consultáveis e reutilizáveis."
               />

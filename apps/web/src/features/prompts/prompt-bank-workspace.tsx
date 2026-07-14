@@ -9,13 +9,15 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  FileText,
   Link2,
   Inbox,
+  ImageIcon,
   MoreHorizontal,
   Pencil,
+  NotebookPen,
   Plus,
   Search,
-  Sparkles,
   Tag,
   Trash2,
 } from "lucide-react";
@@ -356,7 +358,7 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
           />
         ) : bank.promptPage.items.length === 0 ? (
           <EmptyState
-            icon={<Sparkles className="size-5" />}
+            icon={<FileText className="size-5" />}
             title="Nenhum prompt encontrado"
             description="Ajuste os filtros atuais ou crie um novo prompt para começar seu banco."
             action={
@@ -820,7 +822,7 @@ export function PromptCard({
         <div className="flex items-start justify-between gap-3 rounded-t-[24px] border-b border-border/60 bg-[linear-gradient(135deg,rgba(138,106,84,0.08),rgba(237,227,213,0.5))] px-4 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="grid size-11 shrink-0 place-items-center rounded-[16px] bg-surface-strong text-accent-foreground shadow-xs">
-              <Sparkles className="size-5" />
+              <NotebookPen className="size-5" />
             </div>
             <div className="min-w-0 space-y-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{headerLabel}</p>
@@ -1012,7 +1014,7 @@ function PromptDialog({
                 <div className="rounded-[22px] border border-dashed border-border/70 bg-surface-muted px-4 py-5">
                   <div className="flex items-center gap-3">
                     <div className="grid size-11 shrink-0 place-items-center rounded-[16px] bg-surface-strong text-accent-foreground shadow-xs">
-                      <Sparkles className="size-5" />
+                      <ImageIcon className="size-5" />
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-foreground">Sem imagem vinculada</p>
@@ -1540,7 +1542,7 @@ function PromptImageFrame({
       ) : (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
           <div className="grid size-14 place-items-center rounded-[20px] bg-surface-strong text-accent-foreground shadow-xs">
-            <Sparkles className="size-6" />
+            <ImageIcon className="size-6" />
           </div>
           <div className="max-w-[14rem]">
             <p className="text-sm font-semibold text-foreground">{title}</p>

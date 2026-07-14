@@ -36,6 +36,8 @@ public sealed class CommercialPlanServiceTests
 
         Assert.NotEmpty(plans);
         Assert.Contains(plans, plan => plan.Slug == PlanDefinitionCatalog.FreeSlug);
+        Assert.Contains(plans, plan => plan.Slug == PlanDefinitionCatalog.GoldSlug && plan.IsPopular);
+        Assert.Single(plans, plan => plan.IsPopular);
     }
 
     [Fact]
@@ -86,6 +88,37 @@ public sealed class CommercialPlanServiceTests
                     UserSubscriptionStatus.Active,
                     "sobreposição"),
                 CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Superadmin_can_move_the_popular_flag_between_plans()
+    {
+        await using var context = CreateDbContext();
+        var user = await SeedUserAsync(context, "popular@homepit.dev");
+        var service = CreateCommercialPlanService(context, user.Id, SystemRole.SuperAdmin);
+        await service.EnsurePlanCatalogAsync(CancellationToken.None);
+
+        var standardPlan = await context.PlanDefinitions.SingleAsync(item => item.Slug == PlanDefinitionCatalog.StandardSlug);
+
+        var updated = await service.UpdatePlanAsync(
+            standardPlan.Id,
+            new UpdatePlanDefinitionRequest(
+                standardPlan.MonthlyPrice,
+                standardPlan.AnnualPrice,
+                standardPlan.MaxOwnedHouseholds,
+                standardPlan.MaxUniverses,
+                standardPlan.MaxProjects,
+                standardPlan.MaxInvitedMembers,
+                standardPlan.MaxOriginalImages,
+                true),
+            CancellationToken.None);
+
+        Assert.True(updated.IsPopular);
+
+        var plans = await service.ListPublicPlansAsync(CancellationToken.None);
+        Assert.True(plans.Single(item => item.Slug == PlanDefinitionCatalog.StandardSlug).IsPopular);
+        Assert.False(plans.Single(item => item.Slug == PlanDefinitionCatalog.GoldSlug).IsPopular);
+        Assert.Equal(1, plans.Count(item => item.IsPopular));
     }
 
     [Fact]

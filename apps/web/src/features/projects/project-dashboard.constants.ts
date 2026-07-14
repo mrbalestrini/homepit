@@ -66,7 +66,7 @@ export const uiStorageKeys = {
 export const defaultAppTheme: AppTheme = "earthy";
 
 export const themeOptions: Array<{ value: AppTheme; label: string }> = [
-  { value: "cozy", label: "Atual" },
+  { value: "cozy", label: "Claro" },
   { value: "earthy", label: "Terroso" },
   { value: "dark", label: "Escuro" },
 ];

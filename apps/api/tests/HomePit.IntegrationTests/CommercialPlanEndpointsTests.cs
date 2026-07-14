@@ -71,6 +71,7 @@ public sealed class CommercialPlanEndpointsTests
         var plans = await plansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PlanDefinitionResponse>>(JsonSerializerOptions.Web);
         Assert.NotNull(plans);
         Assert.Equal(5, plans.Count);
+        Assert.True(plans!.Single(item => item.Slug == "gold").IsPopular);
 
         var standardPlan = Assert.Single(plans, item => item.Slug == "standard");
         var updatePlanResponse = await SendAuthorizedAsync(
@@ -87,10 +88,18 @@ public sealed class CommercialPlanEndpointsTests
                 maxUniverses = 4,
                 maxProjects = 4,
                 maxInvitedMembers = 8,
-                maxOriginalImages = 35
+                maxOriginalImages = 35,
+                isPopular = true
             }));
 
         updatePlanResponse.EnsureSuccessStatusCode();
+
+        var updatedPlansResponse = await SendAuthorizedAsync(client, superAdminAuth.AccessToken, null, HttpMethod.Get, "/api/admin/platform/plans");
+        updatedPlansResponse.EnsureSuccessStatusCode();
+        var updatedPlans = await updatedPlansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PlanDefinitionResponse>>(JsonSerializerOptions.Web);
+        Assert.NotNull(updatedPlans);
+        Assert.True(updatedPlans!.Single(item => item.Slug == "standard").IsPopular);
+        Assert.False(updatedPlans.Single(item => item.Slug == "gold").IsPopular);
 
         var createSubscriptionResponse = await SendAuthorizedAsync(
             client,
@@ -302,7 +311,7 @@ public sealed class CommercialPlanEndpointsTests
     private sealed record AuthResponse(string AccessToken, AuthUserResponse User);
     private sealed record AuthUserResponse(Guid Id, string Email, string DisplayName, string SystemRole);
     private sealed record ProblemDetailsResponse(string? Detail);
-    private sealed record PlanDefinitionResponse(Guid Id, string Slug, string Name);
+    private sealed record PlanDefinitionResponse(Guid Id, string Slug, string Name, bool IsPopular);
     private sealed record AdminUserListItemResponse(Guid Id, string EffectivePlanName, string? ActiveSubscriptionStatus);
     private sealed record CurrentUserPlanSummaryResponse(PlanUsageSummaryResponse Usage);
     private sealed record PlanUsageSummaryResponse(

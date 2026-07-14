@@ -279,6 +279,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(item => item.CurrencyCode).HasMaxLength(3).IsRequired();
             builder.Property(item => item.MonthlyPrice).HasPrecision(10, 2);
             builder.Property(item => item.AnnualPrice).HasPrecision(10, 2);
+            builder.Property(item => item.IsPopular).HasDefaultValue(false);
             builder.HasIndex(item => item.Slug).IsUnique();
         });
 

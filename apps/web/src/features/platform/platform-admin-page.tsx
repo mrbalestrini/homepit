@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import {
+  Check,
   Loader2,
   LogOut,
   Pencil,
   Settings2,
   ShieldOff,
-  Sparkles,
+  Save,
   Trash2,
   UserCheck,
 } from "lucide-react";
@@ -362,6 +363,20 @@ function PlatformAdminPanel({ token }: { token: string }) {
     }));
   }
 
+  function togglePopularPlan(planId: string) {
+    setPlanDrafts((current) =>
+      Object.fromEntries(
+        Object.entries(current).map(([currentPlanId, plan]) => [
+          currentPlanId,
+          {
+            ...plan,
+            isPopular: currentPlanId === planId ? !plan.isPopular : false,
+          },
+        ]),
+      ),
+    );
+  }
+
   function updateSettingsField(field: keyof PlatformSettingsFormState, value: string) {
     setPlatformSettings((current) => ({
       ...current,
@@ -389,6 +404,7 @@ function PlatformAdminPanel({ token }: { token: string }) {
           maxProjects: draft.maxProjects,
           maxInvitedMembers: draft.maxInvitedMembers ?? null,
           maxOriginalImages: draft.maxOriginalImages,
+          isPopular: draft.isPopular,
         }),
       });
 
@@ -765,10 +781,31 @@ function PlatformAdminPanel({ token }: { token: string }) {
                       <CardTitle>{plan.name}</CardTitle>
                       <CardDescription>Slug fixo: {plan.slug}</CardDescription>
                     </div>
-                    <Badge variant="outline">{plan.currencyCode}</Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {draft.isPopular ? <Badge variant="default">Popular</Badge> : null}
+                      <Button
+                        type="button"
+                        variant={draft.isPopular ? "default" : "secondary"}
+                        size="sm"
+                        onClick={() => togglePopularPlan(plan.id)}
+                        aria-pressed={draft.isPopular}
+                        aria-label={`${draft.isPopular ? "Remover" : "Marcar"} ${plan.name} como popular`}
+                      >
+                        {draft.isPopular ? "Popular" : "Marcar popular"}
+                      </Button>
+                      <Badge variant="outline">{plan.currencyCode}</Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div
+                    className={cn(
+                      "rounded-[18px] border px-4 py-3 text-sm",
+                      draft.isPopular ? "border-primary/30 bg-highlight/35 text-foreground" : "border-border/70 bg-surface-muted text-muted-foreground",
+                    )}
+                  >
+                    {draft.isPopular ? "Este é o plano popular exibido com destaque para os clientes." : "Marque este plano como popular para destacá-lo na modal de assinatura."}
+                  </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Preço mensal">
                       <Input
@@ -828,7 +865,7 @@ function PlatformAdminPanel({ token }: { token: string }) {
                   </div>
                   <div className="flex justify-end">
                     <Button onClick={() => void savePlan(plan.id)} disabled={savingPlanId === plan.id}>
-                      {savingPlanId === plan.id ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                      {savingPlanId === plan.id ? <Loader2 className="animate-spin" /> : <Save />}
                       Salvar plano
                     </Button>
                   </div>
@@ -922,7 +959,7 @@ function PlatformAdminPanel({ token }: { token: string }) {
                   </Button>
                 ) : null}
                 <Button onClick={() => void saveSubscription()} disabled={savingSubscription}>
-                  {savingSubscription ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                  {savingSubscription ? <Loader2 className="animate-spin" /> : <Save />}
                   {editingSubscriptionId ? "Salvar assinatura" : "Criar assinatura"}
                 </Button>
               </div>
@@ -1083,7 +1120,7 @@ function PlatformAdminPanel({ token }: { token: string }) {
                     onClick={() => void applyBulkSuggestionUpdate()}
                     disabled={savingBulkSuggestionUpdate || selectedSuggestionIds.length === 0 || (!bulkSuggestionStatus && !bulkSuggestionPriority)}
                   >
-                    {savingBulkSuggestionUpdate ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                    {savingBulkSuggestionUpdate ? <Loader2 className="animate-spin" /> : <Check />}
                     Aplicar em massa
                   </Button>
                 </div>

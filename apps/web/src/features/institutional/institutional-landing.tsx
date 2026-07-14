@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Home, Layers3, Sparkles, UsersRound } from "lucide-react";
+import { ArrowRight, CheckCircle2, Home, Layers3, Repeat2, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL, type InstitutionalPageContent } from "@/lib/api";
 
@@ -96,7 +96,7 @@ export function InstitutionalLanding({ page }: { page: InstitutionalPageContent 
           <SectionHeading title={page.benefitsTitle} description={page.benefitsDescription} />
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {page.benefits.map((benefit, index) => {
-              const Icon = [Layers3, UsersRound, Sparkles][index % 3];
+              const Icon = [Layers3, UsersRound, Repeat2][index % 3];
               return (
                 <article className="rounded-[26px] border border-border/70 bg-surface-strong p-6 shadow-sm" key={`${benefit.position}-${benefit.title}`}>
                   <span className="grid size-12 place-items-center rounded-[18px] bg-highlight text-primary">

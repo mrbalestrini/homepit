@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Inbox, Loader2, Layers, Pencil, Share2, ShieldCheck, Sparkles, UserMinus, XCircle } from "lucide-react";
+import { CheckCircle2, Inbox, Loader2, Layers, NotebookPen, Pencil, Share2, ShieldCheck, UserMinus, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -252,7 +252,7 @@ function HouseholdWorkspaceContent({
                 </Button>
                 <Button asChild variant="ghost">
                   <Link href="/prompts">
-                    <Sparkles />
+                    <NotebookPen />
                     Prompts
                   </Link>
                 </Button>

@@ -92,6 +92,7 @@ export type PlanDefinition = {
   maxProjects: number;
   maxInvitedMembers?: number | null;
   maxOriginalImages: number;
+  isPopular: boolean;
   imagePolicyDescription: string;
 };
 

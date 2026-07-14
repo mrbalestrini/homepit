@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Camera, Loader2, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, Camera, Check, Loader2, Save, Settings2, Trash2, X } from "lucide-react";
 import { type ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +116,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber ?? "");
   const [savingProfile, setSavingProfile] = useState(false);
   const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
+  const [cancelAccountDialogOpen, setCancelAccountDialogOpen] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [photoCropDraft, setPhotoCropDraft] = useState<ProfilePhotoCropDraft | null>(null);
   const [planSummary, setPlanSummary] = useState<CurrentUserPlanSummary | null>(null);
@@ -123,6 +124,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   const [planCatalog, setPlanCatalog] = useState<PlanDefinition[]>([]);
   const [planCatalogLoading, setPlanCatalogLoading] = useState(true);
   const [publicPlatformSettings, setPublicPlatformSettings] = useState<PublicPlatformSettings | null>(null);
+  const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false);
   const [creationScope, setCreationScope] = useState<PlanCreationScope | null>(null);
   const [creationItems, setCreationItems] = useState<PlanCreationItem[]>([]);
   const [creationLoading, setCreationLoading] = useState(false);
@@ -148,6 +150,36 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
     } finally {
       setSavingProfile(false);
     }
+  }
+
+  function closeSubscriptionDialog() {
+    setSubscriptionDialogOpen(false);
+  }
+
+  function openSubscriptionDialog() {
+    setCancelAccountDialogOpen(false);
+    setDangerDialogOpen(false);
+    setSubscriptionDialogOpen(true);
+  }
+
+  function closeCancelAccountDialog() {
+    setCancelAccountDialogOpen(false);
+  }
+
+  function openCancelAccountDialog() {
+    setSubscriptionDialogOpen(false);
+    setDangerDialogOpen(false);
+    setCancelAccountDialogOpen(true);
+  }
+
+  function closeDangerDialog() {
+    setDangerDialogOpen(false);
+  }
+
+  function openDangerDialog() {
+    setSubscriptionDialogOpen(false);
+    setCancelAccountDialogOpen(false);
+    setDangerDialogOpen(true);
   }
 
   async function deleteAccount() {
@@ -180,7 +212,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
       );
 
       toast.success("Conta desativada e exclusão agendada.");
-      setDangerDialogOpen(false);
+      closeDangerDialog();
     } catch (exception) {
       toast.error(exception instanceof Error ? exception.message : "Não foi possível cancelar a conta.");
     } finally {
@@ -440,7 +472,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden">
-        <div className="bg-[radial-gradient(circle_at_top_left,rgba(22,163,74,0.18),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.02),rgba(0,0,0,0))] p-6 sm:p-8">
+        <div className="bg-[radial-gradient(circle_at_top_left,var(--highlight),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.03),rgba(0,0,0,0))] p-6 sm:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Gestão pessoal</p>
@@ -544,7 +576,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                 </div>
                 <div className="flex justify-end">
                   <Button type="submit" disabled={savingProfile}>
-                    {savingProfile ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                    {savingProfile ? <Loader2 className="animate-spin" /> : <Save />}
                     Salvar perfil
                   </Button>
                 </div>
@@ -554,43 +586,24 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
 
           <Card>
             <CardHeader>
-              <CardTitle>Solicitar assinatura</CardTitle>
-              <CardDescription>Escolha um plano e envie a solicitação já com o valor e o contato certo.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {planCatalogLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" />
-                  Carregando planos...
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle>Plano</CardTitle>
+                  <CardDescription>Veja o que sua conta pode usar e o que já está em uso.</CardDescription>
                 </div>
-              ) : planCatalog.length === 0 ? (
-                <Notice tone="warning">Nenhum plano público foi encontrado para solicitar no momento.</Notice>
-              ) : (
-                <>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>Destino automático:</span>
-                    <Badge variant="neutral">{requestContact.label}</Badge>
-                    <span>{requestContact.description}</span>
-                  </div>
-                  <div className="grid gap-3 xl:grid-cols-2">
-                    {planCatalog.map((plan) => (
-                      <PlanRequestCard
-                        key={plan.id}
-                        plan={plan}
-                        requestHref={buildSubscriptionRequestLink(plan, requestContact)}
-                        requestLabel={requestContact.actionLabel}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Plano</CardTitle>
-              <CardDescription>Veja o que sua conta pode usar e o que já está em uso.</CardDescription>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="secondary" onClick={openSubscriptionDialog}>
+                    <Settings2 />
+                    Assinatura
+                  </Button>
+                  {user.systemRole !== "SuperAdmin" ? (
+                    <Button type="button" variant="danger" onClick={openCancelAccountDialog}>
+                      <Trash2 />
+                      Excluir conta
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {planLoading ? (
@@ -603,12 +616,19 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{planSummary.plan.name}</Badge>
                     <Badge variant="neutral">
-                      {formatCurrency(planSummary.plan.monthlyPrice, planSummary.plan.currencyCode)}/mês
+                      {planSummary.activeSubscription ? "Assinatura ativa" : "Plano padrão"}
                     </Badge>
-                    <Badge variant="neutral">
-                      {formatCurrency(planSummary.plan.annualPrice, planSummary.plan.currencyCode)}/ano
-                    </Badge>
+                    {planSummary.activeSubscription ? (
+                      <Badge variant="neutral">
+                        {formatSubscriptionStatus(planSummary.activeSubscription.status)}
+                      </Badge>
+                    ) : null}
                   </div>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {planSummary.activeSubscription
+                      ? `Assinatura ${formatSubscriptionStatus(planSummary.activeSubscription.status)} de ${formatDateTime(planSummary.activeSubscription.startsAt)} até ${formatDateTime(planSummary.activeSubscription.endsAt)}.`
+                      : "Você está usando o plano padrão porque não há assinatura ativa no momento."}
+                  </p>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                     {quotaCards.map((card) => (
                       <QuotaOverviewCard
@@ -627,53 +647,70 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                     em qualidade original. Ao atingir o limite, novas criações ficam bloqueadas até o uso voltar a
                     caber na cota.
                   </div>
-                  {planSummary.activeSubscription ? (
-                    <div className="rounded-[18px] border border-border/70 bg-background px-4 py-3 text-sm leading-6 text-muted-foreground">
-                      Assinatura {formatSubscriptionStatus(planSummary.activeSubscription.status)} de{" "}
-                      {formatDateTime(planSummary.activeSubscription.startsAt)} até{" "}
-                      {formatDateTime(planSummary.activeSubscription.endsAt)}.
-                    </div>
-                  ) : (
-                    <Notice tone="warning">Você está usando o plano padrão porque não há assinatura ativa no momento.</Notice>
-                  )}
                 </>
               ) : (
                 <Notice tone="warning">Não foi possível carregar os dados do plano.</Notice>
               )}
             </CardContent>
           </Card>
-
-          {user.systemRole !== "SuperAdmin" ? (
-            <Card className="border-danger/30">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="rounded-[16px] bg-status-danger-soft p-3 text-danger">
-                    <ShieldAlert className="size-5" />
-                  </div>
-                  <div>
-                    <CardTitle>Cancelar conta</CardTitle>
-                    <CardDescription>Área sensível para encerramento definitivo do acesso.</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Notice tone={ownedHouseholdCount === 0 ? "warning" : "danger"}>{pendingCopy}</Notice>
-                <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4 text-sm leading-6 text-muted-foreground">
-                  {ownedHouseholdCount === 0
-                    ? "Sem casas próprias, a exclusão acontece na hora. Seus vínculos atuais serão removidos e um novo acesso no futuro exigirá nova conta."
-                    : "Com casas próprias, o acesso é bloqueado imediatamente. A exclusão final apaga as casas que você criou e todos os vínculos delas após 30 dias."}
-                </div>
-                <Button variant="danger" onClick={() => setDangerDialogOpen(true)}>
-                  <AlertTriangle />
-                  {ownedHouseholdCount === 0 ? "Excluir conta agora" : "Desativar conta e agendar exclusão"}
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
+          {user.systemRole === "SuperAdmin" ? (
             <Notice tone="warning">A conta do superadmin é protegida e não pode ser cancelada por esta interface.</Notice>
-          )}
+          ) : null}
         </div>
       </div>
+
+      <SubscriptionPlansDialog
+        open={subscriptionDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeSubscriptionDialog();
+          } else {
+            openSubscriptionDialog();
+          }
+        }}
+        planSummary={planSummary}
+        planCatalog={planCatalog}
+        planCatalogLoading={planCatalogLoading}
+        requestContact={requestContact}
+      />
+
+      <Dialog
+        open={cancelAccountDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeCancelAccountDialog();
+          } else {
+            openCancelAccountDialog();
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{ownedHouseholdCount === 0 ? "Excluir conta" : "Cancelar conta"}</DialogTitle>
+            <DialogDescription>{pendingCopy}</DialogDescription>
+          </DialogHeader>
+          <div className="rounded-[18px] border border-danger/20 bg-status-danger-soft p-4 text-sm leading-6 text-foreground">
+            {ownedHouseholdCount === 0
+              ? "Sem casas próprias, a exclusão acontece na hora. Seus vínculos atuais serão removidos e um novo acesso no futuro exigirá nova conta."
+              : "Com casas próprias, o acesso é bloqueado imediatamente. A exclusão final apaga as casas que você criou e todos os vínculos delas após 30 dias."}
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={closeCancelAccountDialog}>
+              Voltar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                closeCancelAccountDialog();
+                openDangerDialog();
+              }}
+            >
+              <AlertTriangle />
+              {ownedHouseholdCount === 0 ? "Excluir conta" : "Desativar conta"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ProfilePhotoCropDialog
         key={photoCropDraft?.previewUrl ?? "profile-crop-closed"}
@@ -703,7 +740,16 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
         }}
       />
 
-      <Dialog open={dangerDialogOpen} onOpenChange={setDangerDialogOpen}>
+      <Dialog
+        open={dangerDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeDangerDialog();
+          } else {
+            openDangerDialog();
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{ownedHouseholdCount === 0 ? "Excluir conta" : "Desativar conta"}</DialogTitle>
@@ -715,7 +761,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
               : "Ao confirmar, o próximo login mostrará o aviso de conta desativada com a data exata da exclusão programada."}
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setDangerDialogOpen(false)} disabled={deletingAccount}>
+            <Button variant="secondary" onClick={closeDangerDialog} disabled={deletingAccount}>
               Voltar
             </Button>
             <Button variant="danger" onClick={() => void deleteAccount()} disabled={deletingAccount}>
@@ -893,43 +939,148 @@ function QuotaOverviewCard({
   );
 }
 
+function SubscriptionPlansDialog({
+  open,
+  onOpenChange,
+  planSummary,
+  planCatalog,
+  planCatalogLoading,
+  requestContact,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  planSummary: CurrentUserPlanSummary | null;
+  planCatalog: PlanDefinition[];
+  planCatalogLoading: boolean;
+  requestContact: ReturnType<typeof resolveSubscriptionRequestContact>;
+}) {
+  const currentPlanId = planSummary?.plan.id ?? null;
+  const activeSubscription = planSummary?.activeSubscription ?? null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[min(96vw,82rem)] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Assinatura</DialogTitle>
+          <DialogDescription>Veja os planos disponíveis e a assinatura atual da conta.</DialogDescription>
+        </DialogHeader>
+
+        {planSummary ? (
+          <div className="rounded-[22px] border border-border/70 bg-surface-muted p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Plano em uso</p>
+                <p className="text-2xl font-semibold text-foreground">{planSummary.plan.name}</p>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {activeSubscription
+                    ? `Assinatura ${formatSubscriptionStatus(activeSubscription.status)} ${formatBillingCycle(activeSubscription.billingCycle).toLowerCase()} de ${formatDateTime(activeSubscription.startsAt)} até ${formatDateTime(activeSubscription.endsAt)}.`
+                    : "Você está no plano padrão no momento."}
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Badge variant="neutral">{requestContact.label}</Badge>
+                <Badge variant="neutral">Plano atual</Badge>
+                {planSummary.plan.isPopular ? <Badge variant="default">Popular</Badge> : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {planCatalogLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Carregando planos...
+          </div>
+        ) : planCatalog.length === 0 ? (
+          <Notice tone="warning">Nenhum plano público foi encontrado para solicitar no momento.</Notice>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            {planCatalog.map((plan) => (
+              <PlanRequestCard
+                key={plan.id}
+                plan={plan}
+                requestHref={buildSubscriptionRequestLink(plan, requestContact)}
+                requestLabel="Solicitar"
+                isCurrent={currentPlanId === plan.id}
+              />
+            ))}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            Fechar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PlanRequestCard({
   plan,
   requestHref,
   requestLabel,
+  isCurrent,
 }: {
   plan: PlanDefinition;
   requestHref: string;
   requestLabel: string;
+  isCurrent: boolean;
 }) {
+  const features = buildPlanFeatureHighlights(plan);
+
   return (
-    <div className="rounded-[22px] border border-border/70 bg-surface-muted p-5">
+    <div
+      className={cn(
+        "flex h-full flex-col rounded-[24px] border p-5 shadow-sm transition",
+        isCurrent ? "border-primary/50 bg-highlight/35" : "border-border/70 bg-surface-muted",
+        plan.isPopular && !isCurrent ? "border-primary/45 bg-surface-muted" : "",
+      )}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-foreground">{plan.name}</p>
           <p className="mt-1 text-xs text-muted-foreground">{plan.slug}</p>
         </div>
-        <Badge variant="neutral">{requestLabel}</Badge>
+        <div className="flex flex-wrap justify-end gap-2">
+          {plan.isPopular ? <Badge variant="default">Popular</Badge> : null}
+          {isCurrent ? <Badge variant="neutral">Atual</Badge> : null}
+        </div>
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Badge variant="outline">{formatCurrency(plan.monthlyPrice, plan.currencyCode)}/mês</Badge>
-        <Badge variant="neutral">{formatCurrency(plan.annualPrice, plan.currencyCode)}/ano</Badge>
+      <div className="mt-4">
+        <p className="text-3xl font-semibold text-foreground">
+          {formatCurrency(plan.monthlyPrice, plan.currencyCode)}
+          <span className="ml-2 text-sm font-medium text-muted-foreground">/mês</span>
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{formatCurrency(plan.annualPrice, plan.currencyCode)}/ano</p>
       </div>
-      <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
-        <p>Casas: {plan.maxOwnedHouseholds}</p>
-        <p>Universos: {plan.maxUniverses}</p>
-        <p>Projetos: {plan.maxProjects}</p>
-        <p>Membros convidados: {plan.maxInvitedMembers ?? "ilimitados"}</p>
-        <p>Imagens originais: {plan.maxOriginalImages}</p>
+      <div className="mt-5 space-y-2">
+        {features.map((feature) => (
+          <div key={feature.text} className="flex items-center gap-2 text-sm text-foreground">
+            <span
+              className={cn(
+                "grid size-5 shrink-0 place-items-center rounded-full",
+                feature.enabled ? "bg-status-success-soft text-success" : "bg-status-danger-soft text-danger",
+              )}
+            >
+              {feature.enabled ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+            </span>
+            <span>{feature.text}</span>
+          </div>
+        ))}
       </div>
-      <p className="mt-4 text-sm leading-6 text-muted-foreground">{plan.imagePolicyDescription}</p>
+      <p className="mt-5 text-sm leading-6 text-muted-foreground">{plan.imagePolicyDescription}</p>
       <div className="mt-5">
-        <Button asChild className="w-full">
-          <a href={requestHref}>
-            <Sparkles />
-            Solicitar assinatura
-          </a>
-        </Button>
+        {isCurrent ? (
+          <Button variant="secondary" className="w-full" disabled>
+            Plano atual
+          </Button>
+        ) : (
+          <Button asChild className="w-full">
+            <a href={requestHref}>{requestLabel}</a>
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -1030,6 +1181,19 @@ function formatSubscriptionStatus(value: "Scheduled" | "Active" | "Expired" | "C
   }
 }
 
+function formatBillingCycle(value: "Monthly" | "Annual" | "Custom") {
+  switch (value) {
+    case "Monthly":
+      return "Mensal";
+    case "Annual":
+      return "Anual";
+    case "Custom":
+      return "Personalizado";
+    default:
+      return value;
+  }
+}
+
 function resolveSubscriptionRequestContact(
   platformSettings: PublicPlatformSettings | null,
   supportEmail: string | null,
@@ -1039,8 +1203,6 @@ function resolveSubscriptionRequestContact(
     return {
       kind: "whatsapp" as const,
       label: "WhatsApp",
-      description: "usando o número comercial cadastrado",
-      actionLabel: "Abrir WhatsApp",
       destination: contactPhone,
     };
   }
@@ -1050,8 +1212,6 @@ function resolveSubscriptionRequestContact(
     return {
       kind: "email" as const,
       label: "E-mail",
-      description: "usando o e-mail de contato cadastrado",
-      actionLabel: "Enviar e-mail",
       destination: contactEmail,
     };
   }
@@ -1059,8 +1219,6 @@ function resolveSubscriptionRequestContact(
   return {
     kind: "email" as const,
     label: "E-mail",
-    description: "usando o e-mail do superadmin",
-    actionLabel: "Enviar e-mail",
     destination: supportEmail ?? "",
   };
 }
@@ -1095,6 +1253,38 @@ function buildSubscriptionRequestMessage(plan: PlanDefinition) {
     "",
     "Gostaria de receber as próximas orientações para contratar esse plano.",
   ].join("\n");
+}
+
+function buildPlanFeatureHighlights(plan: PlanDefinition) {
+  return [
+    {
+      text: formatPlanQuotaCount(plan.maxOwnedHouseholds, "Casa", "Casas"),
+      enabled: plan.maxOwnedHouseholds > 0,
+    },
+    {
+      text: formatPlanQuotaCount(plan.maxUniverses, "Universo", "Universos"),
+      enabled: plan.maxUniverses > 0,
+    },
+    {
+      text: formatPlanQuotaCount(plan.maxProjects, "Projeto", "Projetos"),
+      enabled: plan.maxProjects > 0,
+    },
+    {
+      text:
+        plan.maxInvitedMembers == null
+          ? "Membros convidados ilimitados"
+          : formatPlanQuotaCount(plan.maxInvitedMembers, "Membro convidado", "Membros convidados"),
+      enabled: plan.maxInvitedMembers == null || plan.maxInvitedMembers > 0,
+    },
+    {
+      text: formatPlanQuotaCount(plan.maxOriginalImages, "Imagem original", "Imagens originais"),
+      enabled: plan.maxOriginalImages > 0,
+    },
+  ];
+}
+
+function formatPlanQuotaCount(value: number, singular: string, plural: string) {
+  return `${value} ${value === 1 ? singular : plural}`;
 }
 
 function normalizePhoneNumber(value: string) {

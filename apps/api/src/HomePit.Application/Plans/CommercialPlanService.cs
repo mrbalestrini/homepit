@@ -35,6 +35,7 @@ public sealed class CommercialPlanService(
                 MaxProjects = seed.MaxProjects,
                 MaxInvitedMembers = seed.MaxInvitedMembers,
                 MaxOriginalImages = seed.MaxOriginalImages,
+                IsPopular = seed.IsPopular,
                 SortOrder = seed.SortOrder
             })
             .ToArray();
@@ -82,6 +83,24 @@ public sealed class CommercialPlanService(
         plan.MaxProjects = request.MaxProjects;
         plan.MaxInvitedMembers = request.MaxInvitedMembers;
         plan.MaxOriginalImages = request.MaxOriginalImages;
+
+        if (request.IsPopular)
+        {
+            var otherPlans = await db.PlanDefinitions
+                .Where(item => item.Id != plan.Id && item.IsPopular)
+                .ToArrayAsync(cancellationToken);
+
+            foreach (var otherPlan in otherPlans)
+            {
+                otherPlan.IsPopular = false;
+            }
+
+            plan.IsPopular = true;
+        }
+        else
+        {
+            plan.IsPopular = false;
+        }
 
         await db.SaveChangesAsync(cancellationToken);
         return ToPlanDefinitionDto(plan);
@@ -615,6 +634,7 @@ public sealed class CommercialPlanService(
             item.MaxProjects,
             item.MaxInvitedMembers,
             item.MaxOriginalImages,
+            item.IsPopular,
             BuildImagePolicyDescription(item));
     }
 

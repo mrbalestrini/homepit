@@ -21,12 +21,15 @@ import {
   ShieldCheck,
   ShoppingCart,
   Smartphone,
-  Sparkles,
+  Lightbulb,
+  NotebookPen,
+  SunMedium,
   Trash2,
   UserPlus,
   Users,
   Wallet,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
@@ -101,7 +104,7 @@ export type HeaderStatItem = {
 
 const moduleIcons = {
   projects: Layers,
-  prompts: Sparkles,
+  prompts: NotebookPen,
   household: ShieldCheck,
   gsm: Smartphone,
   market: ShoppingCart,
@@ -126,13 +129,13 @@ const roleLabels: Record<Household["role"], string> = {
 };
 
 const themeOptions: ThemeOption[] = [
-  { value: "cozy", label: "Atual" },
+  { value: "cozy", label: "Claro" },
   { value: "earthy", label: "Terroso" },
   { value: "dark", label: "Escuro" },
 ];
 
-const themeIcons: Record<WorkspaceTheme, typeof Sparkles> = {
-  cozy: Sparkles,
+const themeIcons: Record<WorkspaceTheme, LucideIcon> = {
+  cozy: SunMedium,
   earthy: Leaf,
   dark: MoonStar,
 };
@@ -324,7 +327,7 @@ export function HomePitWorkspaceShell({
                 Cancelar
               </Button>
               <Button type="submit" disabled={submittingToolImprovement || toolImprovementText.trim() === ""}>
-                {submittingToolImprovement ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                {submittingToolImprovement ? <Loader2 className="animate-spin" /> : <Lightbulb />}
                 Enviar sugestão
               </Button>
             </DialogFooter>
@@ -809,7 +812,7 @@ function SidebarUserMenu({
           </>
         ) : null}
         <DropdownMenuItem onClick={onOpenToolImprovementSuggestion}>
-          <Sparkles className="size-4" />
+          <Lightbulb className="size-4" />
           Sugestão melhoria ferramenta
         </DropdownMenuItem>
         <DropdownMenuSeparator />

@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "@/lib/api";
+import type { CurrentUserPlanSummary, PlanDefinition } from "@/lib/api";
 import { useProjectDashboard } from "@/features/projects/use-project-dashboard";
 import { ProfilePage } from "./profile-page";
 
@@ -63,22 +64,8 @@ describe("ProfilePage", () => {
     mockedUseProjectDashboard.mockReturnValue(buildDashboard());
     mockedApiFetch.mockImplementation(async (path) => {
       if (path === "/api/users/me/plan") {
-        return {
-          plan: {
-            id: "plan-standard",
-            slug: "standard",
-            name: "Standard",
-            currencyCode: "BRL",
-            monthlyPrice: 9.9,
-            annualPrice: 99,
-            maxOwnedHouseholds: 1,
-            maxUniverses: 3,
-            maxProjects: 5,
-            maxInvitedMembers: null,
-            maxOriginalImages: 30,
-            imagePolicyDescription:
-              "Mantém até 30 imagem(ns) privada(s) recente(s) em qualidade original; a partir da imagem 31, a mais antiga é substituída por WEBP com até 300 px e qualidade 30%.",
-          },
+        return buildCurrentUserPlanSummary({
+          plan: buildPlanDefinition(),
           activeSubscription: {
             id: "subscription-1",
             userId: "user-1",
@@ -95,32 +82,26 @@ describe("ProfilePage", () => {
             status: "Active",
             adminNote: null,
           },
-          usage: {
-            ownedHouseholdCount: 1,
-            universeCount: 2,
-            projectCount: 4,
-            invitedMemberCount: 3,
-            managedOriginalImageCount: 12,
-          },
-        };
+        });
       }
 
       if (path === "/api/plans") {
         return [
-          {
-            id: "plan-standard",
-            slug: "standard",
-            name: "Standard",
-            currencyCode: "BRL",
-            monthlyPrice: 9.9,
-            annualPrice: 99,
-            maxOwnedHouseholds: 1,
-            maxUniverses: 3,
-            maxProjects: 5,
+          buildPlanDefinition({ imagePolicyDescription: "Plano de entrada." }),
+          buildPlanDefinition({
+            id: "plan-gold",
+            slug: "gold",
+            name: "Gold",
+            monthlyPrice: 39.9,
+            annualPrice: 399,
+            maxOwnedHouseholds: 7,
+            maxUniverses: 15,
+            maxProjects: 15,
             maxInvitedMembers: null,
-            maxOriginalImages: 30,
-            imagePolicyDescription: "Plano de entrada.",
-          },
+            maxOriginalImages: 300,
+            isPopular: true,
+            imagePolicyDescription: "Plano destaque.",
+          }),
         ];
       }
 
@@ -144,10 +125,9 @@ describe("ProfilePage", () => {
     render(<ProfilePage />);
 
     expect(await screen.findByText("Plano")).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getAllByText("Standard").length).toBeGreaterThanOrEqual(2);
-      expect(screen.getAllByText(/R\$ 9,90\/mês/).length).toBeGreaterThanOrEqual(2);
-    });
+    expect(screen.getByRole("button", { name: "Assinatura" })).toBeInTheDocument();
+    expect(screen.queryByText("Solicitar assinatura")).not.toBeInTheDocument();
+    expect(screen.queryByText(/R\$ 9,90\/mês/)).not.toBeInTheDocument();
     expect(screen.getAllByText("Casas").length).toBeGreaterThan(0);
     expect(screen.getByText("Universos")).toBeInTheDocument();
     expect(screen.getByText("Projetos")).toBeInTheDocument();
@@ -158,57 +138,110 @@ describe("ProfilePage", () => {
     expect(await screen.findByText("4 usados")).toBeInTheDocument();
     expect(await screen.findByText("Restante ilimitado")).toBeInTheDocument();
     expect(await screen.findByText(/novas criações ficam bloqueadas/i)).toBeInTheDocument();
-    const requestLink = await screen.findByRole("link", { name: "Solicitar assinatura" });
-    expect(screen.getByText("Abrir WhatsApp")).toBeInTheDocument();
-    expect(requestLink.getAttribute("href")).toContain("wa.me");
+    fireEvent.click(screen.getAllByRole("button", { name: "Assinatura" })[0]);
+
+    const dialog = await screen.findByRole("dialog", { name: "Assinatura" });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByText("Plano em uso")).toBeInTheDocument();
+    expect(screen.getByText("Popular")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Plano atual" })).toBeDisabled();
+    expect(screen.getByText("Gold")).toBeInTheDocument();
+    expect(screen.queryByText(/Destino automático/i)).not.toBeInTheDocument();
+
+    fireEvent.keyDown(document.body, { key: "Escape", code: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Assinatura" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("opens the cancel account modal and then the confirmation dialog independently", async () => {
+    mockedUseProjectDashboard.mockReturnValue(buildDashboard());
+    mockedApiFetch.mockImplementation(async (path) => {
+      if (path === "/api/users/me/plan") {
+        return buildCurrentUserPlanSummary({
+          plan: buildPlanDefinition({
+            id: "plan-gold",
+            slug: "gold",
+            name: "Gold",
+            monthlyPrice: 39.9,
+            annualPrice: 399,
+            maxOwnedHouseholds: 7,
+            maxUniverses: 15,
+            maxProjects: 15,
+            maxInvitedMembers: null,
+            maxOriginalImages: 300,
+            isPopular: true,
+            imagePolicyDescription: "Plano destaque.",
+          }),
+          activeSubscription: null,
+        });
+      }
+
+      if (path === "/api/plans") {
+        return [
+          buildPlanDefinition({
+            imagePolicyDescription: "Plano de entrada.",
+          }),
+        ];
+      }
+
+      if (path === "/api/platform-settings") {
+        return {
+          contactEmail: "contato@homepit.dev",
+          contactPhone: "",
+          instagram: "@homepit",
+          addressLine1: "Rua Principal, 100",
+          addressLine2: "Sala 2",
+          city: "São Paulo",
+          state: "SP",
+          postalCode: "01000-000",
+          canShowAddressOnLanding: false,
+        };
+      }
+
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<ProfilePage />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Excluir conta" })[0]);
+
+    const cancelDialog = await screen.findByRole("dialog", { name: "Cancelar conta" });
+    expect(cancelDialog).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Assinatura" })).not.toBeInTheDocument();
+    expect(screen.getByText(/desativada agora e apagada automaticamente em 30 dias/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Desativar conta" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Cancelar conta" })).not.toBeInTheDocument();
+    });
+
+    const dangerDialog = await screen.findByRole("dialog", { name: "Desativar conta" });
+    expect(dangerDialog).toBeInTheDocument();
+    expect(screen.getByText(/Ao confirmar, o próximo login mostrará o aviso de conta desativada/i)).toBeInTheDocument();
   });
 
   it("opens the universes modal with the user's creations", async () => {
     mockedUseProjectDashboard.mockReturnValue(buildDashboard());
     mockedApiFetch.mockImplementation(async (path) => {
       if (path === "/api/users/me/plan") {
-        return {
-          plan: {
-            id: "plan-standard",
-            slug: "standard",
-            name: "Standard",
-            currencyCode: "BRL",
-            monthlyPrice: 9.9,
-            annualPrice: 99,
-            maxOwnedHouseholds: 1,
-            maxUniverses: 3,
-            maxProjects: 5,
+        return buildCurrentUserPlanSummary({
+          plan: buildPlanDefinition({
             maxInvitedMembers: 6,
-            maxOriginalImages: 30,
             imagePolicyDescription: "Não usado nesta tela.",
-          },
+          }),
           activeSubscription: null,
-          usage: {
-            ownedHouseholdCount: 1,
-            universeCount: 2,
-            projectCount: 4,
-            invitedMemberCount: 3,
-            managedOriginalImageCount: 12,
-          },
-        };
+        });
       }
 
       if (path === "/api/plans") {
         return [
-          {
-            id: "plan-standard",
-            slug: "standard",
-            name: "Standard",
-            currencyCode: "BRL",
-            monthlyPrice: 9.9,
-            annualPrice: 99,
-            maxOwnedHouseholds: 1,
-            maxUniverses: 3,
-            maxProjects: 5,
+          buildPlanDefinition({
             maxInvitedMembers: 6,
-            maxOriginalImages: 30,
             imagePolicyDescription: "Plano de entrada.",
-          },
+          }),
         ];
       }
 
@@ -386,6 +419,43 @@ function buildDashboardWithOptions({ selectedUniverseId = "universe-1" }: { sele
   };
 }
 
+function buildPlanDefinition(overrides: Partial<PlanDefinition> = {}): PlanDefinition {
+  return {
+    id: "plan-standard",
+    slug: "standard",
+    name: "Standard",
+    currencyCode: "BRL",
+    monthlyPrice: 9.9,
+    annualPrice: 99,
+    maxOwnedHouseholds: 1,
+    maxUniverses: 3,
+    maxProjects: 5,
+    maxInvitedMembers: null,
+    maxOriginalImages: 30,
+    isPopular: false,
+    imagePolicyDescription:
+      "Mantém até 30 imagem(ns) privada(s) recente(s) em qualidade original; a partir da imagem 31, a mais antiga é substituída por WEBP com até 300 px e qualidade 30%.",
+    ...overrides,
+  };
+}
+
+function buildCurrentUserPlanSummary(
+  overrides: Partial<CurrentUserPlanSummary> = {},
+): CurrentUserPlanSummary {
+  return {
+    plan: buildPlanDefinition(),
+    activeSubscription: null,
+    usage: {
+      ownedHouseholdCount: 1,
+      universeCount: 2,
+      projectCount: 4,
+      invitedMemberCount: 3,
+      managedOriginalImageCount: 12,
+    },
+    ...overrides,
+  };
+}
+
 describe("ProfilePage subscription CTA", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -395,48 +465,19 @@ describe("ProfilePage subscription CTA", () => {
     mockedUseProjectDashboard.mockReturnValue(buildDashboard());
     mockedApiFetch.mockImplementation(async (path) => {
       if (path === "/api/users/me/plan") {
-        return {
-          plan: {
-            id: "plan-standard",
-            slug: "standard",
-            name: "Standard",
-            currencyCode: "BRL",
-            monthlyPrice: 9.9,
-            annualPrice: 99,
-            maxOwnedHouseholds: 1,
-            maxUniverses: 3,
-            maxProjects: 5,
-            maxInvitedMembers: null,
-            maxOriginalImages: 30,
+        return buildCurrentUserPlanSummary({
+          plan: buildPlanDefinition({
             imagePolicyDescription: "Plano de entrada.",
-          },
+          }),
           activeSubscription: null,
-          usage: {
-            ownedHouseholdCount: 1,
-            universeCount: 2,
-            projectCount: 4,
-            invitedMemberCount: 3,
-            managedOriginalImageCount: 12,
-          },
-        };
+        });
       }
 
       if (path === "/api/plans") {
         return [
-          {
-            id: "plan-standard",
-            slug: "standard",
-            name: "Standard",
-            currencyCode: "BRL",
-            monthlyPrice: 9.9,
-            annualPrice: 99,
-            maxOwnedHouseholds: 1,
-            maxUniverses: 3,
-            maxProjects: 5,
-            maxInvitedMembers: null,
-            maxOriginalImages: 30,
+          buildPlanDefinition({
             imagePolicyDescription: "Plano de entrada.",
-          },
+          }),
         ];
       }
 
@@ -459,7 +500,10 @@ describe("ProfilePage subscription CTA", () => {
 
     render(<ProfilePage />);
 
-    const requestLink = await screen.findByRole("link", { name: "Solicitar assinatura" });
-    expect(requestLink.getAttribute("href")).toContain("mailto:contato@homepit.dev");
+    fireEvent.click(screen.getAllByRole("button", { name: "Assinatura" })[0]);
+
+    const dialog = await screen.findByRole("dialog", { name: "Assinatura" });
+    expect(within(dialog).getByText("E-mail")).toBeInTheDocument();
+    expect(within(dialog).queryByText("WhatsApp")).not.toBeInTheDocument();
   });
 });
