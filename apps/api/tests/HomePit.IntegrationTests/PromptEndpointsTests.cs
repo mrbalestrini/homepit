@@ -403,6 +403,7 @@ public sealed class PromptEndpointsTests
         Assert.Equal(project.Id, activity.ProjectId);
         Assert.Equal("Concluido", activity.Status);
         Assert.Equal(new DateOnly(2026, 6, 30), activity.DueDate);
+        Assert.NotNull(activity.CompletedAt);
         Assert.NotEqual(default, activity.CreatedAt);
 
         var updateResponse = await SendAuthorizedAsync(
@@ -430,6 +431,7 @@ public sealed class PromptEndpointsTests
         Assert.Equal(activity.CreatedAt, updatedActivity.CreatedAt);
         Assert.Equal(new DateOnly(2026, 7, 5), updatedActivity.DueDate);
         Assert.Equal("EmAndamento", updatedActivity.Status);
+        Assert.Null(updatedActivity.CompletedAt);
     }
 
     private static async Task<SeedResult> SeedHouseholdAsync(HomePitApiFactory factory)
@@ -550,7 +552,7 @@ public sealed class PromptEndpointsTests
 
     private sealed record CategoryResponse(Guid Id, string Name);
 
-    private sealed record ActivityResponse(Guid Id, Guid ProjectId, string Title, string Status, DateTimeOffset CreatedAt, DateOnly? DueDate);
+    private sealed record ActivityResponse(Guid Id, Guid ProjectId, string Title, string Status, DateTimeOffset CreatedAt, DateOnly? DueDate, DateTimeOffset? CompletedAt);
 
     private sealed record PromptCategoryResponse(Guid Id, string Name, int UsageCount, int ReplacementRequiredCount);
 

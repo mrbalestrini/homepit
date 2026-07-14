@@ -672,6 +672,21 @@ function WorkspaceBoard({
               />
             </div>
 
+            {dashboard.hasOldCompletedActivities ? (
+              <Button
+                variant={dashboard.showOldCompleted ? "secondary" : "outline"}
+                className={cn(
+                  "shrink-0",
+                  dashboard.hasHiddenOldCompletedSearchMatch &&
+                    "animate-pulse border-warning text-warning shadow-sm hover:border-warning hover:bg-status-warning-soft hover:text-warning",
+                )}
+                aria-pressed={dashboard.showOldCompleted}
+                onClick={() => dashboard.setShowOldCompleted((current) => !current)}
+              >
+                {dashboard.showOldCompleted ? "Ocultar concluídas antigas" : "Mostrar concluídas antigas"}
+              </Button>
+            ) : null}
+
             <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2 md:min-w-[46rem] md:flex-1">
               <Select
                 className="min-w-[10rem] flex-1 text-[12px] leading-none xl:text-[13px]"
@@ -754,7 +769,11 @@ function WorkspaceBoard({
           <EmptyState
             icon={<ClipboardList className="size-5" />}
             title="Nenhuma atividade encontrada"
-            description="Ajuste os filtros atuais ou crie uma nova atividade para preencher esta visão."
+            description={
+              dashboard.hasHiddenOldCompletedSearchMatch
+                ? "Uma atividade concluída há mais de 30 dias corresponde à busca. Mostre as concluídas antigas para vê-la."
+                : "Ajuste os filtros atuais ou crie uma nova atividade para preencher esta visão."
+            }
             action={
               <Button onClick={() => dashboard.openCreateActivity()} disabled={dashboard.projects.length === 0}>
                 <Plus />
@@ -2338,6 +2357,7 @@ export function ActivityDetailsSheet({
             />
             <DetailCard label="Esforço" value={activity.size != null ? `${activity.size} pts` : "Sem estimativa"} />
             <DetailCard label="Prazo esperado" value={formatDateOnly(activity.dueDate)} />
+            <DetailCard label="Data concluída" value={activity.completedAt ? formatDateTime(activity.completedAt) : "Não concluída"} />
             <DetailCard label="Criada em" value={formatDateTime(activity.createdAt)} />
           </div>
 

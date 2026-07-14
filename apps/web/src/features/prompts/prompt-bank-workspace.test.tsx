@@ -5,12 +5,13 @@ import { ApiError, apiFetchBlob, type PromptDetail, type PromptListItem } from "
 import { uiStorageKeys } from "@/features/projects/project-dashboard.constants";
 import {
   CategoryDeleteDialog,
+  CategoryManager,
   PromptCard,
   PromptDetailDialog,
   buildPromptMasonryLayout,
   estimatePromptCardHeight,
 } from "./prompt-bank-workspace";
-import { readStoredPromptImagesHidden, storePromptImagesHidden } from "./use-prompt-bank";
+import { readStoredPromptImagesHidden, storePromptImagesHidden, type PromptBankController } from "./use-prompt-bank";
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -213,6 +214,28 @@ describe("PromptCard", () => {
       expect(apiFetchBlob).not.toHaveBeenCalled();
     });
     expect(screen.getAllByText("Imagem oculta").length).toBeGreaterThan(0);
+  });
+
+  it("renders the prompt in list mode with a compact vertical excerpt", () => {
+    const { container } = render(
+      <PromptCard
+        prompt={createPromptListItem({
+          title: "Prompt em lista",
+          description: "Descrição para o modo lista.",
+          promptText: "Texto do prompt para o modo lista.",
+        })}
+        layout="list"
+        token=""
+        onOpen={() => undefined}
+        onEdit={() => undefined}
+        onToggleArchive={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    expect(container.querySelector('[class*="lg:flex-row"]')).not.toBeNull();
+    expect(container.querySelector('[class*="line-clamp-3"]')).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "Prompt em lista" })).toBeInTheDocument();
   });
 
   it("renders the restore action for archived prompts", async () => {
@@ -485,6 +508,37 @@ describe("CategoryDeleteDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Excluir categoria" }));
 
     expect(onDelete).toHaveBeenCalledWith("cat-a", "cat-b");
+  });
+});
+
+describe("CategoryManager", () => {
+  it("toggles the category filter when the category card is clicked", () => {
+    const toggleCategoryFilter = vi.fn();
+    const bank = {
+      loading: false,
+      categories: [
+        {
+          id: "cat-1",
+          name: "Categoria A",
+          createdByMemberId: null,
+          usageCount: 4,
+          replacementRequiredCount: 0,
+          canEdit: false,
+          canDelete: false,
+        },
+      ],
+      openCreateCategory: vi.fn(),
+      openEditCategory: vi.fn(),
+      openDeleteCategory: vi.fn(),
+      selectedCategoryIds: [],
+      toggleCategoryFilter,
+    } as unknown as PromptBankController;
+
+    render(<CategoryManager bank={bank} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Filtrar por categoria Categoria A" }));
+
+    expect(toggleCategoryFilter).toHaveBeenCalledWith("cat-1");
   });
 });
 

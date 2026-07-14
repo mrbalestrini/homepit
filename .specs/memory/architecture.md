@@ -30,6 +30,8 @@
   validando a selecao salva contra a sessao atual e limpando entradas obsoletas.
 - O contrato de casas expõe `CreatedAt`, permitindo que o frontend escolha a casa mais
   recente quando a selecao salva nao for mais valida.
+- O banco de prompts oferece alternancia entre grade e lista e usa as categorias da
+  lateral como atalho para aplicar ou remover o filtro de categoria.
 - Fluxo de autenticacao: cadastro/login em rotas publicas, JWT no grupo protegido `/api`,
   refresh rotacionado e sessao persistida pelo frontend. `/api/auth` e `/api/system/info`
   ficam fora desse grupo protegido; leitura da pagina e das imagens institucionais tambem

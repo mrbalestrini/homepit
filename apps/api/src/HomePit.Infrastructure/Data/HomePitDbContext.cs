@@ -279,6 +279,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(item => item.CurrencyCode).HasMaxLength(3).IsRequired();
             builder.Property(item => item.MonthlyPrice).HasPrecision(10, 2);
             builder.Property(item => item.AnnualPrice).HasPrecision(10, 2);
+            builder.Property(item => item.ShowInCatalog).HasDefaultValue(true);
             builder.Property(item => item.IsPopular).HasDefaultValue(false);
             builder.HasIndex(item => item.Slug).IsUnique();
         });
@@ -699,6 +700,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(activity => activity.ImageObjectKey).HasMaxLength(512);
             builder.Property(activity => activity.ImageContentType).HasMaxLength(120);
             builder.Property(activity => activity.DueDate).HasColumnType("date");
+            builder.Property(activity => activity.CompletedAt).HasColumnType("timestamp with time zone");
             builder.Property(activity => activity.Status).HasConversion<string>().HasMaxLength(40).IsRequired();
             builder.Property(activity => activity.Priority).HasConversion<string>().HasMaxLength(40).IsRequired();
             builder.Property(activity => activity.Size).HasPrecision(8, 2);

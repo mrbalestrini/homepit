@@ -35,6 +35,7 @@ public sealed class CommercialPlanService(
                 MaxProjects = seed.MaxProjects,
                 MaxInvitedMembers = seed.MaxInvitedMembers,
                 MaxOriginalImages = seed.MaxOriginalImages,
+                ShowInCatalog = seed.ShowInCatalog,
                 IsPopular = seed.IsPopular,
                 SortOrder = seed.SortOrder
             })
@@ -60,7 +61,29 @@ public sealed class CommercialPlanService(
     public async Task<IReadOnlyCollection<PlanDefinitionDto>> ListPublicPlansAsync(CancellationToken cancellationToken)
     {
         await EnsurePlanCatalogAsync(cancellationToken);
-        return await ListPlanDefinitionsAsync(cancellationToken);
+
+        var plans = await db.PlanDefinitions
+            .AsNoTracking()
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .ToArrayAsync(cancellationToken);
+
+        Guid currentPlanId = Guid.Empty;
+        if (userContext.UserId != Guid.Empty)
+        {
+            var activeSubscription = await GetActiveSubscriptionAsync(userContext.UserId, cancellationToken);
+            currentPlanId = activeSubscription?.PlanDefinitionId
+                ?? await db.PlanDefinitions
+                    .AsNoTracking()
+                    .Where(item => item.Slug == PlanDefinitionCatalog.FreeSlug)
+                    .Select(item => item.Id)
+                    .FirstAsync(cancellationToken);
+        }
+
+        return plans
+            .Where(item => item.ShowInCatalog || item.Id == currentPlanId)
+            .Select(ToPlanDefinitionDto)
+            .ToArray();
     }
 
     public async Task<PlanDefinitionDto> UpdatePlanAsync(
@@ -83,6 +106,7 @@ public sealed class CommercialPlanService(
         plan.MaxProjects = request.MaxProjects;
         plan.MaxInvitedMembers = request.MaxInvitedMembers;
         plan.MaxOriginalImages = request.MaxOriginalImages;
+        plan.ShowInCatalog = request.ShowInCatalog;
 
         if (request.IsPopular)
         {
@@ -634,6 +658,7 @@ public sealed class CommercialPlanService(
             item.MaxProjects,
             item.MaxInvitedMembers,
             item.MaxOriginalImages,
+            item.ShowInCatalog,
             item.IsPopular,
             BuildImagePolicyDescription(item));
     }

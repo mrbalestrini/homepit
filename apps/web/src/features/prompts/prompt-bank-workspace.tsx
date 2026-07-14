@@ -10,9 +10,11 @@ import {
   Eye,
   EyeOff,
   FileText,
+  LayoutGrid,
   Link2,
   Inbox,
   ImageIcon,
+  List,
   MoreHorizontal,
   Pencil,
   NotebookPen,
@@ -65,6 +67,7 @@ const PROMPT_TEXT_MAX_LENGTH = 20000;
 const PROMPT_CARD_MIN_WIDTH = 320;
 const PROMPT_MASONRY_GAP = 16;
 const PROMPT_MASONRY_MAX_COLUMNS = 4;
+type PromptCardLayout = "grid" | "list";
 
 function formatCountLabel(count: number, singular: string, plural: string) {
   return count === 1 ? `${count} ${singular}` : `${count} ${plural}`;
@@ -179,7 +182,7 @@ export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
   );
 }
 
-function CategoryManager({ bank }: { bank: PromptBankController }) {
+export function CategoryManager({ bank }: { bank: PromptBankController }) {
   return (
     <Card>
       <CardHeader className="border-b border-border/60 pb-4">
@@ -187,6 +190,7 @@ function CategoryManager({ bank }: { bank: PromptBankController }) {
           <div>
             <h2 className="text-lg font-semibold text-foreground">Categorias</h2>
             <p className="mt-1 text-sm text-muted-foreground">Gerencie a taxonomia compartilhada da casa.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Clique em uma categoria para aplicar ou remover o filtro.</p>
           </div>
           <Button variant="secondary" size="icon" onClick={bank.openCreateCategory} aria-label="Nova categoria">
             <Plus />
@@ -214,52 +218,73 @@ function CategoryManager({ bank }: { bank: PromptBankController }) {
           />
         ) : (
           <div className="space-y-2">
-            {bank.categories.map((category) => (
-              <div
-                key={category.id}
-                className="rounded-[18px] border border-border/60 bg-surface px-3 py-3"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-foreground">{category.name}</p>
-                      <Badge variant="neutral">{category.usageCount}</Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatCountLabel(category.usageCount, "prompt vinculado", "prompts vinculados")}
-                    </p>
-                  </div>
+            {bank.categories.map((category) => {
+              const selected = bank.selectedCategoryIds.includes(category.id);
 
-                  {category.canEdit || category.canDelete ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label={`Ações da categoria ${category.name}`}>
-                          <MoreHorizontal />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>{category.name}</DropdownMenuLabel>
-                        {category.canEdit ? (
-                          <DropdownMenuItem onClick={() => bank.openEditCategory(category)}>
-                            <Pencil className="size-4" />
-                            Editar
-                          </DropdownMenuItem>
-                        ) : null}
-                        {category.canDelete ? (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-danger focus:text-danger" onClick={() => bank.openDeleteCategory(category)}>
-                              <Trash2 className="size-4" />
-                              Excluir
+              return (
+                <div
+                  key={category.id}
+                  className={cn(
+                    "rounded-[18px] border border-border/60 bg-surface px-3 py-3 transition",
+                    selected && "border-primary/30 bg-primary/10 shadow-xs",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left"
+                      aria-pressed={selected}
+                      aria-label={`${selected ? "Remover filtro da categoria" : "Filtrar por categoria"} ${category.name}`}
+                      onClick={() => bank.toggleCategoryFilter(category.id)}
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Check
+                          className={cn(
+                            "size-4 shrink-0 text-primary transition",
+                            selected ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        <p className="truncate text-sm font-semibold text-foreground">{category.name}</p>
+                        <Badge variant="neutral">{category.usageCount}</Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {selected
+                          ? "Clique para remover o filtro."
+                          : formatCountLabel(category.usageCount, "prompt vinculado", "prompts vinculados")}
+                      </p>
+                    </button>
+
+                    {category.canEdit || category.canDelete ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" aria-label={`Ações da categoria ${category.name}`}>
+                            <MoreHorizontal />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>{category.name}</DropdownMenuLabel>
+                          {category.canEdit ? (
+                            <DropdownMenuItem onClick={() => bank.openEditCategory(category)}>
+                              <Pencil className="size-4" />
+                              Editar
                             </DropdownMenuItem>
-                          </>
-                        ) : null}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : null}
+                          ) : null}
+                          {category.canDelete ? (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-danger focus:text-danger" onClick={() => bank.openDeleteCategory(category)}>
+                                <Trash2 className="size-4" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
@@ -272,6 +297,8 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
   const archiveToggleIcon = bank.archivedOnly ? <Inbox /> : <Archive />;
   const imageToggleLabel = bank.showImages ? "Esconder imagens" : "Ver imagens";
   const imageToggleIcon = bank.showImages ? <EyeOff /> : <Eye />;
+  const viewToggleLabel = bank.viewMode === "grid" ? "Ver em lista" : "Ver em grade";
+  const viewToggleIcon = bank.viewMode === "grid" ? <List /> : <LayoutGrid />;
 
   return (
     <Card>
@@ -291,6 +318,10 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
               <Button variant="secondary" onClick={() => bank.setShowImages(!bank.showImages)}>
                 {imageToggleIcon}
                 {imageToggleLabel}
+              </Button>
+              <Button variant="secondary" onClick={() => bank.setViewMode(bank.viewMode === "grid" ? "list" : "grid")}>
+                {viewToggleIcon}
+                {viewToggleLabel}
               </Button>
               <Button onClick={bank.openCreatePrompt} disabled={bank.categories.length === 0}>
                 <Plus />
@@ -370,24 +401,44 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
           />
         ) : (
           <>
-            <PromptMasonry
-              key={bank.showImages ? "prompt-masonry-images" : "prompt-masonry-hidden"}
-              prompts={bank.promptPage.items}
-              showImages={bank.showImages}
-              renderItem={(prompt) => (
-                <PromptCard
-                  key={prompt.id}
-                  prompt={prompt}
-                  token={bank.session?.accessToken ?? ""}
-                  householdId={bank.activeHouseholdId}
-                  showImages={bank.showImages}
-                  onOpen={() => void bank.openPrompt(prompt.id)}
-                  onEdit={() => void bank.openEditPrompt(prompt.id)}
-                  onToggleArchive={() => void bank.setPromptArchived(prompt.id, !prompt.isArchived).catch(() => undefined)}
-                  onDelete={() => void bank.deletePrompt(prompt).catch(() => undefined)}
-                />
-              )}
-            />
+            {bank.viewMode === "list" ? (
+              <div className="space-y-3">
+                {bank.promptPage.items.map((prompt) => (
+                  <PromptCard
+                    key={prompt.id}
+                    prompt={prompt}
+                    token={bank.session?.accessToken ?? ""}
+                    householdId={bank.activeHouseholdId}
+                    showImages={bank.showImages}
+                    layout="list"
+                    onOpen={() => void bank.openPrompt(prompt.id)}
+                    onEdit={() => void bank.openEditPrompt(prompt.id)}
+                    onToggleArchive={() => void bank.setPromptArchived(prompt.id, !prompt.isArchived).catch(() => undefined)}
+                    onDelete={() => void bank.deletePrompt(prompt).catch(() => undefined)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <PromptMasonry
+                key={bank.showImages ? "prompt-masonry-images" : "prompt-masonry-hidden"}
+                prompts={bank.promptPage.items}
+                showImages={bank.showImages}
+                renderItem={(prompt) => (
+                  <PromptCard
+                    key={prompt.id}
+                    prompt={prompt}
+                    token={bank.session?.accessToken ?? ""}
+                    householdId={bank.activeHouseholdId}
+                    showImages={bank.showImages}
+                    layout="grid"
+                    onOpen={() => void bank.openPrompt(prompt.id)}
+                    onEdit={() => void bank.openEditPrompt(prompt.id)}
+                    onToggleArchive={() => void bank.setPromptArchived(prompt.id, !prompt.isArchived).catch(() => undefined)}
+                    onDelete={() => void bank.deletePrompt(prompt).catch(() => undefined)}
+                  />
+                )}
+              />
+            )}
 
             <PaginationControls
               page={bank.page}
@@ -745,6 +796,7 @@ export function PromptCard({
   token,
   householdId,
   showImages = true,
+  layout = "grid",
   onOpen,
   onEdit,
   onToggleArchive,
@@ -754,6 +806,7 @@ export function PromptCard({
   token: string;
   householdId?: string;
   showImages?: boolean;
+  layout?: PromptCardLayout;
   onOpen: () => void;
   onEdit: () => void;
   onToggleArchive: () => void;
@@ -763,6 +816,7 @@ export function PromptCard({
   const headerLabel = prompt.hasImage ? (showImages ? "Prompt visual" : "Imagem oculta") : "Prompt de texto";
   const archiveActionLabel = prompt.isArchived ? "Desarquivar" : "Arquivar";
   const archiveActionIcon = prompt.isArchived ? <Inbox className="size-4" /> : <Archive className="size-4" />;
+  const isListLayout = layout === "list";
 
   const actionsMenu = (
     <div onClick={(event) => event.stopPropagation()}>
@@ -805,83 +859,169 @@ export function PromptCard({
         }
       }}
     >
-      {hasVisibleImage ? (
-        <div className="relative">
-          <PromptImageFrame
-            promptId={prompt.id}
-            title={prompt.title}
-            hasImage={prompt.hasImage}
-            imageUpdatedAt={prompt.imageUpdatedAt}
-            token={token}
-            householdId={householdId}
-            className="rounded-t-[24px]"
-          />
-          <div className="absolute right-3 top-3">{actionsMenu}</div>
+      {isListLayout ? (
+        <div className="relative flex flex-col gap-4 p-4 lg:flex-row lg:items-stretch">
+          <div className="absolute right-3 top-3 z-10">{actionsMenu}</div>
+          <div className="lg:w-[12rem] lg:shrink-0">
+            {hasVisibleImage ? (
+              <PromptImageFrame
+                promptId={prompt.id}
+                title={prompt.title}
+                hasImage={prompt.hasImage}
+                imageUpdatedAt={prompt.imageUpdatedAt}
+                token={token}
+                householdId={householdId}
+                className="rounded-[20px]"
+              />
+            ) : (
+              <div className="flex h-full min-h-[11rem] flex-col justify-between rounded-[20px] border border-border/60 bg-[linear-gradient(135deg,rgba(138,106,84,0.08),rgba(237,227,213,0.5))] px-4 py-4">
+                <div className="flex min-w-0 items-center gap-3 pr-12">
+                  <div className="grid size-11 shrink-0 place-items-center rounded-[16px] bg-surface-strong text-accent-foreground shadow-xs">
+                    <NotebookPen className="size-5" />
+                  </div>
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{headerLabel}</p>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {prompt.hasImage && !showImages ? "A imagem ficou oculta nesta visualização." : "Sem imagem em destaque."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1 space-y-4">
+            <div className="flex flex-wrap items-center gap-2 pr-12">
+              {prompt.universeName ? (
+                <PromptUniverseBadge
+                  universeId={prompt.universeId}
+                  name={prompt.universeName}
+                  imageUrl={prompt.universeImageUrl}
+                  hasImage={prompt.universeHasImage}
+                  imageUpdatedAt={prompt.universeImageUpdatedAt}
+                  token={token}
+                  householdId={householdId}
+                />
+              ) : (
+                <Badge variant="neutral">Sem universo</Badge>
+              )}
+              {prompt.isArchived ? <Badge variant="neutral">Arquivado</Badge> : null}
+              {prompt.hasImage && !showImages ? <Badge variant="neutral">Imagem oculta</Badge> : null}
+              {prompt.categories.slice(0, 3).map((category) => (
+                <Badge key={category.id} variant="neutral">
+                  {category.name}
+                </Badge>
+              ))}
+              {prompt.categories.length > 3 ? <Badge variant="neutral">+{prompt.categories.length - 3}</Badge> : null}
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">{prompt.title}</h3>
+              {prompt.description ? (
+                <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                  {truncateText(prompt.description, DESCRIPTION_PREVIEW_LIMIT)}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Sem descrição adicional.</p>
+              )}
+            </div>
+
+            <div className="rounded-[16px] border border-border/60 bg-surface-elevated p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Prompt</p>
+              <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-foreground/85">
+                {truncateText(prompt.promptText, PROMPT_PREVIEW_LIMIT)}
+              </p>
+            </div>
+
+            {prompt.linkUrl && prompt.linkTitle ? (
+              <div className="inline-flex items-center gap-2 text-sm font-medium text-primary">
+                <Link2 className="size-4" />
+                <span className="truncate">{prompt.linkTitle}</span>
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : (
-        <div className="flex items-start justify-between gap-3 rounded-t-[24px] border-b border-border/60 bg-[linear-gradient(135deg,rgba(138,106,84,0.08),rgba(237,227,213,0.5))] px-4 py-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="grid size-11 shrink-0 place-items-center rounded-[16px] bg-surface-strong text-accent-foreground shadow-xs">
-              <NotebookPen className="size-5" />
+        <>
+          {hasVisibleImage ? (
+            <div className="relative">
+              <PromptImageFrame
+                promptId={prompt.id}
+                title={prompt.title}
+                hasImage={prompt.hasImage}
+                imageUpdatedAt={prompt.imageUpdatedAt}
+                token={token}
+                householdId={householdId}
+                className="rounded-t-[24px]"
+              />
+              <div className="absolute right-3 top-3">{actionsMenu}</div>
             </div>
-            <div className="min-w-0 space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{headerLabel}</p>
+          ) : (
+            <div className="flex items-start justify-between gap-3 rounded-t-[24px] border-b border-border/60 bg-[linear-gradient(135deg,rgba(138,106,84,0.08),rgba(237,227,213,0.5))] px-4 py-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="grid size-11 shrink-0 place-items-center rounded-[16px] bg-surface-strong text-accent-foreground shadow-xs">
+                  <NotebookPen className="size-5" />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{headerLabel}</p>
+                </div>
+              </div>
+              {actionsMenu}
             </div>
+          )}
+
+          <div className="space-y-3 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {prompt.universeName ? (
+                <PromptUniverseBadge
+                  universeId={prompt.universeId}
+                  name={prompt.universeName}
+                  imageUrl={prompt.universeImageUrl}
+                  hasImage={prompt.universeHasImage}
+                  imageUpdatedAt={prompt.universeImageUpdatedAt}
+                  token={token}
+                  householdId={householdId}
+                />
+              ) : (
+                <Badge variant="neutral">Sem universo</Badge>
+              )}
+              {prompt.isArchived ? <Badge variant="neutral">Arquivado</Badge> : null}
+              {prompt.hasImage && !showImages ? <Badge variant="neutral">Imagem oculta</Badge> : null}
+              {prompt.categories.slice(0, 2).map((category) => (
+                <Badge key={category.id} variant="neutral">
+                  {category.name}
+                </Badge>
+              ))}
+              {prompt.categories.length > 2 ? <Badge variant="neutral">+{prompt.categories.length - 2}</Badge> : null}
+            </div>
+
+            <div>
+              <h3 className="line-clamp-2 text-lg font-semibold text-foreground">{prompt.title}</h3>
+              {prompt.description ? (
+                <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                  {truncateText(prompt.description, DESCRIPTION_PREVIEW_LIMIT)}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Sem descrição adicional.</p>
+              )}
+            </div>
+
+            <div className="rounded-[16px] border border-border/60 bg-surface-elevated p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Prompt</p>
+              <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-foreground/85">
+                {truncateText(prompt.promptText, PROMPT_PREVIEW_LIMIT)}
+              </p>
+            </div>
+
+            {prompt.linkUrl && prompt.linkTitle ? (
+              <div className="inline-flex items-center gap-2 text-sm font-medium text-primary">
+                <Link2 className="size-4" />
+                <span className="truncate">{prompt.linkTitle}</span>
+              </div>
+            ) : null}
           </div>
-          {actionsMenu}
-        </div>
+        </>
       )}
-
-      <div className="space-y-3 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {prompt.universeName ? (
-            <PromptUniverseBadge
-              universeId={prompt.universeId}
-              name={prompt.universeName}
-              imageUrl={prompt.universeImageUrl}
-              hasImage={prompt.universeHasImage}
-              imageUpdatedAt={prompt.universeImageUpdatedAt}
-              token={token}
-              householdId={householdId}
-            />
-          ) : (
-            <Badge variant="neutral">Sem universo</Badge>
-          )}
-          {prompt.isArchived ? <Badge variant="neutral">Arquivado</Badge> : null}
-          {prompt.hasImage && !showImages ? <Badge variant="neutral">Imagem oculta</Badge> : null}
-          {prompt.categories.slice(0, 2).map((category) => (
-            <Badge key={category.id} variant="neutral">
-              {category.name}
-            </Badge>
-          ))}
-          {prompt.categories.length > 2 ? <Badge variant="neutral">+{prompt.categories.length - 2}</Badge> : null}
-        </div>
-
-        <div>
-          <h3 className="line-clamp-2 text-lg font-semibold text-foreground">{prompt.title}</h3>
-          {prompt.description ? (
-            <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
-              {truncateText(prompt.description, DESCRIPTION_PREVIEW_LIMIT)}
-            </p>
-          ) : (
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Sem descrição adicional.</p>
-          )}
-        </div>
-
-        <div className="rounded-[16px] border border-border/60 bg-surface-elevated p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Prompt</p>
-          <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-6 text-foreground/85">
-            {truncateText(prompt.promptText, PROMPT_PREVIEW_LIMIT)}
-          </p>
-        </div>
-
-        {prompt.linkUrl && prompt.linkTitle ? (
-          <div className="inline-flex items-center gap-2 text-sm font-medium text-primary">
-            <Link2 className="size-4" />
-            <span className="truncate">{prompt.linkTitle}</span>
-          </div>
-        ) : null}
-      </div>
     </div>
   );
 }

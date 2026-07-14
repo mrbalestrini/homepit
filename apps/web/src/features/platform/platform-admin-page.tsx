@@ -351,7 +351,14 @@ function PlatformAdminPanel({ token }: { token: string }) {
 
   function updatePlanDraft(
     planId: string,
-    field: "monthlyPrice" | "annualPrice" | "maxOwnedHouseholds" | "maxUniverses" | "maxProjects" | "maxInvitedMembers" | "maxOriginalImages",
+    field:
+      | "monthlyPrice"
+      | "annualPrice"
+      | "maxOwnedHouseholds"
+      | "maxUniverses"
+      | "maxProjects"
+      | "maxInvitedMembers"
+      | "maxOriginalImages",
     value: string,
   ) {
     setPlanDrafts((current) => ({
@@ -359,6 +366,16 @@ function PlatformAdminPanel({ token }: { token: string }) {
       [planId]: {
         ...current[planId],
         [field]: field === "maxInvitedMembers" && value.trim() === "" ? null : Number(value),
+      },
+    }));
+  }
+
+  function updatePlanVisibility(planId: string, showInCatalog: boolean) {
+    setPlanDrafts((current) => ({
+      ...current,
+      [planId]: {
+        ...current[planId],
+        showInCatalog,
       },
     }));
   }
@@ -404,6 +421,7 @@ function PlatformAdminPanel({ token }: { token: string }) {
           maxProjects: draft.maxProjects,
           maxInvitedMembers: draft.maxInvitedMembers ?? null,
           maxOriginalImages: draft.maxOriginalImages,
+          showInCatalog: draft.showInCatalog,
           isPopular: draft.isPopular,
         }),
       });
@@ -793,6 +811,15 @@ function PlatformAdminPanel({ token }: { token: string }) {
                       >
                         {draft.isPopular ? "Popular" : "Marcar popular"}
                       </Button>
+                      <label className="inline-flex items-center gap-2 rounded-full border border-border/70 px-3 py-2 text-sm font-medium text-foreground">
+                        <input
+                          type="checkbox"
+                          checked={draft.showInCatalog}
+                          onChange={(event) => updatePlanVisibility(plan.id, event.target.checked)}
+                          aria-label={`Mostrar plano ${plan.name}`}
+                        />
+                        Mostrar plano
+                      </label>
                       <Badge variant="outline">{plan.currencyCode}</Badge>
                     </div>
                   </div>

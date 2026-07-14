@@ -73,6 +73,7 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
     hasImage: false,
     imageUpdatedAt: null,
     dueDate: null,
+    completedAt: null,
     status: "NaoIniciada",
     priority: "Media",
     size: 3,
@@ -473,6 +474,61 @@ describe("useProjectDashboard sort persistence", () => {
 
     await waitFor(() => expect(result.current.filters.sort).toBe("priority"));
     await waitFor(() => expect(window.localStorage.getItem(uiStorageKeys.projectActivitySort)).toBe("priority"));
+  });
+});
+
+describe("useProjectDashboard old completed activities", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("hides old completed activities, then reveals them and signals a matching search", async () => {
+    const session = buildSession();
+    const oldActivity = buildActivity({
+      id: "activity-old",
+      title: "Revisar atividade antiga",
+      status: "Concluido",
+      completedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+    mockedReadSession.mockReturnValue(session);
+    mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
+    mockedApiFetch.mockImplementation(async (path: string) => {
+      if (
+        path === "/api/universes" ||
+        path === "/api/projects" ||
+        path === "/api/households/members"
+      ) {
+        return [];
+      }
+
+      if (path === "/api/activities") {
+        return [oldActivity];
+      }
+
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const { result } = renderHook(() => useProjectDashboard());
+
+    await waitFor(() => expect(result.current.activities).toHaveLength(1));
+    expect(result.current.visibleActivities).toHaveLength(0);
+    expect(result.current.hasOldCompletedActivities).toBe(true);
+
+    act(() => {
+      result.current.updateFilter("search", oldActivity.title);
+    });
+
+    await waitFor(() => expect(result.current.hasHiddenOldCompletedSearchMatch).toBe(true));
+    expect(result.current.visibleActivities).toHaveLength(0);
+
+    act(() => {
+      result.current.setShowOldCompleted(true);
+    });
+
+    await waitFor(() => expect(result.current.visibleActivities).toHaveLength(1));
+    expect(result.current.visibleActivities[0]?.id).toBe(oldActivity.id);
   });
 });
 

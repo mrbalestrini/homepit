@@ -23,6 +23,9 @@
   dashboard.
 - Atividades agora aceitam uma imagem unica privada, com upload, leitura e exclusao
   protegidos no dashboard de projetos.
+- Atividades agora expõem `CompletedAt`, preenchido ao entrar em `Concluido` e limpo ao
+  voltar para uma etapa aberta; o dashboard oculta conclusões com mais de 30 dias até
+  `Mostrar concluídas antigas` ser acionado.
 - O workflow local de IA usa `AGENTS.md`, `.specs/active-change.md` e
   `.specs/shared/sources-of-truth.md` para roteamento e governanca documental.
 

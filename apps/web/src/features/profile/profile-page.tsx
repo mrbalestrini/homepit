@@ -512,23 +512,16 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                 <div className="space-y-3">
                   <div className="relative">
                     <ProtectedUserAvatar user={user} token={token} className="size-24 text-xl" />
-                    <button
-                      type="button"
-                      className="absolute -bottom-1 -right-1 grid size-10 place-items-center rounded-full border border-border/70 bg-background text-muted-foreground shadow-sm transition hover:bg-surface-muted hover:text-foreground"
-                      onClick={openPhotoPicker}
-                      aria-label="Alterar foto de perfil"
-                      title="Alterar foto de perfil"
-                    >
-                      <Camera className="size-4" />
-                    </button>
                   </div>
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    Clique no ícone da câmera para escolher uma nova foto e ajustar o enquadramento.
-                  </p>
                 </div>
-                <div className="rounded-[16px] border border-border/70 bg-background px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  Foto
-                </div>
+                <button
+                  type="button"
+                  className="absolute -bottom-1 -right-1 grid size-10 place-items-center rounded-full border border-border/70 bg-background text-muted-foreground shadow-sm transition hover:bg-surface-muted hover:text-foreground"
+                  onClick={openPhotoPicker}
+                  aria-label="Alterar foto de perfil"
+                  title="Alterar foto de perfil"
+                  ><Camera className="size-4" />
+                </button>
               </div>
               <input
                 ref={profilePhotoInputRef}
@@ -956,6 +949,11 @@ function SubscriptionPlansDialog({
 }) {
   const currentPlanId = planSummary?.plan.id ?? null;
   const activeSubscription = planSummary?.activeSubscription ?? null;
+  const planCatalogWithCurrent = currentPlanId
+    ? planCatalog.some((plan) => plan.id === currentPlanId)
+      ? planCatalog
+      : [planSummary?.plan ?? null, ...planCatalog].filter((plan): plan is PlanDefinition => plan !== null)
+    : planCatalog;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -991,11 +989,11 @@ function SubscriptionPlansDialog({
             <Loader2 className="size-4 animate-spin" />
             Carregando planos...
           </div>
-        ) : planCatalog.length === 0 ? (
+        ) : planCatalogWithCurrent.length === 0 ? (
           <Notice tone="warning">Nenhum plano público foi encontrado para solicitar no momento.</Notice>
         ) : (
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {planCatalog.map((plan) => (
+            {planCatalogWithCurrent.map((plan) => (
               <PlanRequestCard
                 key={plan.id}
                 plan={plan}

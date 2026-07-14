@@ -104,6 +104,7 @@ describe("PlatformAdminPage", () => {
             maxProjects: 3,
             maxInvitedMembers: null,
             maxOriginalImages: 30,
+            showInCatalog: true,
             isPopular: false,
             imagePolicyDescription:
               "Mantém até 30 imagem(ns) privada(s) recente(s) em qualidade original; a partir da imagem 31, a mais antiga é substituída por WEBP com até 300 px e qualidade 30%.",
@@ -148,6 +149,7 @@ describe("PlatformAdminPage", () => {
           maxProjects: 3,
           maxInvitedMembers: 5,
           maxOriginalImages: 30,
+          showInCatalog: true,
           isPopular: true,
           imagePolicyDescription:
             "Mantém até 30 imagem(ns) privada(s) recente(s) em qualidade original; a partir da imagem 31, a mais antiga é substituída por WEBP com até 300 px e qualidade 30%.",
@@ -168,6 +170,7 @@ describe("PlatformAdminPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Planos" }));
     fireEvent.change(await screen.findByLabelText("Preço mensal"), { target: { value: "11.90" } });
     fireEvent.change(screen.getByLabelText("Membros convidados"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Mostrar plano Standard" }));
     fireEvent.click(screen.getByRole("button", { name: "Marcar Standard como popular" }));
     fireEvent.click(screen.getByRole("button", { name: "Salvar plano" }));
 
@@ -177,7 +180,7 @@ describe("PlatformAdminPage", () => {
         expect.objectContaining({
           method: "PUT",
           token: "access-token",
-          body: expect.stringMatching(/"maxInvitedMembers":5.*"isPopular":true|"isPopular":true.*"maxInvitedMembers":5/),
+          body: expect.stringMatching(/"maxInvitedMembers":5.*"showInCatalog":false.*"isPopular":true|"isPopular":true.*"showInCatalog":false.*"maxInvitedMembers":5/),
         }),
       );
     });

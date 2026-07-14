@@ -22,6 +22,8 @@ public sealed class Activity : AuditableEntity, IHouseholdScoped
     public string? ImageContentType { get; set; }
     public DateTimeOffset? ImageUpdatedAt { get; set; }
     public DateOnly? DueDate { get; set; }
+    // Registra a última entrada na coluna concluída; o serviço limpa ao reabrir.
+    public DateTimeOffset? CompletedAt { get; set; }
     public ActivityStatus Status { get; set; } = ActivityStatus.NaoIniciada;
     public Priority Priority { get; set; } = Priority.Media;
     public decimal? Size { get; set; }

@@ -58,6 +58,7 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
     hasImage: false,
     imageUpdatedAt: null,
     dueDate: "2026-06-30",
+    completedAt: null,
     status: "NaoIniciada",
     priority: "Media",
     size: 3,
@@ -331,6 +332,7 @@ describe("project dashboard kanban drag states", () => {
     );
 
     expect(screen.getByText("Prazo esperado")).toBeInTheDocument();
+    expect(screen.getByText("Data concluída")).toBeInTheDocument();
     expect(screen.getByText("Criada em")).toBeInTheDocument();
     expect(screen.getAllByText("30/06/2026").length).toBeGreaterThan(0);
   });

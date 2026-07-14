@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "@/lib/api";
@@ -58,6 +58,7 @@ const mockedUseProjectDashboard = vi.mocked(useProjectDashboard);
 describe("ProfilePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cleanup();
   });
 
   it("shows the current plan, usage and quota states", async () => {
@@ -153,6 +154,90 @@ describe("ProfilePage", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Assinatura" })).not.toBeInTheDocument();
     });
+  });
+
+  it("keeps the current hidden plan available in the subscription dialog", async () => {
+    mockedUseProjectDashboard.mockReturnValue(buildDashboard());
+    mockedApiFetch.mockImplementation(async (path) => {
+      if (path === "/api/users/me/plan") {
+        return buildCurrentUserPlanSummary({
+          plan: buildPlanDefinition({
+            id: "plan-hidden",
+            slug: "hidden",
+            name: "Plano Oculto",
+            showInCatalog: false,
+            imagePolicyDescription: "Plano fora do catálogo público.",
+          }),
+          activeSubscription: {
+            id: "subscription-hidden",
+            userId: "user-1",
+            userDisplayName: "User",
+            userEmail: "user@homepit.dev",
+            planDefinitionId: "plan-hidden",
+            planSlug: "hidden",
+            planName: "Plano Oculto",
+            billingCycle: "Monthly",
+            startsAt: "2026-07-01T00:00:00Z",
+            endsAt: "2026-07-31T23:59:59Z",
+            amountPaid: 0,
+            currencyCode: "BRL",
+            status: "Active",
+            adminNote: null,
+          },
+        });
+      }
+
+      if (path === "/api/plans") {
+        return [
+          buildPlanDefinition({
+            imagePolicyDescription: "Plano de entrada.",
+          }),
+          buildPlanDefinition({
+            id: "plan-gold",
+            slug: "gold",
+            name: "Gold",
+            monthlyPrice: 39.9,
+            annualPrice: 399,
+            maxOwnedHouseholds: 7,
+            maxUniverses: 15,
+            maxProjects: 15,
+            maxInvitedMembers: null,
+            maxOriginalImages: 300,
+            showInCatalog: true,
+            imagePolicyDescription: "Plano intermediário.",
+          }),
+        ];
+      }
+
+      if (path === "/api/platform-settings") {
+        return {
+          contactEmail: "contato@homepit.dev",
+          contactPhone: "",
+          instagram: "@homepit",
+          addressLine1: "Rua Principal, 100",
+          addressLine2: "Sala 2",
+          city: "São Paulo",
+          state: "SP",
+          postalCode: "01000-000",
+          canShowAddressOnLanding: false,
+        };
+      }
+
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<ProfilePage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Plano Oculto")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Assinatura" })[0]);
+
+    const dialog = await screen.findByRole("dialog", { name: "Assinatura" });
+    expect(within(dialog).getByText("Plano Oculto", { selector: "p.text-2xl" })).toBeInTheDocument();
+    expect(within(dialog).getByText("Plano Oculto", { selector: "p.text-sm" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Plano atual" })).toBeDisabled();
   });
 
   it("opens the cancel account modal and then the confirmation dialog independently", async () => {
@@ -279,7 +364,11 @@ describe("ProfilePage", () => {
 
     render(<ProfilePage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /universos/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /universos/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /universos/i }));
 
     expect(await screen.findByText("Universos criados por você")).toBeInTheDocument();
     expect(await screen.findByText("Universo Alfa")).toBeInTheDocument();
@@ -432,6 +521,7 @@ function buildPlanDefinition(overrides: Partial<PlanDefinition> = {}): PlanDefin
     maxProjects: 5,
     maxInvitedMembers: null,
     maxOriginalImages: 30,
+    showInCatalog: true,
     isPopular: false,
     imagePolicyDescription:
       "Mantém até 30 imagem(ns) privada(s) recente(s) em qualidade original; a partir da imagem 31, a mais antiga é substituída por WEBP com até 300 px e qualidade 30%.",

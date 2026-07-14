@@ -106,7 +106,7 @@ paths:
       security: []
       responses:
         "200":
-          description: Public catalog of commercial plans
+          description: Public catalog of commercial plans. Authenticated users also receive their current plan when it is hidden from the public catalog.
           content:
             application/json:
               schema:
@@ -2574,7 +2574,7 @@ components:
     PlanDefinition:
       type: object
       required:
-        [id, slug, name, currencyCode, monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniverses, maxProjects, maxOriginalImages, isPopular, imagePolicyDescription]
+        [id, slug, name, currencyCode, monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniverses, maxProjects, maxOriginalImages, showInCatalog, isPopular, imagePolicyDescription]
       properties:
         id:
           type: string
@@ -2600,6 +2600,8 @@ components:
           nullable: true
         maxOriginalImages:
           type: integer
+        showInCatalog:
+          type: boolean
         isPopular:
           type: boolean
         imagePolicyDescription:
@@ -2607,7 +2609,7 @@ components:
     UpdatePlanDefinitionRequest:
       type: object
       required:
-        [monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniverses, maxProjects, maxOriginalImages]
+        [monthlyPrice, annualPrice, maxOwnedHouseholds, maxUniverses, maxProjects, maxOriginalImages, showInCatalog]
       properties:
         monthlyPrice:
           type: number
@@ -2624,6 +2626,8 @@ components:
           nullable: true
         maxOriginalImages:
           type: integer
+        showInCatalog:
+          type: boolean
     UserSubscription:
       type: object
       required:
@@ -4716,6 +4720,10 @@ components:
         dueDate:
           type: string
           format: date
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
           nullable: true
         status:
           $ref: "#/components/schemas/ActivityStatus"

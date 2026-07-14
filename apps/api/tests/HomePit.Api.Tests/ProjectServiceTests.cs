@@ -75,6 +75,37 @@ public sealed class ProjectServiceTests
     }
 
     [Fact]
+    public async Task Activity_completion_date_follows_status_transitions()
+    {
+        await using var context = CreateDbContext();
+        var fixture = await SeedFixtureAsync(context);
+        var firstCompletion = new DateTimeOffset(2026, 7, 14, 12, 0, 0, TimeSpan.Zero);
+        var service = CreateService(context, fixture.OwnerUserId, fixture.HouseholdId, timeProvider: new FixedTimeProvider(firstCompletion));
+        var activity = await context.Activities.SingleAsync(item => item.Status == ActivityStatus.Concluido);
+
+        var completed = await service.UpdateActivityStatusAsync(
+            activity.Id,
+            new UpdateActivityStatusRequest(ActivityStatus.Concluido),
+            CancellationToken.None);
+
+        Assert.Equal(firstCompletion, completed.CompletedAt);
+
+        var reopened = await service.UpdateActivityStatusAsync(
+            activity.Id,
+            new UpdateActivityStatusRequest(ActivityStatus.EmAndamento),
+            CancellationToken.None);
+
+        Assert.Null(reopened.CompletedAt);
+
+        var completedAgain = await service.UpdateActivityStatusAsync(
+            activity.Id,
+            new UpdateActivityStatusRequest(ActivityStatus.Concluido),
+            CancellationToken.None);
+
+        Assert.Equal(firstCompletion, completedAgain.CompletedAt);
+    }
+
+    [Fact]
     public async Task Uploading_activity_image_sets_metadata_and_storage_key()
     {
         await using var context = CreateDbContext();
@@ -233,25 +264,27 @@ public sealed class ProjectServiceTests
         HomePitDbContext context,
         Guid userId,
         Guid householdId,
-        InMemoryObjectStorage? storage = null)
+        InMemoryObjectStorage? storage = null,
+        TimeProvider? timeProvider = null)
     {
         var userContext = new TestUserContext(userId, householdId);
         var resolvedStorage = storage ?? new InMemoryObjectStorage();
         var imageUploadProcessor = new ImageSharpImageUploadProcessor();
-        var commercialPlanService = new CommercialPlanService(context, userContext, TimeProvider.System);
+        var resolvedTimeProvider = timeProvider ?? TimeProvider.System;
+        var commercialPlanService = new CommercialPlanService(context, userContext, resolvedTimeProvider);
         var managedImageQuotaService = new ManagedImageQuotaService(
             context,
             resolvedStorage,
             imageUploadProcessor,
             commercialPlanService,
-            TimeProvider.System);
+            resolvedTimeProvider);
 
         return new ProjectService(
             context,
             userContext,
             resolvedStorage,
             imageUploadProcessor,
-            TimeProvider.System,
+            resolvedTimeProvider,
             commercialPlanService,
             managedImageQuotaService);
     }
@@ -444,6 +477,11 @@ public sealed class ProjectServiceTests
         public Guid UserId { get; } = userId;
         public SystemRole SystemRole => SystemRole.User;
         public Guid? HouseholdId { get; } = householdId;
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 
     private sealed class InMemoryObjectStorage : IObjectStorage

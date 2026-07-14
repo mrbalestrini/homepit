@@ -14,6 +14,7 @@ public sealed record PlanDefinitionDto(
     int MaxProjects,
     int? MaxInvitedMembers,
     int MaxOriginalImages,
+    bool ShowInCatalog,
     bool IsPopular,
     string ImagePolicyDescription);
 
@@ -25,6 +26,7 @@ public sealed record UpdatePlanDefinitionRequest(
     int MaxProjects,
     int? MaxInvitedMembers,
     int MaxOriginalImages,
+    bool ShowInCatalog,
     bool IsPopular);
 
 public sealed record UserSubscriptionDto(

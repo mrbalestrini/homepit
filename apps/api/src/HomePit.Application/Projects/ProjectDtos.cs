@@ -74,6 +74,7 @@ public sealed record ActivityDto(
     bool HasImage,
     DateTimeOffset? ImageUpdatedAt,
     DateOnly? DueDate,
+    DateTimeOffset? CompletedAt,
     ActivityStatus Status,
     Priority Priority,
     decimal? Size,

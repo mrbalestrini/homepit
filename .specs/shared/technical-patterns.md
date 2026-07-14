@@ -35,11 +35,15 @@
   para persistencia segura, validacao contra a sessao e limpeza de valores obsoletos.
 - O banco de prompts envia `householdId` ao buscar imagens protegidas de prompt no card e
   no detalhe, seguindo a mesma regra de tenancy das demais rotas protegidas.
+- O controller do banco de prompts expõe `viewMode` para alternar entre grade e lista,
+  sem alterar filtros, paginação ou o restante do fluxo de leitura.
 - O banco de prompts expõe um filtro de visão arquivada e persiste a preferência de
   imagens em `localStorage`, removendo a chave quando a visualização padrão é restaurada.
 - O dashboard de projetos persiste a ordenação dos filtros em `localStorage` via
   `uiStorageKeys.projectActivitySort`, restaurando o valor salvo ao reiniciar o
   controller.
+- O dashboard de projetos oculta localmente atividades concluídas há mais de 30 dias e
+  destaca o botão de antigas quando a busca corresponde a uma atividade oculta.
 - Casas na sessao agora incluem `CreatedAt`, permitindo fallback por recencia quando a
   selecao salva nao existe mais.
 - Hooks de feature funcionam como controladores de estado e mutacao.

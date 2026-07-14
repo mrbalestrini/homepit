@@ -41,6 +41,42 @@ public sealed class CommercialPlanServiceTests
     }
 
     [Fact]
+    public async Task Public_plan_catalog_keeps_the_current_plan_even_when_it_is_hidden()
+    {
+        await using var context = CreateDbContext();
+        var user = await SeedUserAsync(context, "hidden-current@homepit.dev");
+        var adminService = CreateCommercialPlanService(context, Guid.NewGuid(), SystemRole.SuperAdmin);
+        var userService = CreateCommercialPlanService(context, user.Id, SystemRole.User);
+
+        await adminService.EnsurePlanCatalogAsync(CancellationToken.None);
+        var standardPlan = await context.PlanDefinitions.SingleAsync(item => item.Slug == PlanDefinitionCatalog.StandardSlug);
+        var bronzePlan = await context.PlanDefinitions.SingleAsync(item => item.Slug == PlanDefinitionCatalog.BronzeSlug);
+        standardPlan.ShowInCatalog = false;
+        bronzePlan.ShowInCatalog = false;
+
+        await adminService.CreateSubscriptionAsync(
+            new CreateUserSubscriptionRequest(
+                user.Id,
+                standardPlan.Id,
+                BillingCycle.Monthly,
+                DateTimeOffset.UtcNow.AddDays(-1),
+                DateTimeOffset.UtcNow.AddDays(29),
+                9.90m,
+                "BRL",
+                UserSubscriptionStatus.Active,
+                null),
+            CancellationToken.None);
+
+        await context.SaveChangesAsync(CancellationToken.None);
+
+        var plans = await userService.ListPublicPlansAsync(CancellationToken.None);
+
+        Assert.Contains(plans, plan => plan.Slug == PlanDefinitionCatalog.StandardSlug && !plan.ShowInCatalog);
+        Assert.DoesNotContain(plans, plan => plan.Slug == PlanDefinitionCatalog.BronzeSlug);
+        Assert.Contains(plans, plan => plan.Slug == PlanDefinitionCatalog.FreeSlug);
+    }
+
+    [Fact]
     public async Task Free_plan_cannot_create_household()
     {
         await using var context = CreateDbContext();
@@ -110,6 +146,7 @@ public sealed class CommercialPlanServiceTests
                 standardPlan.MaxProjects,
                 standardPlan.MaxInvitedMembers,
                 standardPlan.MaxOriginalImages,
+                standardPlan.ShowInCatalog,
                 true),
             CancellationToken.None);
 

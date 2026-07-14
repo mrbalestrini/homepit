@@ -19,6 +19,8 @@
 - Contagem de atividades do projeto considera apenas atividades nao concluidas.
 - Responsavel de atividade deve ser membro ativo da mesma casa.
 - Status: `NaoIniciada`, `EmAndamento`, `Concluido`.
+- Ao entrar em `Concluido`, a atividade registra `CompletedAt`; ao sair, esse valor é
+  limpo. Permanecer concluída preserva a data registrada.
 - Prioridade: `Baixa`, `Media`, `Alta`, `Urgente`.
 - Cada membro ativo pode configurar esforço recorrente de segunda a domingo para Casa, Universo e Projeto.
 - Esforço de filhos reserva capacidade do pai; campo vazio herda ou deriva a capacidade e zero bloqueia o escopo no dia.

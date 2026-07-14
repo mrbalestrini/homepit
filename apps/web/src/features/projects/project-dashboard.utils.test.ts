@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Activity } from "@/lib/api";
 import { activitySortOptions } from "./project-dashboard.constants";
-import { formatDateOnly, sortActivities } from "./project-dashboard.utils";
+import { activityMatchesSearch, formatDateOnly, isCompletedActivityOlderThanDays, sortActivities } from "./project-dashboard.utils";
 
 function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "title">): Activity {
   return {
@@ -20,6 +20,7 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
     hasImage: false,
     imageUpdatedAt: null,
     dueDate: null,
+    completedAt: null,
     status: "NaoIniciada",
     priority: "Media",
     size: null,
@@ -65,5 +66,32 @@ describe("project dashboard activity sorting", () => {
   it("formats date-only values in UTC without timezone drift", () => {
     expect(formatDateOnly("2026-06-30")).toBe("30/06/2026");
     expect(formatDateOnly(null)).toBe("Sem prazo");
+  });
+
+  it("hides only completed activities older than 30 days", () => {
+    const now = Date.parse("2026-07-14T12:00:00.000Z");
+    expect(
+      isCompletedActivityOlderThanDays(
+        buildActivity({ id: "old", title: "Antiga", status: "Concluido", completedAt: "2026-06-13T11:59:59.000Z" }),
+        30,
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isCompletedActivityOlderThanDays(
+        buildActivity({ id: "recent", title: "Recente", status: "Concluido", completedAt: "2026-06-14T12:00:00.000Z" }),
+        30,
+        now,
+      ),
+    ).toBe(false);
+    expect(isCompletedActivityOlderThanDays(buildActivity({ id: "open", title: "Aberta" }), 30, now)).toBe(false);
+  });
+
+  it("matches the same fields used by the activity search", () => {
+    const activity = buildActivity({ id: "search", title: "Revisar varanda", description: "Tinta externa" });
+
+    expect(activityMatchesSearch(activity, "VARANDA")).toBe(true);
+    expect(activityMatchesSearch(activity, "tinta")).toBe(true);
+    expect(activityMatchesSearch(activity, "inexistente")).toBe(false);
   });
 });

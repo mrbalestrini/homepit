@@ -10,10 +10,14 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - A página `/profile` passou a mostrar o `Plano` antes do fluxo de assinatura, sem exibir os valores do plano atual nessa seção.
 - A solicitação de assinatura virou uma modal acionada por botão, com cards de plano mais visuais e destaque para o plano popular.
 - O catálogo comercial passou a registrar um plano popular por destaque, com o Gold vindo marcado por padrão e o SuperAdmin podendo alternar esse selo.
+- O catálogo público de planos passou a respeitar a opção `Mostrar plano` no SuperAdmin, mantendo visível para cada conta o plano efetivo atual mesmo quando ele estiver oculto.
 - O topo da página de perfil passou a respeitar melhor o tema terroso com um fundo baseado nos tokens visuais do tema.
 - Os ícones de navegação e ações da interface passaram a refletir melhor a semântica de cada contexto, reservando `Sparkles` para casos realmente ligados a IA, automação ou destaque excepcional.
 - O tema visual padrão da interface passou a aparecer como `Claro`, com ícone de sol no seletor.
 - O fluxo de perfil, prompts, assinatura, sugestões e administração global recebeu ícones mais específicos para salvar, reutilizar, documentar e solicitar ações.
+- O banco de prompts passou a permitir clicar nas categorias da lateral para aplicar e remover o filtro.
+- O banco de prompts ganhou modo lista, além da visualização em grade já existente.
+- Atividades concluídas agora registram a data de conclusão, ocultam conclusões com mais de 30 dias por padrão e oferecem uma busca com aviso para revelar esse histórico.
 
 ## [1.11.0] - 2026-07-13
 

@@ -15,6 +15,7 @@ public sealed class PlanDefinition : AuditableEntity
     public int MaxProjects { get; set; }
     public int? MaxInvitedMembers { get; set; }
     public int MaxOriginalImages { get; set; }
+    public bool ShowInCatalog { get; set; }
     public bool IsPopular { get; set; }
     public int SortOrder { get; set; }
 

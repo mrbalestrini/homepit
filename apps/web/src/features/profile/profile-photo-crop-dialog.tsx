@@ -63,7 +63,7 @@ export function ProfilePhotoCropDialog({ draft, onCancel, onConfirm }: ProfilePh
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <p>
-                Ao confirmar, a nova foto entra no perfil na hora.
+                Ao confirmar, sua foto será substituída.
               </p>
             </div>
           </div>

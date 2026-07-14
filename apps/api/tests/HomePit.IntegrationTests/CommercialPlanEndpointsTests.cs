@@ -89,6 +89,7 @@ public sealed class CommercialPlanEndpointsTests
                 maxProjects = 4,
                 maxInvitedMembers = 8,
                 maxOriginalImages = 35,
+                showInCatalog = true,
                 isPopular = true
             }));
 
@@ -128,6 +129,94 @@ public sealed class CommercialPlanEndpointsTests
         var seededUser = Assert.Single(users!, item => item.Id == seed.UserId);
         Assert.Equal("Standard", seededUser.EffectivePlanName);
         Assert.Equal("Active", seededUser.ActiveSubscriptionStatus);
+    }
+
+    [Fact]
+    public async Task Public_plan_catalog_hides_unlisted_plans_but_keeps_the_current_plan_for_the_user()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = factory.CreateClient();
+
+        var registerResponse = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            email = "catalog-user@homepit.dev",
+            password = "catalog-secret",
+            displayName = "Catalog User",
+            phoneNumber = (string?)null
+        });
+
+        registerResponse.EnsureSuccessStatusCode();
+        var userAuth = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(userAuth);
+
+        var adminLoginResponse = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email = "superadmin@homepit.dev",
+            password = "super-secret"
+        });
+
+        adminLoginResponse.EnsureSuccessStatusCode();
+        var superAdminAuth = await adminLoginResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonSerializerOptions.Web);
+        Assert.NotNull(superAdminAuth);
+
+        var plansResponse = await SendAuthorizedAsync(client, superAdminAuth!.AccessToken, null, HttpMethod.Get, "/api/admin/platform/plans");
+        plansResponse.EnsureSuccessStatusCode();
+        var plans = await plansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PlanDefinitionResponse>>(JsonSerializerOptions.Web);
+        var standardPlan = Assert.Single(plans!, item => item.Slug == "standard");
+
+        var hidePlanResponse = await SendAuthorizedAsync(
+            client,
+            superAdminAuth.AccessToken,
+            null,
+            HttpMethod.Put,
+            $"/api/admin/platform/plans/{standardPlan.Id}",
+            JsonContent.Create(new
+            {
+                monthlyPrice = 9.90m,
+                annualPrice = 99.00m,
+                maxOwnedHouseholds = 1,
+                maxUniverses = 3,
+                maxProjects = 3,
+                maxInvitedMembers = (int?)null,
+                maxOriginalImages = 30,
+                showInCatalog = false,
+                isPopular = standardPlan.IsPopular
+            }));
+
+        hidePlanResponse.EnsureSuccessStatusCode();
+
+        var anonymousPlansResponse = await client.GetAsync("/api/plans");
+        anonymousPlansResponse.EnsureSuccessStatusCode();
+        var anonymousPlans = await anonymousPlansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PlanDefinitionResponse>>(JsonSerializerOptions.Web);
+        Assert.NotNull(anonymousPlans);
+        Assert.DoesNotContain(anonymousPlans!, item => item.Slug == "standard");
+
+        var createSubscriptionResponse = await SendAuthorizedAsync(
+            client,
+            superAdminAuth.AccessToken,
+            null,
+            HttpMethod.Post,
+            "/api/admin/platform/subscriptions",
+            JsonContent.Create(new
+            {
+                userId = userAuth!.User.Id,
+                planDefinitionId = standardPlan.Id,
+                billingCycle = "Monthly",
+                startsAt = DateTimeOffset.UtcNow.AddDays(-1),
+                endsAt = DateTimeOffset.UtcNow.AddDays(29),
+                amountPaid = 9.90m,
+                currencyCode = "BRL",
+                status = "Active",
+                adminNote = (string?)null
+            }));
+
+        createSubscriptionResponse.EnsureSuccessStatusCode();
+
+        var userPlansResponse = await SendAuthorizedAsync(client, userAuth.AccessToken, null, HttpMethod.Get, "/api/plans");
+        userPlansResponse.EnsureSuccessStatusCode();
+        var userPlans = await userPlansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PlanDefinitionResponse>>(JsonSerializerOptions.Web);
+        Assert.NotNull(userPlans);
+        Assert.Contains(userPlans!, item => item.Slug == "standard" && !item.ShowInCatalog);
     }
 
     [Fact]
@@ -311,7 +400,7 @@ public sealed class CommercialPlanEndpointsTests
     private sealed record AuthResponse(string AccessToken, AuthUserResponse User);
     private sealed record AuthUserResponse(Guid Id, string Email, string DisplayName, string SystemRole);
     private sealed record ProblemDetailsResponse(string? Detail);
-    private sealed record PlanDefinitionResponse(Guid Id, string Slug, string Name, bool IsPopular);
+    private sealed record PlanDefinitionResponse(Guid Id, string Slug, string Name, bool IsPopular, bool ShowInCatalog);
     private sealed record AdminUserListItemResponse(Guid Id, string EffectivePlanName, string? ActiveSubscriptionStatus);
     private sealed record CurrentUserPlanSummaryResponse(PlanUsageSummaryResponse Usage);
     private sealed record PlanUsageSummaryResponse(

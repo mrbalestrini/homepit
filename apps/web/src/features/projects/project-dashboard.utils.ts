@@ -20,6 +20,29 @@ export function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+export function isCompletedActivityOlderThanDays(activity: Activity, days: number, now = Date.now()) {
+  if (activity.status !== "Concluido" || !activity.completedAt) {
+    return false;
+  }
+
+  const completedAt = new Date(activity.completedAt).getTime();
+  return !Number.isNaN(completedAt) && completedAt < now - days * 24 * 60 * 60 * 1000;
+}
+
+export function activityMatchesSearch(activity: Activity, query: string) {
+  const normalizedSearch = query.trim().toLowerCase();
+  if (!normalizedSearch) {
+    return true;
+  }
+
+  return (
+    activity.title.toLowerCase().includes(normalizedSearch) ||
+    activity.projectName.toLowerCase().includes(normalizedSearch) ||
+    activity.universeName.toLowerCase().includes(normalizedSearch) ||
+    (activity.description ?? "").toLowerCase().includes(normalizedSearch)
+  );
+}
+
 export function formatDateOnly(value: string | null | undefined, fallback = "Sem prazo") {
   if (!value) {
     return fallback;

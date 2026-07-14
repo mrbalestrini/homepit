@@ -1283,6 +1283,11 @@ namespace HomePit.Infrastructure.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)");
 
+                    b.Property<bool>("ShowInCatalog")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("IsPopular")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -1664,6 +1669,9 @@ namespace HomePit.Infrastructure.Migrations
 
                     b.Property<Guid?>("CreatedByMemberId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
                         .HasMaxLength(4000)

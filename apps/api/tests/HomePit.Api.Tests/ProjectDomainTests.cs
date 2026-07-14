@@ -32,6 +32,7 @@ public sealed class ProjectDomainTests
         Assert.Equal(ActivityStatus.NaoIniciada, activity.Status);
         Assert.Equal(Priority.Media, activity.Priority);
         Assert.Null(activity.DueDate);
+        Assert.Null(activity.CompletedAt);
         Assert.Null(activity.ImageObjectKey);
         Assert.Null(activity.ImageContentType);
         Assert.Null(activity.ImageUpdatedAt);

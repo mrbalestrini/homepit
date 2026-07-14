@@ -38,7 +38,9 @@ import type {
   AppTheme,
   ProjectViewMode,
 } from "./project-dashboard.types";
-import { getErrorMessage, sortActivities } from "./project-dashboard.utils";
+import { activityMatchesSearch, getErrorMessage, isCompletedActivityOlderThanDays, sortActivities } from "./project-dashboard.utils";
+
+const COMPLETED_ACTIVITY_HIDE_DAYS = 30;
 
 function isAppTheme(value: string | null): value is AppTheme {
   return value === "cozy" || value === "earthy" || value === "dark";
@@ -131,6 +133,7 @@ export function useProjectDashboard() {
   const [selectedUniverseId, setSelectedUniverseId] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [filters, setFilters] = useState<ActivityFilterState>(defaultActivityFilters);
+  const [showOldCompleted, setShowOldCompleted] = useState(false);
   const [viewMode, setViewModeState] = useState<ProjectViewMode>("kanban");
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
   const [theme, setThemeState] = useState<AppTheme>(defaultAppTheme);
@@ -170,6 +173,7 @@ export function useProjectDashboard() {
     setLoading(false);
     setError(null);
     setFilters(buildDefaultActivityFilters());
+    setShowOldCompleted(false);
   }, []);
 
   const syncSession = useCallback(
@@ -311,7 +315,6 @@ export function useProjectDashboard() {
 
   const visibleActivities = useMemo(() => {
     const relevanceByActivityId = new Map((relevance?.items ?? []).map((item) => [item.activityId, item]));
-    const normalizedSearch = filters.search.trim().toLowerCase();
     const scopedActivities = activities.filter((activity) => {
       const matchesUniverse = !selectedUniverseId || activity.universeId === selectedUniverseId;
       const matchesProject = !selectedProjectId || activity.projectId === selectedProjectId;
@@ -320,12 +323,7 @@ export function useProjectDashboard() {
     });
 
     const filteredActivities = scopedActivities.filter((activity) => {
-      const matchesSearch =
-        !normalizedSearch ||
-        activity.title.toLowerCase().includes(normalizedSearch) ||
-        activity.projectName.toLowerCase().includes(normalizedSearch) ||
-        activity.universeName.toLowerCase().includes(normalizedSearch) ||
-        (activity.description ?? "").toLowerCase().includes(normalizedSearch);
+      const matchesSearch = activityMatchesSearch(activity, filters.search);
 
       const matchesRelevance = filters.sort !== "relevance" || relevanceByActivityId.has(activity.id);
       const matchesStatus =
@@ -334,8 +332,9 @@ export function useProjectDashboard() {
       const matchesResponsible =
         filters.sort === "relevance" ||
         filters.responsibleMemberId === "all" || activity.responsibleMemberId === filters.responsibleMemberId;
+      const matchesCompletedVisibility = showOldCompleted || !isCompletedActivityOlderThanDays(activity, COMPLETED_ACTIVITY_HIDE_DAYS);
 
-      return matchesSearch && matchesRelevance && matchesStatus && matchesPriority && matchesResponsible;
+      return matchesSearch && matchesRelevance && matchesStatus && matchesPriority && matchesResponsible && matchesCompletedVisibility;
     });
 
     if (filters.sort === "relevance") {
@@ -347,7 +346,45 @@ export function useProjectDashboard() {
     }
 
     return sortActivities(filteredActivities, filters.sort);
-  }, [activities, filters, relevance, selectedProjectId, selectedUniverseId]);
+  }, [activities, filters, relevance, selectedProjectId, selectedUniverseId, showOldCompleted]);
+
+  const scopedActivities = useMemo(
+    () =>
+      activities.filter(
+        (activity) =>
+          (!selectedUniverseId || activity.universeId === selectedUniverseId) &&
+          (!selectedProjectId || activity.projectId === selectedProjectId),
+      ),
+    [activities, selectedProjectId, selectedUniverseId],
+  );
+
+  const hasOldCompletedActivities = useMemo(
+    () => scopedActivities.some((activity) => isCompletedActivityOlderThanDays(activity, COMPLETED_ACTIVITY_HIDE_DAYS)),
+    [scopedActivities],
+  );
+
+  const hasHiddenOldCompletedSearchMatch = useMemo(() => {
+    if (showOldCompleted || !filters.search.trim()) {
+      return false;
+    }
+
+    return scopedActivities.some((activity) => {
+      const matchesStatus = filters.sort === "relevance" ? false : filters.status === "all" || activity.status === filters.status;
+      const matchesPriority = filters.priority === "all" || activity.priority === filters.priority;
+      const matchesResponsible =
+        filters.sort === "relevance" ||
+        filters.responsibleMemberId === "all" ||
+        activity.responsibleMemberId === filters.responsibleMemberId;
+
+      return (
+        isCompletedActivityOlderThanDays(activity, COMPLETED_ACTIVITY_HIDE_DAYS) &&
+        activityMatchesSearch(activity, filters.search) &&
+        matchesStatus &&
+        matchesPriority &&
+        matchesResponsible
+      );
+    });
+  }, [filters, scopedActivities, showOldCompleted]);
 
   const selectedScopeLabel = useMemo(() => {
     const project = projects.find((item) => item.id === selectedProjectId);
@@ -1364,7 +1401,11 @@ export function useProjectDashboard() {
     activityStatusMutationVersionRef.current[activity.id] = mutationVersion;
 
     const previousActivity = activities.find((item) => item.id === activity.id) ?? activity;
-    const optimisticActivity = { ...previousActivity, status: nextStatus };
+    const optimisticActivity = {
+      ...previousActivity,
+      status: nextStatus,
+      completedAt: nextStatus === "Concluido" ? new Date().toISOString() : null,
+    };
 
     replaceActivityInState(optimisticActivity);
     setProjects((current) => updateProjectActivityCounts(current, previousActivity, optimisticActivity));
@@ -1558,6 +1599,10 @@ export function useProjectDashboard() {
     filteredProjects,
     activityDialogProjects,
     visibleActivities,
+    showOldCompleted,
+    setShowOldCompleted,
+    hasOldCompletedActivities,
+    hasHiddenOldCompletedSearchMatch,
     groupedActivities,
     selectedScopeLabel,
     setError,

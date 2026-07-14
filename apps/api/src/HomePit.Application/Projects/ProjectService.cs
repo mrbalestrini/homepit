@@ -461,6 +461,7 @@ public sealed class ProjectService(
             Description = NormalizeOptional(request.Description),
             DueDate = request.DueDate,
             Status = request.Status,
+            CompletedAt = request.Status == ActivityStatus.Concluido ? timeProvider.GetUtcNow() : null,
             Priority = request.Priority,
             Size = request.Size
         };
@@ -500,6 +501,7 @@ public sealed class ProjectService(
         activity.Title = RequiredText(request.Title, "Informe o nome da atividade.");
         activity.Description = NormalizeOptional(request.Description);
         activity.DueDate = request.DueDate;
+        activity.CompletedAt = ResolveCompletedAt(activity.Status, request.Status, activity.CompletedAt);
         activity.Status = request.Status;
         activity.Priority = request.Priority;
         activity.Size = request.Size;
@@ -529,6 +531,7 @@ public sealed class ProjectService(
 
         EnsureCanManageEntity(currentMember, activity.CreatedByMemberId, "Você não pode editar uma atividade criada por outra pessoa.");
 
+        activity.CompletedAt = ResolveCompletedAt(activity.Status, request.Status, activity.CompletedAt);
         activity.Status = request.Status;
         await db.SaveChangesAsync(cancellationToken);
         return ToActivityDto(activity, currentMember);
@@ -919,6 +922,21 @@ public sealed class ProjectService(
         }
     }
 
+    private DateTimeOffset? ResolveCompletedAt(
+        ActivityStatus previousStatus,
+        ActivityStatus nextStatus,
+        DateTimeOffset? completedAt)
+    {
+        if (nextStatus != ActivityStatus.Concluido)
+        {
+            return null;
+        }
+
+        return previousStatus == ActivityStatus.Concluido && completedAt.HasValue
+            ? completedAt
+            : timeProvider.GetUtcNow();
+    }
+
     private static string? NormalizeImageUrl(string? value)
     {
         var normalized = NormalizeOptional(value);
@@ -1002,6 +1020,7 @@ public sealed class ProjectService(
             !string.IsNullOrWhiteSpace(activity.ImageObjectKey),
             activity.ImageUpdatedAt,
             activity.DueDate,
+            activity.CompletedAt,
             activity.Status,
             activity.Priority,
             activity.Size,

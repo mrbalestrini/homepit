@@ -92,6 +92,7 @@ export type PlanDefinition = {
   maxProjects: number;
   maxInvitedMembers?: number | null;
   maxOriginalImages: number;
+  showInCatalog: boolean;
   isPopular: boolean;
   imagePolicyDescription: string;
 };
@@ -308,6 +309,7 @@ export type Activity = {
   hasImage: boolean;
   imageUpdatedAt?: string | null;
   dueDate?: string | null;
+  completedAt?: string | null;
   status: ActivityStatus;
   priority: Priority;
   size?: number | null;

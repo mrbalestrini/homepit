@@ -29,6 +29,7 @@ import type { AppTheme } from "@/features/projects/project-dashboard.types";
 import { getErrorMessage } from "@/features/projects/project-dashboard.utils";
 
 type PromptActiveModal = "household" | "share" | "prompt" | "category" | null;
+export type PromptViewMode = "grid" | "list";
 
 export type PromptFormInput = {
   universeId?: string;
@@ -90,6 +91,7 @@ export function usePromptBank() {
   const deferredSearch = useDeferredValue(search);
   const [universeFilter, setUniverseFilter] = useState("all");
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [viewMode, setViewModeState] = useState<PromptViewMode>("grid");
   const [page, setPage] = useState(1);
   const [archivedOnly, setArchivedOnlyState] = useState(false);
   const [showImages, setShowImagesState] = useState(true);
@@ -116,6 +118,7 @@ export function usePromptBank() {
     setSearch("");
     setUniverseFilter("all");
     setSelectedCategoryIds([]);
+    setViewModeState("grid");
     setPage(1);
     setArchivedOnlyState(false);
     setEditingHousehold(null);
@@ -952,6 +955,7 @@ export function usePromptBank() {
     search,
     universeFilter,
     selectedCategoryIds,
+    viewMode,
     page,
     archivedOnly,
     showImages,
@@ -984,6 +988,9 @@ export function usePromptBank() {
     setSearchValue,
     setUniverseFilterValue,
     toggleCategoryFilter,
+    setViewMode: (mode: PromptViewMode) => {
+      setViewModeState(mode);
+    },
     setPage,
     setArchivedOnly: (value: boolean) => {
       setPage(1);
