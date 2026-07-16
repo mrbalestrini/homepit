@@ -230,15 +230,21 @@ public sealed class IntegrationConnectionService(
     {
         keyId = string.Empty;
         secret = string.Empty;
-        var parts = token.Split('_', StringSplitOptions.None);
-        if (parts.Length != 3 || parts[0] != "hpit" || parts[1].Length != 16 || parts[2].Length < 40)
+        const string prefix = "hpit_";
+        if (!token.StartsWith(prefix, StringComparison.Ordinal))
         {
             return false;
         }
 
-        keyId = parts[1];
-        secret = parts[2];
-        return true;
+        var keyIdSeparator = token.IndexOf('_', prefix.Length);
+        if (keyIdSeparator < 0)
+        {
+            return false;
+        }
+
+        keyId = token[prefix.Length..keyIdSeparator];
+        secret = token[(keyIdSeparator + 1)..];
+        return keyId.Length == 16 && secret.Length >= 40;
     }
 
     private static string RequiredText(string value, string message)

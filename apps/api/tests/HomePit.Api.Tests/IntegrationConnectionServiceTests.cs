@@ -5,6 +5,8 @@ using HomePit.Domain.Integrations;
 using HomePit.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Security.Cryptography;
+using System.Text;
 using Xunit;
 
 namespace HomePit.Api.Tests;
@@ -66,14 +68,41 @@ public sealed class IntegrationConnectionServiceTests
         Assert.Null(await service.AuthenticateAsync(created.Token, CancellationToken.None));
     }
 
-    private static IntegrationConnectionService CreateService(HomePitDbContext db, TestUserContext context) => new(
+    [Fact]
+    public async Task Token_with_base64url_underscore_authenticates()
+    {
+        await using var db = CreateDbContext();
+        var (user, household) = await SeedAsync(db);
+        const string pepper = "test-integration-pepper-with-at-least-32-characters";
+        const string keyId = "81d20149c8285f2b";
+        const string secret = "d8_SzyjL6cUej0zIhT2Hj2Obe9v-DM0WqaNcNYPL3Y0";
+        db.IntegrationConnections.Add(new IntegrationConnection
+        {
+            UserId = user.Id,
+            HouseholdId = household.Id,
+            Name = "Chave Base64URL",
+            KeyId = keyId,
+            SecretHash = Convert.ToHexString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(pepper), Encoding.UTF8.GetBytes(secret))),
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(1)
+        });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, new TestUserContext(user.Id, household.Id), pepper);
+
+        Assert.NotNull(await service.AuthenticateAsync($"hpit_{keyId}_{secret}", CancellationToken.None));
+    }
+
+    private static IntegrationConnectionService CreateService(
+        HomePitDbContext db,
+        TestUserContext context,
+        string pepper = "test-integration-pepper-with-at-least-32-characters") => new(
         db,
         context,
         TimeProvider.System,
         Options.Create(new IntegrationOptions
         {
             Enabled = true,
-            TokenPepper = "test-integration-pepper-with-at-least-32-characters"
+            TokenPepper = pepper
         }));
 
     private static HomePitDbContext CreateDbContext() => new(new DbContextOptionsBuilder<HomePitDbContext>()
