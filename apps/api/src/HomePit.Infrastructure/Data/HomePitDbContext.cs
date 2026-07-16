@@ -70,6 +70,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
         ConfigurePlatform(modelBuilder);
         ConfigurePlans(modelBuilder);
         ConfigureProjects(modelBuilder);
+        ConfigureIntegrationConcurrency(modelBuilder);
         ConfigurePrompts(modelBuilder);
         ConfigureNotifications(modelBuilder);
     }
@@ -230,6 +231,28 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
                 .HasForeignKey(token => token.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+    }
+
+    private static void ConfigureIntegrationConcurrency(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinanceCategory>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<FinanceRecurringTemplate>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<FinanceEntry>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<Asset>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<AssetValuation>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<CreditCardAccount>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<CreditCardTransaction>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<CreditCardStatement>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<Universe>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<Project>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<Activity>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<ActivityComment>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+        modelBuilder.Entity<PendingItem>().Property(item => item.UpdatedAt).IsConcurrencyToken();
+    }
+
+    public void SetExpectedUpdatedAt(AuditableEntity entity, DateTimeOffset expectedUpdatedAt)
+    {
+        Entry(entity).Property(item => item.UpdatedAt).OriginalValue = expectedUpdatedAt;
     }
 
     private static void ConfigureIntegrations(ModelBuilder modelBuilder)

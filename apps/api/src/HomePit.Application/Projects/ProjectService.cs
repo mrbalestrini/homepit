@@ -1,4 +1,5 @@
 using HomePit.Application.Common;
+using HomePit.Domain.Common;
 using HomePit.Application.Images;
 using HomePit.Application.Plans;
 using HomePit.Application.Storage;
@@ -105,13 +106,15 @@ public sealed class ProjectService(
     public async Task<UniverseDto> UpdateUniverseAsync(
         Guid universeId,
         UpdateUniverseRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var universe = await db.Universes
             .FirstOrDefaultAsync(item => item.Id == universeId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Universo não encontrado.");
+        ApplyExpectedVersion(universe, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, universe.CreatedByMemberId, "Você não pode editar um universo criado por outra pessoa.");
 
@@ -231,13 +234,14 @@ public sealed class ProjectService(
             await IsUniverseOutOfPlanAsync(universe.Id, cancellationToken));
     }
 
-    public async Task DeleteUniverseAsync(Guid universeId, CancellationToken cancellationToken)
+    public async Task DeleteUniverseAsync(Guid universeId, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var universe = await db.Universes
             .FirstOrDefaultAsync(item => item.Id == universeId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Universo não encontrado.");
+        ApplyExpectedVersion(universe, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, universe.CreatedByMemberId, "Você não pode excluir um universo criado por outra pessoa.");
 
@@ -352,13 +356,15 @@ public sealed class ProjectService(
     public async Task<ProjectDto> UpdateProjectAsync(
         Guid projectId,
         UpdateProjectRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var project = await db.Projects
             .FirstOrDefaultAsync(item => item.Id == projectId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Projeto não encontrado.");
+        ApplyExpectedVersion(project, expectedUpdatedAt);
         var universe = await db.Universes
             .FirstOrDefaultAsync(item => item.Id == request.UniverseId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Universo não encontrado.");
@@ -385,13 +391,14 @@ public sealed class ProjectService(
             await IsProjectOutOfPlanAsync(project.Id, cancellationToken));
     }
 
-    public async Task DeleteProjectAsync(Guid projectId, CancellationToken cancellationToken)
+    public async Task DeleteProjectAsync(Guid projectId, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var project = await db.Projects
             .FirstOrDefaultAsync(item => item.Id == projectId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Projeto não encontrado.");
+        ApplyExpectedVersion(project, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, project.CreatedByMemberId, "Você não pode excluir um projeto criado por outra pessoa.");
 
@@ -476,13 +483,15 @@ public sealed class ProjectService(
     public async Task<ActivityDto> UpdateActivityAsync(
         Guid activityId,
         UpdateActivityRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var activity = await db.Activities
             .FirstOrDefaultAsync(item => item.Id == activityId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Atividade não encontrada.");
+        ApplyExpectedVersion(activity, expectedUpdatedAt);
         var project = await db.Projects
             .FirstOrDefaultAsync(item => item.Id == request.ProjectId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Projeto não encontrado.");
@@ -515,7 +524,8 @@ public sealed class ProjectService(
     public async Task<ActivityDto> UpdateActivityStatusAsync(
         Guid activityId,
         UpdateActivityStatusRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -528,6 +538,7 @@ public sealed class ProjectService(
             .Include(item => item.Comments)
             .FirstOrDefaultAsync(item => item.Id == activityId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Atividade não encontrada.");
+        ApplyExpectedVersion(activity, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, activity.CreatedByMemberId, "Você não pode editar uma atividade criada por outra pessoa.");
 
@@ -537,13 +548,14 @@ public sealed class ProjectService(
         return ToActivityDto(activity, currentMember);
     }
 
-    public async Task DeleteActivityAsync(Guid activityId, CancellationToken cancellationToken)
+    public async Task DeleteActivityAsync(Guid activityId, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var activity = await db.Activities
             .FirstOrDefaultAsync(item => item.Id == activityId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Atividade não encontrada.");
+        ApplyExpectedVersion(activity, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, activity.CreatedByMemberId, "Você não pode excluir uma atividade criada por outra pessoa.");
 
@@ -685,7 +697,8 @@ public sealed class ProjectService(
         Guid activityId,
         Guid commentId,
         UpdateActivityCommentRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -698,6 +711,7 @@ public sealed class ProjectService(
                 item.HouseholdId == currentMember.HouseholdId,
                 cancellationToken)
             ?? throw new NotFoundException("Comentário não encontrado.");
+        ApplyExpectedVersion(comment, expectedUpdatedAt);
 
         if (comment.AuthorMemberId != currentMember.Id)
         {
@@ -713,7 +727,8 @@ public sealed class ProjectService(
     public async Task DeleteActivityCommentAsync(
         Guid activityId,
         Guid commentId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -724,6 +739,7 @@ public sealed class ProjectService(
                 item.HouseholdId == currentMember.HouseholdId,
                 cancellationToken)
             ?? throw new NotFoundException("Comentário não encontrado.");
+        ApplyExpectedVersion(comment, expectedUpdatedAt);
 
         if (!CanDeleteComment(currentMember, comment.AuthorMemberId))
         {
@@ -1245,6 +1261,14 @@ public sealed class ProjectService(
         if (userContext.SystemRole == SystemRole.SuperAdmin)
         {
             throw new ForbiddenException(SuperAdminReadOnlyMessage);
+        }
+    }
+
+    private void ApplyExpectedVersion(AuditableEntity entity, DateTimeOffset? expectedUpdatedAt)
+    {
+        if (expectedUpdatedAt.HasValue)
+        {
+            db.SetExpectedUpdatedAt(entity, expectedUpdatedAt.Value);
         }
     }
 }

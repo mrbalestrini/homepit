@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using HomePit.Api.Security;
+using HomePit.Api.Integrations;
 using HomePit.Api.Mcp;
 using HomePit.Application;
 using HomePit.Application.Auth;
@@ -60,6 +61,7 @@ builder.Services
         _ => { });
 
 builder.Services.AddAuthorization();
+builder.Services.AddScoped<IntegrationRestSupport>();
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     .WithTools<IntegrationMcpTools>()
@@ -969,14 +971,16 @@ var integrations = app.MapGroup("/api/integrations/v1")
     })
     .RequireRateLimiting("integrations")
     .AddEndpointFilter(IntegrationRequestGuard.InvokeAsync)
+    .AddEndpointFilter(IntegrationConcurrencyFilter.InvokeAsync)
     .AddEndpointFilter(IntegrationAuditFilter.InvokeAsync);
 
 integrations.MapGet("/space", async (IntegrationConnectionService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetCurrentSpaceAsync(cancellationToken)));
 
 var integrationFinance = integrations.MapGroup("/finance");
-integrationFinance.MapGet("/periods", async (FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListPeriodsAsync(cancellationToken)));
+integrationFinance.MapGet("/periods", async (HttpRequest request, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync(await service.ListPeriodsAsync(cancellationToken), item => item.Id, db.FinancePeriods,
+        "finance.periods", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
 integrationFinance.MapGet("/periods/{year:int}/{month:int}", async (int year, int month, FinanceService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetPeriodAsync(year, month, cancellationToken)));
 integrationFinance.MapPost("/periods/{year:int}/{month:int}/generate", async (
@@ -987,103 +991,180 @@ integrationFinance.MapPost("/periods/{year:int}/{month:int}/generate", async (
         new { year, month, request }, () => service.GeneratePeriodAsync(year, month, request, cancellationToken), cancellationToken);
     return Results.Ok(result);
 });
-integrationFinance.MapGet("/categories", async (FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListCategoriesAsync(cancellationToken)));
+integrationFinance.MapGet("/categories", async (HttpRequest request, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync(await service.ListCategoriesAsync(cancellationToken), item => item.Id, db.FinanceCategories,
+        "finance.categories", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
 integrationFinance.MapPost("/categories", async (
-    CreateFinanceCategoryRequest request, HttpRequest httpRequest, FinanceService service,
-    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+    CreateFinanceCategoryRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service,
+    IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("finance_create_category", httpRequest.Headers["Idempotency-Key"].ToString(), request,
         () => service.CreateCategoryAsync(request, cancellationToken), cancellationToken);
-    return Results.Created("/api/integrations/v1/finance/categories", result);
+    var resource = await rest.ResourceAsync(result, result.Id, db.FinanceCategories, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created("/api/integrations/v1/finance/categories", resource);
 });
-integrationFinance.MapPut("/categories/{id:guid}", async (Guid id, UpdateFinanceCategoryRequest request, FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateCategoryAsync(id, request, cancellationToken)));
-integrationFinance.MapDelete("/categories/{id:guid}", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
+integrationFinance.MapPut("/categories/{id:guid}", async (Guid id, UpdateFinanceCategoryRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
-    await service.DeleteCategoryAsync(id, cancellationToken);
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.FinanceCategories, cancellationToken);
+    var updated = await service.UpdateCategoryAsync(id, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(updated, id, db.FinanceCategories, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationFinance.MapDelete("/categories/{id:guid}", async (Guid id, HttpRequest httpRequest, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.FinanceCategories, cancellationToken);
+    await service.DeleteCategoryAsync(id, cancellationToken, expected);
     return Results.NoContent();
 });
-integrationFinance.MapGet("/recurring-templates", async (FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListRecurringTemplatesAsync(cancellationToken)));
+integrationFinance.MapGet("/recurring-templates", async (HttpRequest request, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync(await service.ListRecurringTemplatesAsync(cancellationToken), item => item.Id, db.FinanceRecurringTemplates,
+        "finance.recurring-templates", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
 integrationFinance.MapPost("/recurring-templates", async (
-    CreateFinanceRecurringTemplateRequest request, HttpRequest httpRequest, FinanceService service,
-    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+    CreateFinanceRecurringTemplateRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service,
+    IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("finance_create_recurring_template", httpRequest.Headers["Idempotency-Key"].ToString(), request,
         () => service.CreateRecurringTemplateAsync(request, cancellationToken), cancellationToken);
-    return Results.Created("/api/integrations/v1/finance/recurring-templates", result);
+    var resource = await rest.ResourceAsync(result, result.Id, db.FinanceRecurringTemplates, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created("/api/integrations/v1/finance/recurring-templates", resource);
 });
-integrationFinance.MapPut("/recurring-templates/{id:guid}", async (Guid id, UpdateFinanceRecurringTemplateRequest request, FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateRecurringTemplateAsync(id, request, cancellationToken)));
-integrationFinance.MapDelete("/recurring-templates/{id:guid}", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
+integrationFinance.MapPut("/recurring-templates/{id:guid}", async (Guid id, UpdateFinanceRecurringTemplateRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
-    await service.DeleteRecurringTemplateAsync(id, cancellationToken);
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.FinanceRecurringTemplates, cancellationToken);
+    var updated = await service.UpdateRecurringTemplateAsync(id, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(updated, id, db.FinanceRecurringTemplates, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationFinance.MapDelete("/recurring-templates/{id:guid}", async (Guid id, HttpRequest httpRequest, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.FinanceRecurringTemplates, cancellationToken);
+    await service.DeleteRecurringTemplateAsync(id, cancellationToken, expected);
     return Results.NoContent();
 });
-integrationFinance.MapGet("/entries", async (HttpRequest request, FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListEntriesAsync(ReadOptionalIntQuery(request, "year"), ReadOptionalIntQuery(request, "month"), cancellationToken)));
+integrationFinance.MapGet("/entries", async (HttpRequest request, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync(await service.ListEntriesAsync(ReadOptionalIntQuery(request, "year"), ReadOptionalIntQuery(request, "month"), cancellationToken), item => item.Id, db.FinanceEntries,
+        $"finance.entries:{ReadOptionalIntQuery(request, "year")}:{ReadOptionalIntQuery(request, "month")}", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
 integrationFinance.MapPost("/entries", async (
-    CreateFinanceEntryRequest request, HttpRequest httpRequest, FinanceService service,
-    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+    CreateFinanceEntryRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service,
+    IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("finance_create_entry", httpRequest.Headers["Idempotency-Key"].ToString(), request,
         () => service.CreateEntryAsync(request, cancellationToken), cancellationToken);
-    return Results.Created("/api/integrations/v1/finance/entries", result);
+    var resource = await rest.ResourceAsync(result, result.Id, db.FinanceEntries, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created("/api/integrations/v1/finance/entries", resource);
 });
-integrationFinance.MapPut("/entries/{id:guid}", async (Guid id, UpdateFinanceEntryRequest request, FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateEntryAsync(id, request, cancellationToken)));
-integrationFinance.MapDelete("/entries/{id:guid}", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
+integrationFinance.MapPut("/entries/{id:guid}", async (Guid id, UpdateFinanceEntryRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
-    await service.DeleteEntryAsync(id, cancellationToken);
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.FinanceEntries, cancellationToken);
+    var updated = await service.UpdateEntryAsync(id, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(updated, id, db.FinanceEntries, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationFinance.MapDelete("/entries/{id:guid}", async (Guid id, HttpRequest httpRequest, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.FinanceEntries, cancellationToken);
+    await service.DeleteEntryAsync(id, cancellationToken, expected);
     return Results.NoContent();
 });
-integrationFinance.MapGet("/assets", async (FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListAssetsAsync(cancellationToken)));
+integrationFinance.MapGet("/assets", async (HttpRequest request, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync(await service.ListAssetsAsync(cancellationToken), item => item.Id, db.Assets,
+        "finance.assets", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
 integrationFinance.MapPost("/assets", async (
-    CreateAssetRequest request, HttpRequest httpRequest, FinanceService service,
-    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+    CreateAssetRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service,
+    IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("finance_create_asset", httpRequest.Headers["Idempotency-Key"].ToString(), request,
         () => service.CreateAssetAsync(request, cancellationToken), cancellationToken);
-    return Results.Created("/api/integrations/v1/finance/assets", result);
+    var resource = await rest.ResourceAsync(result, result.Id, db.Assets, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created("/api/integrations/v1/finance/assets", resource);
 });
-integrationFinance.MapPut("/assets/{id:guid}", async (Guid id, UpdateAssetRequest request, FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateAssetAsync(id, request, cancellationToken)));
-integrationFinance.MapDelete("/assets/{id:guid}", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
+integrationFinance.MapPut("/assets/{id:guid}", async (Guid id, UpdateAssetRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
-    await service.DeleteAssetAsync(id, cancellationToken);
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.Assets, cancellationToken);
+    var updated = await service.UpdateAssetAsync(id, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(updated, id, db.Assets, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationFinance.MapDelete("/assets/{id:guid}", async (Guid id, HttpRequest httpRequest, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.Assets, cancellationToken);
+    await service.DeleteAssetAsync(id, cancellationToken, expected);
     return Results.NoContent();
 });
-integrationFinance.MapGet("/assets/{id:guid}/valuations", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListAssetValuationsAsync(id, cancellationToken)));
+integrationFinance.MapGet("/assets/{id:guid}/valuations", async (Guid id, HttpRequest request, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync(await service.ListAssetValuationsAsync(id, cancellationToken), item => item.Id, db.AssetValuations,
+        $"finance.asset-valuations:{id}", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
 integrationFinance.MapPost("/assets/{id:guid}/valuations", async (
-    Guid id, CreateAssetValuationRequest request, HttpRequest httpRequest, FinanceService service,
-    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+    Guid id, CreateAssetValuationRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service,
+    IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("finance_create_asset_valuation", httpRequest.Headers["Idempotency-Key"].ToString(), new { id, request },
         () => service.CreateAssetValuationAsync(id, request, cancellationToken), cancellationToken);
-    return Results.Created($"/api/integrations/v1/finance/assets/{id}/valuations", result);
+    var resource = await rest.ResourceAsync(result, result.Id, db.AssetValuations, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created($"/api/integrations/v1/finance/assets/{id}/valuations", resource);
 });
-integrationFinance.MapGet("/credit-cards", async (FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListCreditCardAccountsAsync(cancellationToken)));
+integrationFinance.MapPut("/assets/{id:guid}/valuations/{valuationId:guid}", async (Guid id, Guid valuationId, UpdateAssetValuationRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(valuationId, httpRequest.Headers.IfMatch.ToString(), db.AssetValuations, cancellationToken);
+    var updated = await service.UpdateAssetValuationAsync(id, valuationId, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(updated, valuationId, db.AssetValuations, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationFinance.MapDelete("/assets/{id:guid}/valuations/{valuationId:guid}", async (Guid id, Guid valuationId, HttpRequest httpRequest, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(valuationId, httpRequest.Headers.IfMatch.ToString(), db.AssetValuations, cancellationToken);
+    await service.DeleteAssetValuationAsync(id, valuationId, cancellationToken, expected);
+    return Results.NoContent();
+});
+integrationFinance.MapGet("/credit-cards", async (HttpRequest request, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync(await service.ListCreditCardAccountsAsync(cancellationToken), item => item.Id, db.CreditCardAccounts,
+        "finance.credit-cards", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
 integrationFinance.MapPost("/credit-cards", async (
-    CreateCreditCardAccountRequest request, HttpRequest httpRequest, FinanceService service,
-    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+    CreateCreditCardAccountRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service,
+    IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("finance_create_credit_card", httpRequest.Headers["Idempotency-Key"].ToString(), request,
         () => service.CreateCreditCardAccountAsync(request, cancellationToken), cancellationToken);
-    return Results.Created("/api/integrations/v1/finance/credit-cards", result);
+    var resource = await rest.ResourceAsync(result, result.Id, db.CreditCardAccounts, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created("/api/integrations/v1/finance/credit-cards", resource);
 });
-integrationFinance.MapGet("/credit-cards/{id:guid}/transactions", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListCreditCardTransactionsAsync(id, cancellationToken)));
+integrationFinance.MapPut("/credit-cards/{id:guid}", async (Guid id, UpdateCreditCardAccountRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.CreditCardAccounts, cancellationToken);
+    var updated = await service.UpdateCreditCardAccountAsync(id, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(updated, id, db.CreditCardAccounts, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationFinance.MapDelete("/credit-cards/{id:guid}", async (Guid id, HttpRequest httpRequest, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.CreditCardAccounts, cancellationToken);
+    await service.DeleteCreditCardAccountAsync(id, cancellationToken, expected);
+    return Results.NoContent();
+});
+integrationFinance.MapGet("/credit-cards/{id:guid}/transactions", async (Guid id, HttpRequest request, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync(await service.ListCreditCardTransactionsAsync(id, cancellationToken), item => item.Id, db.CreditCardTransactions,
+        $"finance.credit-card-transactions:{id}", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
 integrationFinance.MapPost("/credit-cards/{id:guid}/transactions", async (
-    Guid id, CreateCreditCardTransactionRequest request, HttpRequest httpRequest, FinanceService service,
-    IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+    Guid id, CreateCreditCardTransactionRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service,
+    IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("finance_create_credit_card_transaction", httpRequest.Headers["Idempotency-Key"].ToString(), new { id, request },
         () => service.CreateCreditCardTransactionAsync(id, request, cancellationToken), cancellationToken);
-    return Results.Created($"/api/integrations/v1/finance/credit-cards/{id}/transactions", result);
+    var resource = await rest.ResourceAsync(result, result.Id, db.CreditCardTransactions, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created($"/api/integrations/v1/finance/credit-cards/{id}/transactions", resource);
 });
 integrationFinance.MapPost("/credit-cards/{id:guid}/transactions/import", async (
     Guid id, ImportCreditCardTransactionsRequest request, HttpRequest httpRequest, FinanceService service,
@@ -1093,67 +1174,174 @@ integrationFinance.MapPost("/credit-cards/{id:guid}/transactions/import", async 
         () => service.ImportCreditCardTransactionsAsync(id, request, cancellationToken), cancellationToken);
     return Results.Ok(result);
 });
-integrationFinance.MapGet("/credit-cards/{id:guid}/statements", async (Guid id, FinanceService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListCreditCardStatementsAsync(id, cancellationToken)));
+integrationFinance.MapPut("/credit-cards/{id:guid}/transactions/{transactionId:guid}", async (Guid id, Guid transactionId, UpdateCreditCardTransactionRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(transactionId, httpRequest.Headers.IfMatch.ToString(), db.CreditCardTransactions, cancellationToken);
+    var updated = await service.UpdateCreditCardTransactionAsync(id, transactionId, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(updated, transactionId, db.CreditCardTransactions, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationFinance.MapDelete("/credit-cards/{id:guid}/transactions/{transactionId:guid}", async (Guid id, Guid transactionId, HttpRequest httpRequest, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(transactionId, httpRequest.Headers.IfMatch.ToString(), db.CreditCardTransactions, cancellationToken);
+    await service.DeleteCreditCardTransactionAsync(id, transactionId, cancellationToken, expected);
+    return Results.NoContent();
+});
+integrationFinance.MapGet("/credit-cards/{id:guid}/statements", async (Guid id, HttpRequest request, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync(await service.ListCreditCardStatementsAsync(id, cancellationToken), item => item.Id, db.CreditCardStatements,
+        $"finance.credit-card-statements:{id}", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
+integrationFinance.MapPost("/credit-cards/{id:guid}/statements", async (Guid id, CreateCreditCardStatementRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service, IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var result = await idempotency.ExecuteAsync("finance_create_credit_card_statement", httpRequest.Headers["Idempotency-Key"].ToString(), new { id, request },
+        () => service.CreateCreditCardStatementAsync(id, request, cancellationToken), cancellationToken);
+    var resource = await rest.ResourceAsync(result, result.Id, db.CreditCardStatements, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created($"/api/integrations/v1/finance/credit-cards/{id}/statements", resource);
+});
+integrationFinance.MapPut("/credit-cards/{id:guid}/statements/{statementId:guid}", async (Guid id, Guid statementId, UpdateCreditCardStatementRequest request, HttpRequest httpRequest, HttpResponse response, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(statementId, httpRequest.Headers.IfMatch.ToString(), db.CreditCardStatements, cancellationToken);
+    var updated = await service.UpdateCreditCardStatementAsync(id, statementId, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(updated, statementId, db.CreditCardStatements, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationFinance.MapDelete("/credit-cards/{id:guid}/statements/{statementId:guid}", async (Guid id, Guid statementId, HttpRequest httpRequest, FinanceService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(statementId, httpRequest.Headers.IfMatch.ToString(), db.CreditCardStatements, cancellationToken);
+    await service.DeleteCreditCardStatementAsync(id, statementId, cancellationToken, expected);
+    return Results.NoContent();
+});
 
 var integrationProjects = integrations.MapGroup("/projects");
-integrationProjects.MapGet("/universes", async (ProjectService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListUniversesAsync(cancellationToken)));
-integrationProjects.MapPost("/universes", async (CreateUniverseRequest request, HttpRequest httpRequest, ProjectService service, IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+integrationProjects.MapGet("/universes", async (HttpRequest request, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync((await service.ListUniversesAsync(cancellationToken)).Select(IntegrationExternalDto.ToExternal).ToArray(), item => item.Id, db.Universes,
+        "projects.universes", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
+integrationProjects.MapPost("/universes", async (CreateUniverseRequest request, HttpRequest httpRequest, HttpResponse response, ProjectService service, IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("projects_create_universe", httpRequest.Headers["Idempotency-Key"].ToString(), request,
         () => service.CreateUniverseAsync(request, cancellationToken), cancellationToken);
-    return Results.Created("/api/integrations/v1/projects/universes", result);
+    var resource = await rest.ResourceAsync(IntegrationExternalDto.ToExternal(result), result.Id, db.Universes, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created("/api/integrations/v1/projects/universes", resource);
 });
-integrationProjects.MapPut("/universes/{id:guid}", async (Guid id, UpdateUniverseRequest request, ProjectService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateUniverseAsync(id, request, cancellationToken)));
-integrationProjects.MapDelete("/universes/{id:guid}", async (Guid id, ProjectService service, CancellationToken cancellationToken) =>
+integrationProjects.MapPut("/universes/{id:guid}", async (Guid id, UpdateUniverseRequest request, HttpRequest httpRequest, HttpResponse response, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
-    await service.DeleteUniverseAsync(id, cancellationToken);
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.Universes, cancellationToken);
+    var updated = await service.UpdateUniverseAsync(id, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(IntegrationExternalDto.ToExternal(updated), id, db.Universes, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationProjects.MapDelete("/universes/{id:guid}", async (Guid id, HttpRequest httpRequest, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.Universes, cancellationToken);
+    await service.DeleteUniverseAsync(id, cancellationToken, expected);
     return Results.NoContent();
 });
-integrationProjects.MapGet("/items", async (Guid? universeId, ProjectService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListProjectsAsync(universeId, cancellationToken)));
-integrationProjects.MapPost("/items", async (CreateProjectRequest request, HttpRequest httpRequest, ProjectService service, IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+integrationProjects.MapGet("/items", async (HttpRequest request, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var universeId = ReadOptionalGuidQuery(request, "universeId");
+    return Results.Ok(await rest.PageAsync((await service.ListProjectsAsync(universeId, cancellationToken)).Select(IntegrationExternalDto.ToExternal).ToArray(), item => item.Id, db.Projects,
+        $"projects.items:{universeId}", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken));
+});
+integrationProjects.MapPost("/items", async (CreateProjectRequest request, HttpRequest httpRequest, HttpResponse response, ProjectService service, IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("projects_create_project", httpRequest.Headers["Idempotency-Key"].ToString(), request,
         () => service.CreateProjectAsync(request, cancellationToken), cancellationToken);
-    return Results.Created("/api/integrations/v1/projects/items", result);
+    var resource = await rest.ResourceAsync(IntegrationExternalDto.ToExternal(result), result.Id, db.Projects, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created("/api/integrations/v1/projects/items", resource);
 });
-integrationProjects.MapPut("/items/{id:guid}", async (Guid id, UpdateProjectRequest request, ProjectService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateProjectAsync(id, request, cancellationToken)));
-integrationProjects.MapDelete("/items/{id:guid}", async (Guid id, ProjectService service, CancellationToken cancellationToken) =>
+integrationProjects.MapPut("/items/{id:guid}", async (Guid id, UpdateProjectRequest request, HttpRequest httpRequest, HttpResponse response, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
-    await service.DeleteProjectAsync(id, cancellationToken);
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.Projects, cancellationToken);
+    var updated = await service.UpdateProjectAsync(id, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(IntegrationExternalDto.ToExternal(updated), id, db.Projects, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationProjects.MapDelete("/items/{id:guid}", async (Guid id, HttpRequest httpRequest, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.Projects, cancellationToken);
+    await service.DeleteProjectAsync(id, cancellationToken, expected);
     return Results.NoContent();
 });
-integrationProjects.MapGet("/activities", async (Guid? projectId, HomePit.Domain.Projects.ActivityStatus? status, ProjectService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListActivitiesAsync(projectId, status, cancellationToken)));
-integrationProjects.MapPost("/activities", async (CreateActivityRequest request, HttpRequest httpRequest, ProjectService service, IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+integrationProjects.MapGet("/activities", async (HttpRequest request, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var projectId = ReadOptionalGuidQuery(request, "projectId");
+    var statusRaw = ReadOptionalQueryString(request, "status");
+    HomePit.Domain.Projects.ActivityStatus? status = statusRaw is null ? null : Enum.TryParse<HomePit.Domain.Projects.ActivityStatus>(statusRaw, true, out var parsed)
+        ? parsed : throw new ValidationException("O parâmetro 'status' é inválido.");
+    return Results.Ok(await rest.PageAsync((await service.ListActivitiesAsync(projectId, status, cancellationToken)).Select(IntegrationExternalDto.ToExternal).ToArray(), item => item.Id, db.Activities,
+        $"projects.activities:{projectId}:{status}", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken));
+});
+integrationProjects.MapPost("/activities", async (CreateActivityRequest request, HttpRequest httpRequest, HttpResponse response, ProjectService service, IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("projects_create_activity", httpRequest.Headers["Idempotency-Key"].ToString(), request,
         () => service.CreateActivityAsync(request, cancellationToken), cancellationToken);
-    return Results.Created("/api/integrations/v1/projects/activities", result);
+    var resource = await rest.ResourceAsync(IntegrationExternalDto.ToExternal(result), result.Id, db.Activities, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created("/api/integrations/v1/projects/activities", resource);
 });
-integrationProjects.MapPut("/activities/{id:guid}", async (Guid id, UpdateActivityRequest request, ProjectService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateActivityAsync(id, request, cancellationToken)));
-integrationProjects.MapPatch("/activities/{id:guid}/status", async (Guid id, UpdateActivityStatusRequest request, ProjectService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateActivityStatusAsync(id, request, cancellationToken)));
-integrationProjects.MapGet("/activities/{id:guid}/comments", async (Guid id, ProjectService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListActivityCommentsAsync(id, cancellationToken)));
-integrationProjects.MapPost("/activities/{id:guid}/comments", async (Guid id, CreateActivityCommentRequest request, HttpRequest httpRequest, ProjectService service, IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+integrationProjects.MapPut("/activities/{id:guid}", async (Guid id, UpdateActivityRequest request, HttpRequest httpRequest, HttpResponse response, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.Activities, cancellationToken);
+    var updated = await service.UpdateActivityAsync(id, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(IntegrationExternalDto.ToExternal(updated), id, db.Activities, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationProjects.MapPatch("/activities/{id:guid}/status", async (Guid id, UpdateActivityStatusRequest request, HttpRequest httpRequest, HttpResponse response, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.Activities, cancellationToken);
+    var updated = await service.UpdateActivityStatusAsync(id, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(IntegrationExternalDto.ToExternal(updated), id, db.Activities, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationProjects.MapDelete("/activities/{id:guid}", async (Guid id, HttpRequest httpRequest, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(id, httpRequest.Headers.IfMatch.ToString(), db.Activities, cancellationToken);
+    await service.DeleteActivityAsync(id, cancellationToken, expected);
+    return Results.NoContent();
+});
+integrationProjects.MapGet("/activities/{id:guid}/comments", async (Guid id, HttpRequest request, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync(await service.ListActivityCommentsAsync(id, cancellationToken), item => item.Id, db.ActivityComments,
+        $"projects.comments:{id}", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
+integrationProjects.MapPost("/activities/{id:guid}/comments", async (Guid id, CreateActivityCommentRequest request, HttpRequest httpRequest, HttpResponse response, ProjectService service, IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("projects_create_comment", httpRequest.Headers["Idempotency-Key"].ToString(), new { id, request },
         () => service.CreateActivityCommentAsync(id, request, cancellationToken), cancellationToken);
-    return Results.Created($"/api/integrations/v1/projects/activities/{id}/comments", result);
+    var resource = await rest.ResourceAsync(result, result.Id, db.ActivityComments, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created($"/api/integrations/v1/projects/activities/{id}/comments", resource);
 });
-integrationProjects.MapGet("/activities/{id:guid}/pending-items", async (Guid id, ProjectService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListPendingItemsAsync(id, cancellationToken)));
-integrationProjects.MapPost("/activities/{id:guid}/pending-items", async (Guid id, CreatePendingItemRequest request, HttpRequest httpRequest, ProjectService service, IntegrationIdempotencyService idempotency, CancellationToken cancellationToken) =>
+integrationProjects.MapPut("/activities/{activityId:guid}/comments/{commentId:guid}", async (Guid activityId, Guid commentId, UpdateActivityCommentRequest request, HttpRequest httpRequest, HttpResponse response, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(commentId, httpRequest.Headers.IfMatch.ToString(), db.ActivityComments, cancellationToken);
+    var updated = await service.UpdateActivityCommentAsync(activityId, commentId, request, cancellationToken, expected);
+    var resource = await rest.ResourceAsync(updated, commentId, db.ActivityComments, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Ok(resource);
+});
+integrationProjects.MapDelete("/activities/{activityId:guid}/comments/{commentId:guid}", async (Guid activityId, Guid commentId, HttpRequest httpRequest, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+{
+    var expected = await rest.ReadExpectedVersionAsync(commentId, httpRequest.Headers.IfMatch.ToString(), db.ActivityComments, cancellationToken);
+    await service.DeleteActivityCommentAsync(activityId, commentId, cancellationToken, expected);
+    return Results.NoContent();
+});
+integrationProjects.MapGet("/activities/{id:guid}/pending-items", async (Guid id, HttpRequest request, ProjectService service, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await rest.PageAsync(await service.ListPendingItemsAsync(id, cancellationToken), item => item.Id, db.PendingItems,
+        $"projects.pending-items:{id}", ReadOptionalQueryString(request, "cursor"), ReadOptionalIntQuery(request, "limit"), cancellationToken)));
+integrationProjects.MapPost("/activities/{id:guid}/pending-items", async (Guid id, CreatePendingItemRequest request, HttpRequest httpRequest, HttpResponse response, ProjectService service, IntegrationIdempotencyService idempotency, IntegrationRestSupport rest, HomePitDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await idempotency.ExecuteAsync("projects_create_pending_item", httpRequest.Headers["Idempotency-Key"].ToString(), new { id, request },
         () => service.CreatePendingItemAsync(id, request, cancellationToken), cancellationToken);
-    return Results.Created($"/api/integrations/v1/projects/activities/{id}/pending-items", result);
+    var resource = await rest.ResourceAsync(result, result.Id, db.PendingItems, cancellationToken);
+    IntegrationRestSupport.SetEtag(response, resource.Etag);
+    return Results.Created($"/api/integrations/v1/projects/activities/{id}/pending-items", resource);
 });
 
 if (app.Configuration.GetValue("Mcp:Enabled", false))

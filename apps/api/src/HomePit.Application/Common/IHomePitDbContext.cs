@@ -9,6 +9,7 @@ using HomePit.Domain.Plans;
 using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
 using Microsoft.EntityFrameworkCore;
+using HomePit.Domain.Common;
 
 namespace HomePit.Application.Common;
 
@@ -56,4 +57,5 @@ public interface IHomePitDbContext
     DbSet<NotificationRun> NotificationRuns { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+    void SetExpectedUpdatedAt(AuditableEntity entity, DateTimeOffset expectedUpdatedAt);
 }

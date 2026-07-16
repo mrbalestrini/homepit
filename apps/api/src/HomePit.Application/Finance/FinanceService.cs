@@ -1,4 +1,5 @@
 using HomePit.Application.Common;
+using HomePit.Domain.Common;
 using HomePit.Domain.Finance;
 using HomePit.Domain.Households;
 using HomePit.Domain.Projects;
@@ -220,7 +221,8 @@ public sealed class FinanceService(
     public async Task<FinanceCategoryDto> UpdateCategoryAsync(
         Guid categoryId,
         UpdateFinanceCategoryRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -230,6 +232,7 @@ public sealed class FinanceService(
             .Include(item => item.CreditCardTransactions)
             .FirstOrDefaultAsync(item => item.Id == categoryId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Categoria não encontrada.");
+        ApplyExpectedVersion(category, expectedUpdatedAt);
 
         if (category.IsDefault)
         {
@@ -248,13 +251,14 @@ public sealed class FinanceService(
         return new FinanceCategoryDto(category.Id, category.Name, false, category.SortOrder, category.CreatedByMemberId, usageCount, true, true);
     }
 
-    public async Task DeleteCategoryAsync(Guid categoryId, CancellationToken cancellationToken)
+    public async Task DeleteCategoryAsync(Guid categoryId, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var category = await db.FinanceCategories
             .FirstOrDefaultAsync(item => item.Id == categoryId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Categoria não encontrada.");
+        ApplyExpectedVersion(category, expectedUpdatedAt);
 
         if (category.IsDefault)
         {
@@ -342,7 +346,8 @@ public sealed class FinanceService(
     public async Task<FinanceRecurringTemplateDto> UpdateRecurringTemplateAsync(
         Guid templateId,
         UpdateFinanceRecurringTemplateRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -352,6 +357,7 @@ public sealed class FinanceService(
             .Include(item => item.Project)
             .FirstOrDefaultAsync(item => item.Id == templateId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Recorrência não encontrada.");
+        ApplyExpectedVersion(template, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, template.CreatedByMemberId, "Você não pode editar uma recorrência criada por outra pessoa.");
 
@@ -379,13 +385,14 @@ public sealed class FinanceService(
         return ToRecurringTemplateDto(template, currentMember);
     }
 
-    public async Task DeleteRecurringTemplateAsync(Guid templateId, CancellationToken cancellationToken)
+    public async Task DeleteRecurringTemplateAsync(Guid templateId, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var template = await db.FinanceRecurringTemplates
             .FirstOrDefaultAsync(item => item.Id == templateId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Recorrência não encontrada.");
+        ApplyExpectedVersion(template, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, template.CreatedByMemberId, "Você não pode excluir uma recorrência criada por outra pessoa.");
 
@@ -474,7 +481,8 @@ public sealed class FinanceService(
     public async Task<FinanceEntryDto> UpdateEntryAsync(
         Guid entryId,
         UpdateFinanceEntryRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         ValidatePeriod(request.Year, request.Month);
@@ -486,6 +494,7 @@ public sealed class FinanceService(
             .Include(item => item.Project)
             .FirstOrDefaultAsync(item => item.Id == entryId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Lançamento não encontrado.");
+        ApplyExpectedVersion(entry, expectedUpdatedAt);
 
         if (entry.Origin == FinanceEntryOrigin.CreditCardStatement)
         {
@@ -522,13 +531,14 @@ public sealed class FinanceService(
         return ToEntryDto(entry, currentMember);
     }
 
-    public async Task DeleteEntryAsync(Guid entryId, CancellationToken cancellationToken)
+    public async Task DeleteEntryAsync(Guid entryId, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var entry = await db.FinanceEntries
             .FirstOrDefaultAsync(item => item.Id == entryId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Lançamento não encontrado.");
+        ApplyExpectedVersion(entry, expectedUpdatedAt);
 
         if (entry.Origin == FinanceEntryOrigin.CreditCardStatement)
         {
@@ -582,7 +592,7 @@ public sealed class FinanceService(
         return ToAssetDto(asset, currentMember);
     }
 
-    public async Task<AssetDto> UpdateAssetAsync(Guid assetId, UpdateAssetRequest request, CancellationToken cancellationToken)
+    public async Task<AssetDto> UpdateAssetAsync(Guid assetId, UpdateAssetRequest request, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -591,6 +601,7 @@ public sealed class FinanceService(
             .Include(item => item.VehicleDetails)
             .FirstOrDefaultAsync(item => item.Id == assetId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Bem não encontrado.");
+        ApplyExpectedVersion(asset, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, asset.CreatedByMemberId, "Você não pode editar um bem criado por outra pessoa.");
 
@@ -611,13 +622,14 @@ public sealed class FinanceService(
         return ToAssetDto(asset, currentMember);
     }
 
-    public async Task DeleteAssetAsync(Guid assetId, CancellationToken cancellationToken)
+    public async Task DeleteAssetAsync(Guid assetId, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
         var asset = await db.Assets
             .FirstOrDefaultAsync(item => item.Id == assetId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Bem não encontrado.");
+        ApplyExpectedVersion(asset, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, asset.CreatedByMemberId, "Você não pode excluir um bem criado por outra pessoa.");
         db.Assets.Remove(asset);
@@ -675,7 +687,8 @@ public sealed class FinanceService(
         Guid assetId,
         Guid valuationId,
         UpdateAssetValuationRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -689,6 +702,7 @@ public sealed class FinanceService(
         var valuation = await db.AssetValuations
             .FirstOrDefaultAsync(item => item.Id == valuationId && item.AssetId == assetId, cancellationToken)
             ?? throw new NotFoundException("Avaliação não encontrada.");
+        ApplyExpectedVersion(valuation, expectedUpdatedAt);
 
         ValidateReferenceYear(request.ReferenceYear);
         ValidatePositiveAmount(request.Amount, "O valor de referência deve ser maior que zero.");
@@ -702,7 +716,7 @@ public sealed class FinanceService(
         return ToAssetValuationDto(valuation, true);
     }
 
-    public async Task DeleteAssetValuationAsync(Guid assetId, Guid valuationId, CancellationToken cancellationToken)
+    public async Task DeleteAssetValuationAsync(Guid assetId, Guid valuationId, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -716,6 +730,7 @@ public sealed class FinanceService(
         var valuation = await db.AssetValuations
             .FirstOrDefaultAsync(item => item.Id == valuationId && item.AssetId == assetId, cancellationToken)
             ?? throw new NotFoundException("Avaliação não encontrada.");
+        ApplyExpectedVersion(valuation, expectedUpdatedAt);
 
         db.AssetValuations.Remove(valuation);
         await db.SaveChangesAsync(cancellationToken);
@@ -765,7 +780,8 @@ public sealed class FinanceService(
     public async Task<CreditCardAccountDto> UpdateCreditCardAccountAsync(
         Guid accountId,
         UpdateCreditCardAccountRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -773,6 +789,7 @@ public sealed class FinanceService(
             .Include(item => item.Transactions)
             .FirstOrDefaultAsync(item => item.Id == accountId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Cartão não encontrado.");
+        ApplyExpectedVersion(account, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, account.CreatedByMemberId, "Você não pode editar um cartão criado por outra pessoa.");
         ValidateCardDay(request.ClosingDay, "O dia de fechamento do cartão deve estar entre 1 e 31.");
@@ -790,7 +807,7 @@ public sealed class FinanceService(
         return ToCreditCardAccountDto(account, currentMember);
     }
 
-    public async Task DeleteCreditCardAccountAsync(Guid accountId, CancellationToken cancellationToken)
+    public async Task DeleteCreditCardAccountAsync(Guid accountId, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -798,6 +815,7 @@ public sealed class FinanceService(
             .Include(item => item.Statements)
             .FirstOrDefaultAsync(item => item.Id == accountId && item.HouseholdId == currentMember.HouseholdId, cancellationToken)
             ?? throw new NotFoundException("Cartão não encontrado.");
+        ApplyExpectedVersion(account, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, account.CreatedByMemberId, "Você não pode excluir um cartão criado por outra pessoa.");
 
@@ -961,7 +979,8 @@ public sealed class FinanceService(
         Guid accountId,
         Guid transactionId,
         UpdateCreditCardTransactionRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -976,6 +995,7 @@ public sealed class FinanceService(
                 item.HouseholdId == currentMember.HouseholdId,
                 cancellationToken)
             ?? throw new NotFoundException("Compra no cartão não encontrada.");
+        ApplyExpectedVersion(transaction, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, transaction.CreatedByMemberId, "Você não pode editar uma compra no cartão criada por outra pessoa.");
 
@@ -1008,7 +1028,7 @@ public sealed class FinanceService(
         return ToTransactionDto(transaction, currentMember);
     }
 
-    public async Task DeleteCreditCardTransactionAsync(Guid accountId, Guid transactionId, CancellationToken cancellationToken)
+    public async Task DeleteCreditCardTransactionAsync(Guid accountId, Guid transactionId, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -1019,6 +1039,7 @@ public sealed class FinanceService(
                 item.HouseholdId == currentMember.HouseholdId,
                 cancellationToken)
             ?? throw new NotFoundException("Compra no cartão não encontrada.");
+        ApplyExpectedVersion(transaction, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, transaction.CreatedByMemberId, "Você não pode excluir uma compra no cartão criada por outra pessoa.");
 
@@ -1092,7 +1113,8 @@ public sealed class FinanceService(
         Guid accountId,
         Guid statementId,
         UpdateCreditCardStatementRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -1104,6 +1126,7 @@ public sealed class FinanceService(
                 item.HouseholdId == currentMember.HouseholdId,
                 cancellationToken)
             ?? throw new NotFoundException("Fatura não encontrada.");
+        ApplyExpectedVersion(statement, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, statement.CreatedByMemberId, "Você não pode editar uma fatura criada por outra pessoa.");
         ValidateStatementDates(request.ClosingDate, request.DueDate);
@@ -1122,7 +1145,7 @@ public sealed class FinanceService(
         return await GetStatementAsync(statement.Id, currentMember, cancellationToken);
     }
 
-    public async Task DeleteCreditCardStatementAsync(Guid accountId, Guid statementId, CancellationToken cancellationToken)
+    public async Task DeleteCreditCardStatementAsync(Guid accountId, Guid statementId, CancellationToken cancellationToken, DateTimeOffset? expectedUpdatedAt = null)
     {
         EnsureWritable();
         var currentMember = await ResolveCurrentMemberAsync(cancellationToken);
@@ -1134,6 +1157,7 @@ public sealed class FinanceService(
                 item.HouseholdId == currentMember.HouseholdId,
                 cancellationToken)
             ?? throw new NotFoundException("Fatura não encontrada.");
+        ApplyExpectedVersion(statement, expectedUpdatedAt);
 
         EnsureCanManageEntity(currentMember, statement.CreatedByMemberId, "Você não pode excluir uma fatura criada por outra pessoa.");
 
@@ -2033,6 +2057,14 @@ public sealed class FinanceService(
         if (userContext.SystemRole == SystemRole.SuperAdmin)
         {
             throw new ForbiddenException(SuperAdminReadOnlyMessage);
+        }
+    }
+
+    private void ApplyExpectedVersion(AuditableEntity entity, DateTimeOffset? expectedUpdatedAt)
+    {
+        if (expectedUpdatedAt.HasValue)
+        {
+            db.SetExpectedUpdatedAt(entity, expectedUpdatedAt.Value);
         }
     }
 

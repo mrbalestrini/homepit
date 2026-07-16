@@ -24,6 +24,8 @@ public static class ErrorHandlingMiddleware
                     ForbiddenException => (StatusCodes.Status403Forbidden, "Acesso negado", "forbidden", false),
                     NotFoundException => (StatusCodes.Status404NotFound, "Não encontrado", "not_found", false),
                     ConflictException => (StatusCodes.Status409Conflict, "Conflito", "conflict", false),
+                    PreconditionRequiredException => (StatusCodes.Status428PreconditionRequired, "Pré-condição obrigatória", "precondition_required", false),
+                    PreconditionFailedException => (StatusCodes.Status412PreconditionFailed, "Pré-condição não atendida", "precondition_failed", false),
                     _ => (StatusCodes.Status500InternalServerError, "Erro inesperado", "internal_error", true)
                 };
 

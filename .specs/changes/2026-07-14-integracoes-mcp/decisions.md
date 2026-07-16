@@ -25,3 +25,10 @@
 - `docs/integrations/` e o OpenAPI externo são fontes canônicas para consumidores; a aba Conexão os apresenta sem duplicar a especificação.
 - A skill `.agents/skills/integration-docs` mantém a paridade de REST, MCP e exemplos sem segredos.
 - A liberação é protegida por `Integrations:Enabled` e `Mcp:Enabled`. O rollback imediato desabilita flags e preserva os registros para investigação.
+
+## 2026-07-16 - paginação e concorrência REST
+
+- Listagens externas usam envelope `{ items, nextCursor }`, cursor opaco vinculado à consulta, limite padrão 50 e máximo 200.
+- Recursos mutáveis são retornados como `{ data, etag }`; a ETag opaca codifica o identificador e a versão `UpdatedAt` e também é enviada no cabeçalho de respostas unitárias.
+- `UpdatedAt` é token de concorrência do EF apenas para entidades Financeiro/Projetos expostas pelas integrações. Escritas externas exigem `If-Match`; ausência retorna `428`, formato inválido `400` e versão ultrapassada `412`.
+- A migration de concorrência não executa DDL ou backfill; ela preserva o snapshot e os metadados de descoberta do EF.

@@ -21,6 +21,7 @@ paths:
   /finance/periods:
     get:
       operationId: finance_list_periods
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
       responses: { '200': { $ref: '#/components/responses/List' } }
   /finance/periods/{year}/{month}:
     get:
@@ -36,6 +37,7 @@ paths:
   /finance/categories:
     get:
       operationId: finance_list_categories
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
       responses: { '200': { $ref: '#/components/responses/List' } }
     post:
       operationId: finance_create_category
@@ -55,6 +57,7 @@ paths:
   /finance/recurring-templates:
     get:
       operationId: finance_list_recurring_templates
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
       responses: { '200': { $ref: '#/components/responses/List' } }
     post:
       operationId: finance_create_recurring_template
@@ -67,6 +70,8 @@ paths:
       parameters:
         - { name: year, in: query, schema: { type: integer }, required: false }
         - { name: month, in: query, schema: { type: integer, minimum: 1, maximum: 12 }, required: false }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
       responses: { '200': { $ref: '#/components/responses/List' } }
     post:
       operationId: finance_create_entry
@@ -86,15 +91,27 @@ paths:
   /finance/assets:
     get:
       operationId: finance_list_assets
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
       responses: { '200': { $ref: '#/components/responses/List' } }
     post:
       operationId: finance_create_asset
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { $ref: '#/components/requestBodies/Object' }
       responses: { '201': { $ref: '#/components/responses/Object' } }
+  /finance/assets/{id}/valuations:
+    get:
+      operationId: finance_list_asset_valuations
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: finance_create_asset_valuation
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' }, '409': { $ref: '#/components/responses/Error' } }
   /finance/credit-cards:
     get:
       operationId: finance_list_credit_cards
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
       responses: { '200': { $ref: '#/components/responses/List' } }
     post:
       operationId: finance_create_credit_card
@@ -104,7 +121,7 @@ paths:
   /finance/credit-cards/{id}/transactions:
     get:
       operationId: finance_list_credit_card_transactions
-      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
       responses: { '200': { $ref: '#/components/responses/List' } }
     post:
       operationId: finance_create_credit_card_transaction
@@ -117,51 +134,150 @@ paths:
       parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { $ref: '#/components/requestBodies/Object' }
       responses: { '200': { $ref: '#/components/responses/Object' }, '409': { $ref: '#/components/responses/Error' } }
+  /finance/assets/{id}/valuations/{valuationId}:
+    put:
+      operationId: finance_update_asset_valuation
+      parameters: [ { $ref: '#/components/parameters/Id' }, { name: valuationId, in: path, required: true, schema: { type: string, format: uuid } }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+    delete:
+      operationId: finance_delete_asset_valuation
+      parameters: [ { $ref: '#/components/parameters/Id' }, { name: valuationId, in: path, required: true, schema: { type: string, format: uuid } }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses: { '204': { description: Excluído }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+  /finance/credit-cards/{id}:
+    put:
+      operationId: finance_update_credit_card
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+    delete:
+      operationId: finance_delete_credit_card
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses: { '204': { description: Excluído }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+  /finance/credit-cards/{id}/transactions/{transactionId}:
+    put:
+      operationId: finance_update_credit_card_transaction
+      parameters: [ { $ref: '#/components/parameters/Id' }, { name: transactionId, in: path, required: true, schema: { type: string, format: uuid } }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+    delete:
+      operationId: finance_delete_credit_card_transaction
+      parameters: [ { $ref: '#/components/parameters/Id' }, { name: transactionId, in: path, required: true, schema: { type: string, format: uuid } }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses: { '204': { description: Excluído }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+  /finance/credit-cards/{id}/statements:
+    get:
+      operationId: finance_list_credit_card_statements
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      operationId: finance_create_credit_card_statement
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '201': { $ref: '#/components/responses/Object' }, '409': { $ref: '#/components/responses/Error' } }
+  /finance/credit-cards/{id}/statements/{statementId}:
+    put:
+      operationId: finance_update_credit_card_statement
+      parameters: [ { $ref: '#/components/parameters/Id' }, { name: statementId, in: path, required: true, schema: { type: string, format: uuid } }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+    delete:
+      operationId: finance_delete_credit_card_statement
+      parameters: [ { $ref: '#/components/parameters/Id' }, { name: statementId, in: path, required: true, schema: { type: string, format: uuid } }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses: { '204': { description: Excluído }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
   /projects/universes:
     get:
       operationId: projects_list_universes
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
       responses: { '200': { $ref: '#/components/responses/List' } }
     post:
       operationId: projects_create_universe
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { $ref: '#/components/requestBodies/Object' }
       responses: { '201': { $ref: '#/components/responses/Object' } }
+  /projects/universes/{id}:
+    put:
+      operationId: projects_update_universe
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+    delete:
+      operationId: projects_delete_universe
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses: { '204': { description: Excluído }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
   /projects/items:
     get:
       operationId: projects_list_projects
-      parameters: [ { name: universeId, in: query, schema: { type: string, format: uuid }, required: false } ]
+      parameters: [ { name: universeId, in: query, schema: { type: string, format: uuid }, required: false }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
       responses: { '200': { $ref: '#/components/responses/List' } }
     post:
       operationId: projects_create_project
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { $ref: '#/components/requestBodies/Object' }
       responses: { '201': { $ref: '#/components/responses/Object' } }
+  /projects/items/{id}:
+    put:
+      operationId: projects_update_project
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+    delete:
+      operationId: projects_delete_project
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses: { '204': { description: Excluído }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
   /projects/activities:
     get:
       operationId: projects_list_activities
       parameters:
         - { name: projectId, in: query, schema: { type: string, format: uuid }, required: false }
         - { name: status, in: query, schema: { type: string }, required: false }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
       responses: { '200': { $ref: '#/components/responses/List' } }
     post:
       operationId: projects_create_activity
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { $ref: '#/components/requestBodies/Object' }
       responses: { '201': { $ref: '#/components/responses/Object' } }
+  /projects/activities/{id}:
+    put:
+      operationId: projects_update_activity
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+    delete:
+      operationId: projects_delete_activity
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses: { '204': { description: Excluído }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+  /projects/activities/{id}/status:
+    patch:
+      operationId: projects_update_activity_status
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
   /projects/activities/{id}/comments:
     get:
       operationId: projects_list_comments
-      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
       responses: { '200': { $ref: '#/components/responses/List' } }
     post:
       operationId: projects_create_comment
       parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { $ref: '#/components/requestBodies/Object' }
       responses: { '201': { $ref: '#/components/responses/Object' } }
+  /projects/activities/{activityId}/comments/{commentId}:
+    put:
+      operationId: projects_update_comment
+      parameters: [ { name: activityId, in: path, required: true, schema: { type: string, format: uuid } }, { name: commentId, in: path, required: true, schema: { type: string, format: uuid } }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { $ref: '#/components/requestBodies/Object' }
+      responses: { '200': { $ref: '#/components/responses/Object' }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
+    delete:
+      operationId: projects_delete_comment
+      parameters: [ { name: activityId, in: path, required: true, schema: { type: string, format: uuid } }, { name: commentId, in: path, required: true, schema: { type: string, format: uuid } }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses: { '204': { description: Excluído }, '400': { $ref: '#/components/responses/Error' }, '412': { $ref: '#/components/responses/Error' }, '428': { $ref: '#/components/responses/Error' } }
   /projects/activities/{id}/pending-items:
     get:
       operationId: projects_list_pending_items
-      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      parameters: [ { $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
       responses: { '200': { $ref: '#/components/responses/List' } }
     post:
       operationId: projects_create_pending_item
@@ -178,6 +294,8 @@ components:
     Id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     Year: { name: year, in: path, required: true, schema: { type: integer } }
     Month: { name: month, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 12 } }
+    Cursor: { name: cursor, in: query, required: false, schema: { type: string }, description: Cursor opaco retornado pela página anterior. }
+    Limit: { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }
     IfMatch: { name: If-Match, in: header, required: true, schema: { type: string } }
   requestBodies:
@@ -186,12 +304,18 @@ components:
       content: { application/json: { schema: { type: object, additionalProperties: true } } }
   responses:
     Object:
-      description: Resultado do domínio.
+      description: Recurso mutável com versão opaca.
       headers: { ETag: { schema: { type: string }, description: Versão para operações mutáveis. } }
-      content: { application/json: { schema: { type: object, additionalProperties: true } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/IntegrationResource'
     List:
-      description: Coleção do domínio.
-      content: { application/json: { schema: { type: array, items: { type: object, additionalProperties: true } } } }
+      description: Página de recursos da Casa vinculada à conexão.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/IntegrationPage'
     Space:
       description: Contexto efetivo da conexão.
       content:
@@ -221,3 +345,20 @@ components:
               code: { type: string }
               traceId: { type: string }
               retryable: { type: boolean }
+  schemas:
+    IntegrationResource:
+      type: object
+      required: [data, etag]
+      properties:
+        data: { type: object, additionalProperties: true, description: Recurso retornado pela operação. }
+        etag: { type: string, description: ETag opaca, entre aspas, do recurso. }
+    IntegrationPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/IntegrationResource' }
+        nextCursor:
+          type: [string, 'null']
+          description: Cursor para a próxima página; null quando não há mais resultados.

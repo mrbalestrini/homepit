@@ -8,4 +8,4 @@ Status: especificação; confirme feature flags antes de usar.
 - `security.md`: expiração, revogação, rate limit, auditoria e erros.
 - `recipes.md`: fluxos seguros para Financeiro e Projetos.
 
-Regras para agentes: nunca solicitar ou registrar token; usar variáveis de ambiente; não enviar `X-Household-Id`; confirmar modo e expiração com `GET /space`; ler o OpenAPI externo antes de formar payloads; usar idempotência em escrita; usar ETag/If-Match em update/delete; solicitar prévia antes de exclusão MCP. A conexão não amplia permissões do criador.
+Regras para agentes: nunca solicitar ou registrar token; usar variáveis de ambiente; não enviar `X-Household-Id`; confirmar modo e expiração com `GET /space`; ler o OpenAPI externo antes de formar payloads; usar idempotência em escrita; usar ETag/If-Match em update/delete; solicitar prévia antes de exclusão MCP. Listagens retornam `{items,nextCursor}` e cada item mutável contém `data` e `etag`; `428` indica If-Match ausente e `412` conflito de versão. A conexão não amplia permissões do criador.

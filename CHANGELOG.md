@@ -8,6 +8,7 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ### Changed
 - Conexões revogadas agora mostram a data de revogação como encerramento e permanecem visíveis por 30 dias; depois disso, saem da listagem do perfil.
+- A API REST de integrações passou a paginar listagens por cursor e a proteger escritas com ETag e If-Match, incluindo Financeiro e Projetos.
 
 ## [1.11.1] - 2026-07-14
 

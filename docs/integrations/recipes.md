@@ -7,7 +7,7 @@
 1. Consulte `GET /space` para confirmar Casa, modo e expiração.
 2. Consulte no OpenAPI o `operationId` de criação de lançamento e o schema correspondente.
 3. Envie a operação com `Authorization` e uma `Idempotency-Key` nova para esta intenção.
-4. Guarde o identificador e a `ETag` devolvidos para uma alteração futura.
+4. Guarde o identificador e a `ETag` devolvidos para uma alteração futura. Em uma listagem, a ETag está em `items[].etag`; em criação e atualização, ela também está no cabeçalho HTTP `ETag`.
 
 ```python
 import os
@@ -25,6 +25,22 @@ response = requests.post(
 )
 response.raise_for_status()
 ```
+
+## Percorrer lançamentos em TypeScript
+
+```ts
+const url = new URL(`${process.env.HOMEPIT_BASE_URL}/api/integrations/v1/finance/entries`);
+url.searchParams.set("year", "2026");
+url.searchParams.set("month", "7");
+
+const response = await fetch(url, {
+  headers: { Authorization: `Bearer ${process.env.HOMEPIT_INTEGRATION_TOKEN}` },
+});
+const page = await response.json();
+for (const item of page.items) console.log(item.data, item.etag);
+```
+
+Se `nextCursor` existir, faça outra chamada com o mesmo filtro e `cursor=nextCursor`.
 
 ## Criar projeto e atividade
 

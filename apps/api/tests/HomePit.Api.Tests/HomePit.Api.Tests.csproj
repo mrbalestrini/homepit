@@ -4,6 +4,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\HomePit.Api\HomePit.Api.csproj" />
     <ProjectReference Include="..\..\src\HomePit.Application\HomePit.Application.csproj" />
     <ProjectReference Include="..\..\src\HomePit.Infrastructure\HomePit.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\HomePit.Domain\HomePit.Domain.csproj" />
