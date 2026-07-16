@@ -4,6 +4,11 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.12.0] - 2026-07-16
+
+### Changed
+- Conexões revogadas agora mostram a data de revogação como encerramento e permanecem visíveis por 30 dias; depois disso, saem da listagem do perfil.
+
 ## [1.11.1] - 2026-07-14
 
 ### Changed

@@ -27,6 +27,7 @@ import {
 const CONNECTIONS_PATH = "/api/users/me/integration-connections";
 const DEFAULT_EXPIRATION_DAYS = 90;
 const MAX_EXPIRATION_DAYS = 365;
+const REVOKED_CONNECTION_VISIBILITY_DAYS = 30;
 
 type RevealedConnection = Pick<CreateIntegrationConnectionResult, "token" | "restApiUrl" | "mcpUrl"> & {
   name: string;
@@ -125,7 +126,7 @@ export function ConnectionTab({ token, households }: { token: string; households
               <Loader2 className="size-4 animate-spin" />
               Carregando conexões...
             </div>
-          ) : connections.length === 0 ? (
+          ) : visibleConnections(connections).length === 0 ? (
             <div className="rounded-[18px] border border-dashed border-border/80 px-5 py-10 text-center">
               <KeyRound className="mx-auto size-7 text-muted-foreground" />
               <p className="mt-3 text-sm font-semibold text-foreground">Nenhuma conexão criada</p>
@@ -135,7 +136,7 @@ export function ConnectionTab({ token, households }: { token: string; households
             </div>
           ) : (
             <div className="space-y-3">
-              {connections.map((connection) => (
+              {visibleConnections(connections).map((connection) => (
                 <ConnectionCard key={connection.id} connection={connection} onRevoke={() => setConnectionToRevoke(connection)} />
               ))}
             </div>
@@ -198,6 +199,8 @@ export function ConnectionTab({ token, households }: { token: string; households
 function ConnectionCard({ connection, onRevoke }: { connection: IntegrationConnection; onRevoke: () => void }) {
   const status = connection.revokedAt ? "Revogada" : connection.isActive ? "Ativa" : "Encerrada";
   const statusVariant = status === "Ativa" ? "success" : "danger";
+  const endedAt = connection.revokedAt ?? connection.expiresAt;
+  const expirationLabel = connection.isActive ? `Expira em ${formatDate(connection.expiresAt)}` : `Expirou em ${formatDate(endedAt)}`;
 
   return (
     <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4">
@@ -211,7 +214,7 @@ function ConnectionCard({ connection, onRevoke }: { connection: IntegrationConne
           <p className="text-sm text-muted-foreground">Casa: {connection.householdName}</p>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs leading-5 text-muted-foreground">
             {connection.tokenPrefix ? <span>Chave: {connection.tokenPrefix}••••</span> : null}
-            <span>Expira em {formatDate(connection.expiresAt)}</span>
+            <span>{expirationLabel}</span>
             <span>{connection.lastUsedAt ? `Usada em ${formatDateTime(connection.lastUsedAt)}` : "Ainda não foi usada"}</span>
           </div>
         </div>
@@ -224,6 +227,18 @@ function ConnectionCard({ connection, onRevoke }: { connection: IntegrationConne
       </div>
     </div>
   );
+}
+
+function visibleConnections(connections: IntegrationConnection[]) {
+  const oldestVisibleRevocation = Date.now() - REVOKED_CONNECTION_VISIBILITY_DAYS * 24 * 60 * 60 * 1000;
+  return connections.filter((connection) => {
+    if (!connection.revokedAt) {
+      return true;
+    }
+
+    const revokedAt = new Date(connection.revokedAt).getTime();
+    return !Number.isFinite(revokedAt) || revokedAt >= oldestVisibleRevocation;
+  });
 }
 
 function CreateConnectionDialog({

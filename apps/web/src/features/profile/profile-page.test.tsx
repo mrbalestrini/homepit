@@ -162,6 +162,30 @@ describe("ProfilePage", () => {
       expect(screen.queryByRole("dialog", { name: "Revogar conexão" })).not.toBeInTheDocument();
     });
     expect(screen.getByText("Revogada")).toBeInTheDocument();
+    expect(screen.getByText(/Expirou em/)).toBeInTheDocument();
+  });
+
+  it("hides connections revoked more than thirty days ago", async () => {
+    window.history.replaceState({}, "", "/profile?tab=connection");
+    mockedUseProjectDashboard.mockReturnValue(buildDashboard());
+    mockedApiFetch.mockImplementation(async (path) => {
+      if (path === "/api/users/me/integration-connections") {
+        return [
+          buildIntegrationConnection({
+            name: "Conexão antiga",
+            revokedAt: "2020-01-01T12:00:00Z",
+            isActive: false,
+          }),
+        ];
+      }
+
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<ProfilePage />);
+
+    expect(await screen.findByText("Nenhuma conexão criada")).toBeInTheDocument();
+    expect(screen.queryByText("Conexão antiga")).not.toBeInTheDocument();
   });
 
   it("shows the current plan, usage and quota states", async () => {
