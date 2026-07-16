@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using HomePit.Application.Common;
 using HomePit.Application.Finance;
 using HomePit.Application.Integrations;
@@ -29,9 +30,10 @@ public sealed class IntegrationMcpTools
         FinanceService finance,
         IntegrationIdempotencyService idempotency,
         IUserContext userContext,
+        IHttpContextAccessor httpContextAccessor,
         CancellationToken cancellationToken)
     {
-        EnsureWrite(userContext);
+        EnsureWrite(userContext, httpContextAccessor);
         var result = await idempotency.ExecuteAsync("finance_create_entry", idempotencyKey, request,
             () => finance.CreateEntryAsync(request, cancellationToken), cancellationToken);
         return JsonSerializer.Serialize(result, Json);
@@ -51,9 +53,10 @@ public sealed class IntegrationMcpTools
         ProjectService projects,
         IntegrationIdempotencyService idempotency,
         IUserContext userContext,
+        IHttpContextAccessor httpContextAccessor,
         CancellationToken cancellationToken)
     {
-        EnsureWrite(userContext);
+        EnsureWrite(userContext, httpContextAccessor);
         var result = await idempotency.ExecuteAsync("projects_create_activity", idempotencyKey, request,
             () => projects.CreateActivityAsync(request, cancellationToken), cancellationToken);
         return JsonSerializer.Serialize(result, Json);
@@ -74,17 +77,19 @@ public sealed class IntegrationMcpTools
         ProjectService projects,
         IntegrationIdempotencyService idempotency,
         IUserContext userContext,
+        IHttpContextAccessor httpContextAccessor,
         CancellationToken cancellationToken)
     {
-        EnsureWrite(userContext);
+        EnsureWrite(userContext, httpContextAccessor);
         var result = await idempotency.ExecuteAsync("projects_create_pending_item", idempotencyKey, new { activityId, request },
             () => projects.CreatePendingItemAsync(activityId, request, cancellationToken), cancellationToken);
         return JsonSerializer.Serialize(result, Json);
     }
 
-    private static void EnsureWrite(IUserContext userContext)
+    private static void EnsureWrite(IUserContext userContext, IHttpContextAccessor httpContextAccessor)
     {
-        if (userContext.IntegrationAccessMode != IntegrationAccessMode.ReadWrite)
+        var scopes = httpContextAccessor.HttpContext?.User.FindFirst("scope")?.Value?.Split(' ') ?? [];
+        if (userContext.IntegrationAccessMode != IntegrationAccessMode.ReadWrite || !scopes.Contains("homepit.write", StringComparer.Ordinal))
         {
             throw new ForbiddenException("Esta conexão permite somente leitura.");
         }

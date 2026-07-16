@@ -6,17 +6,17 @@ Integrações permitem que automações e agentes de IA operem os dados da sua C
 
 ## Antes de começar
 
-1. Abra **Perfil > Conexão** e crie uma conexão para a Casa desejada.
+1. Para REST, abra **Perfil > Conexão** e crie uma chave para a Casa desejada.
 2. Escolha a permissão e a data de expiração (máximo de um ano).
 3. Copie a chave no momento da criação. Ela não poderá ser exibida novamente.
-4. Escolha o consumo por [REST](rest-api.md), [MCP remoto ou bridge local](mcp.md).
+4. Para MCP remoto, informe a URL `/mcp` ao cliente e conclua o consentimento OAuth no HomePit.
 
 A conexão não aceita `X-Household-Id`: a Casa já está fixada na credencial. Revogue a conexão imediatamente se o segredo for exposto.
 
 ## Guias
 
 - [API REST](rest-api.md): autenticação, paginação, concorrência e idempotência.
-- [MCP](mcp.md): OAuth, tools, resources e bridge stdio.
+- [MCP](mcp.md): OAuth, tools e resources remotos.
 - [Segurança e erros](security.md): validade, revogação, limites e respostas de falha.
 - [Receitas](recipes.md): lançamentos financeiros e fluxos de projetos.
 - [Resumo para agentes](llms.txt): índice compacto e regras de segurança.

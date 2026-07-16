@@ -1,28 +1,20 @@
 # MCP: agentes e automações
 
-> Status: especificação v1. O MCP remoto só estará disponível com `Mcp:Enabled` após a configuração segura de OAuth e HTTPS.
+> Disponível quando `Integrations:Enabled=true` e `Mcp:Enabled=true`, com URLs públicas HTTPS configuradas.
 
 ## MCP remoto
 
-O endpoint remoto é `/mcp`, com transporte Streamable HTTP stateless e OAuth 2.1. Clientes MCP usam Authorization Code com PKCE S256, discovery e registro dinâmico de cliente quando suportado. A pessoa usuária autoriza uma Casa, modo de acesso e validade na tela de consentimento do HomePit.
+O endpoint remoto é `/mcp`, com transporte Streamable HTTP stateless e OAuth 2.1. Ele não aceita chaves manuais `hpit_*`: essas chaves pertencem somente à API REST externa.
 
-Os tools seguem `finance_<verbo>_<recurso>` e `projects_<verbo>_<recurso>`, derivados dos `operationId` do OpenAPI. Conexões somente leitura não recebem tools de escrita e o servidor também os bloqueia. Resources planejados:
+O cliente deve descobrir o recurso em `/.well-known/oauth-protected-resource/mcp`, registrar-se em `POST /connect/register` quando ainda não tiver um `client_id` e usar Authorization Code com PKCE S256. Envie o parâmetro `resource` com a URL canônica completa do MCP, por exemplo `https://api.exemplo.com/mcp`, na autorização e na troca do código.
+
+Na tela do HomePit, a pessoa escolhe Casa, somente leitura ou leitura/escrita e validade. O access token vale até 15 minutos; refresh tokens são rotativos e não sobrevivem à expiração ou revogação da conexão.
+
+Os tools atuais seguem `finance_<verbo>_<recurso>` e `projects_<verbo>_<recurso>`. Conexões somente leitura não podem executar escrita; o servidor valida tanto o escopo OAuth quanto a conexão. Resources disponíveis:
 
 - `homepit://space`
 - `homepit://finance/catalog`
 - `homepit://projects/catalog`
 - `homepit://docs/agent-guide`
 
-Para exclusões, primeiro solicite uma prévia. A confirmação resultante é vinculada à conexão, ao recurso e à versão, vale cinco minutos e só pode ser usada uma vez.
-
-## Bridge local stdio
-
-Quando o cliente só aceita MCP por stdio, use o bridge local configurado por ambiente:
-
-```powershell
-$env:HOMEPIT_BASE_URL = "https://homepit.example"
-$env:HOMEPIT_INTEGRATION_TOKEN = "SEU_TOKEN_DE_INTEGRACAO"
-# iniciar o bridge conforme o pacote distribuído pela instância
-```
-
-O bridge não deve aceitar token como argumento de linha de comando nem imprimi-lo. Ele encaminha operações para a API externa e mantém as mesmas permissões da conexão manual.
+O bridge local stdio não faz parte desta versão.

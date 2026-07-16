@@ -89,7 +89,7 @@ export function ConnectionTab({ token, households }: { token: string; households
       <Card>
         <CardHeader>
           <CardTitle>Guia rápido</CardTitle>
-          <CardDescription>Use a chave somente fora do navegador, em uma variável de ambiente segura.</CardDescription>
+          <CardDescription>Use chaves manuais no REST e autorize clientes MCP pela tela de conexão deles.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
           <p>A Casa já está vinculada à conexão. Não envie o cabeçalho <code>X-Household-Id</code>.</p>
@@ -97,8 +97,8 @@ export function ConnectionTab({ token, households }: { token: string; households
             Authorization: Bearer $HOMEPIT_INTEGRATION_TOKEN
           </pre>
           <p>
-            Consulte <code>GET /api/integrations/v1/space</code> antes de automatizar. Escritas exigem uma conexão com
-            permissão de leitura e escrita e uma chave de idempotência.
+            Consulte <code>GET /api/integrations/v1/space</code> antes de automatizar. O MCP remoto usa OAuth e pede sua
+            confirmação antes de acessar uma casa.
           </p>
         </CardContent>
       </Card>
@@ -175,7 +175,7 @@ export function ConnectionTab({ token, households }: { token: string; households
           <DialogHeader>
             <DialogTitle>Revogar conexão</DialogTitle>
             <DialogDescription>
-              Revogar “{connectionToRevoke?.name ?? ""}” interrompe imediatamente o acesso dessa chave à casa vinculada.
+              Revogar “{connectionToRevoke?.name ?? ""}” interrompe imediatamente o acesso dessa conexão à casa vinculada.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-[18px] border border-danger/20 bg-status-danger-soft p-4 text-sm leading-6 text-foreground">
@@ -209,6 +209,7 @@ function ConnectionCard({ connection, onRevoke }: { connection: IntegrationConne
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-semibold text-foreground">{connection.name}</p>
             <Badge variant={statusVariant}>{status}</Badge>
+            <Badge variant="outline">{connection.credentialKind === "OAuthGrant" ? "OAuth / MCP" : "Chave REST"}</Badge>
             <Badge variant="outline">{connection.accessMode === "ReadOnly" ? "Somente leitura" : "Leitura e escrita"}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">Casa: {connection.householdName}</p>

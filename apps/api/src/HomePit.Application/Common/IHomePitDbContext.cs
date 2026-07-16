@@ -23,6 +23,7 @@ public interface IHomePitDbContext
     DbSet<IntegrationConnection> IntegrationConnections { get; }
     DbSet<IntegrationAuditEvent> IntegrationAuditEvents { get; }
     DbSet<IntegrationIdempotencyRecord> IntegrationIdempotencyRecords { get; }
+    DbSet<OAuthAuthorizationInteraction> OAuthAuthorizationInteractions { get; }
     DbSet<InstitutionalPage> InstitutionalPages { get; }
     DbSet<InstitutionalBenefit> InstitutionalBenefits { get; }
     DbSet<InstitutionalStep> InstitutionalSteps { get; }

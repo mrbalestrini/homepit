@@ -89,6 +89,16 @@ export type CreateIntegrationConnectionResult = {
   mcpUrl: string;
 };
 
+export type OAuthConsentInteraction = {
+  clientName: string;
+  requestedScopes: string[];
+  expiresAt: string;
+};
+
+export type OAuthConsentContinuation = {
+  continueUrl: string;
+};
+
 export type AdminUserListItem = {
   id: string;
   email: string;

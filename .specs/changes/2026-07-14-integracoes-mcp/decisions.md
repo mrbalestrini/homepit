@@ -32,3 +32,11 @@
 - Recursos mutáveis são retornados como `{ data, etag }`; a ETag opaca codifica o identificador e a versão `UpdatedAt` e também é enviada no cabeçalho de respostas unitárias.
 - `UpdatedAt` é token de concorrência do EF apenas para entidades Financeiro/Projetos expostas pelas integrações. Escritas externas exigem `If-Match`; ausência retorna `428`, formato inválido `400` e versão ultrapassada `412`.
 - A migration de concorrência não executa DDL ou backfill; ela preserva o snapshot e os metadados de descoberta do EF.
+
+## 2026-07-16 - OAuth para MCP remoto
+
+- `/mcp` aceita somente OAuth; chaves `hpit_*` continuam exclusivas do REST externo.
+- O consentimento ocorre no Next.js, reutilizando o JWT existente e uma interação efêmera, opaca, vinculada a cliente, redirect URI, PKCE, escopo e resource. A interação expira em dez minutos e só pode ser consumida uma vez.
+- OpenIddict 7.6 persiste aplicações, autorizações, escopos e tokens no schema `homepit`. Access e refresh tokens são de referência; o access token dura 15 minutos e refresh tokens são rotativos, até 30 dias e nunca devem exceder a conexão.
+- DCR cria somente clientes públicos, sem segredo, com Authorization Code + PKCE. Callbacks exigem HTTPS, exceto loopback local explícito.
+- Produção usa duas chaves Base64 distintas de ao menos 32 bytes para assinatura e criptografia OAuth. Como os tokens são referência e a validação é local, esta etapa não publica JWKS.

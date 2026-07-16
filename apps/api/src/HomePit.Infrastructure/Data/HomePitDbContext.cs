@@ -11,6 +11,7 @@ using HomePit.Domain.Plans;
 using HomePit.Domain.Prompts;
 using HomePit.Domain.Projects;
 using Microsoft.EntityFrameworkCore;
+using OpenIddict.EntityFrameworkCore;
 
 namespace HomePit.Infrastructure.Data;
 
@@ -25,6 +26,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
     public DbSet<IntegrationConnection> IntegrationConnections => Set<IntegrationConnection>();
     public DbSet<IntegrationAuditEvent> IntegrationAuditEvents => Set<IntegrationAuditEvent>();
     public DbSet<IntegrationIdempotencyRecord> IntegrationIdempotencyRecords => Set<IntegrationIdempotencyRecord>();
+    public DbSet<OAuthAuthorizationInteraction> OAuthAuthorizationInteractions => Set<OAuthAuthorizationInteraction>();
     public DbSet<InstitutionalPage> InstitutionalPages => Set<InstitutionalPage>();
     public DbSet<InstitutionalBenefit> InstitutionalBenefits => Set<InstitutionalBenefit>();
     public DbSet<InstitutionalStep> InstitutionalSteps => Set<InstitutionalStep>();
@@ -64,6 +66,7 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
 
         ConfigureHouseholds(modelBuilder);
         ConfigureIntegrations(modelBuilder);
+        modelBuilder.UseOpenIddict();
         ConfigureFinance(modelBuilder);
         ConfigureGsm(modelBuilder);
         ConfigureInstitutional(modelBuilder);
@@ -303,6 +306,30 @@ public sealed class HomePitDbContext(DbContextOptions<HomePitDbContext> options)
             builder.Property(item => item.ResponseJson).IsRequired();
             builder.HasIndex(item => new { item.IntegrationConnectionId, item.Operation, item.IdempotencyKey }).IsUnique();
             builder.HasIndex(item => item.ExpiresAt);
+            builder.HasOne(item => item.IntegrationConnection)
+                .WithMany()
+                .HasForeignKey(item => item.IntegrationConnectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<OAuthAuthorizationInteraction>(builder =>
+        {
+            builder.ToTable("oauth_authorization_interactions");
+            builder.Property(item => item.TokenHash).HasMaxLength(128).IsRequired();
+            builder.Property(item => item.ClientId).HasMaxLength(256).IsRequired();
+            builder.Property(item => item.ClientName).HasMaxLength(160).IsRequired();
+            builder.Property(item => item.RedirectUri).HasMaxLength(2048).IsRequired();
+            builder.Property(item => item.Scope).HasMaxLength(512).IsRequired();
+            builder.Property(item => item.State).HasMaxLength(2048);
+            builder.Property(item => item.CodeChallenge).HasMaxLength(256).IsRequired();
+            builder.Property(item => item.CodeChallengeMethod).HasMaxLength(32).IsRequired();
+            builder.Property(item => item.Resource).HasMaxLength(2048).IsRequired();
+            builder.HasIndex(item => item.TokenHash).IsUnique();
+            builder.HasIndex(item => item.ExpiresAt);
+            builder.HasOne(item => item.ApprovedByUser)
+                .WithMany()
+                .HasForeignKey(item => item.ApprovedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
             builder.HasOne(item => item.IntegrationConnection)
                 .WithMany()
                 .HasForeignKey(item => item.IntegrationConnectionId)

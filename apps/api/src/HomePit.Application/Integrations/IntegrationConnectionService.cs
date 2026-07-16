@@ -105,7 +105,7 @@ public sealed class IntegrationConnectionService(
         return new CreatedIntegrationConnectionDto(dto, token, $"{baseUrl}/api/integrations/v1", $"{baseUrl}/mcp");
     }
 
-    public async Task RevokeCurrentUserConnectionAsync(Guid connectionId, CancellationToken cancellationToken)
+    public async Task<string?> RevokeCurrentUserConnectionAsync(Guid connectionId, CancellationToken cancellationToken)
     {
         var connection = await db.IntegrationConnections
             .FirstOrDefaultAsync(item => item.Id == connectionId && item.UserId == userContext.UserId, cancellationToken)
@@ -116,6 +116,8 @@ public sealed class IntegrationConnectionService(
             connection.RevokedAt = timeProvider.GetUtcNow();
             await db.SaveChangesAsync(cancellationToken);
         }
+
+        return connection.OAuthAuthorizationId;
     }
 
     public async Task<IntegrationSpaceDto> GetCurrentSpaceAsync(CancellationToken cancellationToken)

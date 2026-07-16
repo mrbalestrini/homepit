@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Minio;
+using OpenIddict.EntityFrameworkCore;
 
 namespace HomePit.Infrastructure;
 
@@ -21,7 +22,8 @@ public static class DependencyInjection
     public static IServiceCollection AddHomePitInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddDbContext<HomePitDbContext>(options =>
-            options.UseNpgsql(configuration.GetConnectionString("HomePitDb")));
+            options.UseNpgsql(configuration.GetConnectionString("HomePitDb"))
+                .UseOpenIddict());
 
         services.AddScoped<IHomePitDbContext>(provider => provider.GetRequiredService<HomePitDbContext>());
         services.AddSingleton(TimeProvider.System);

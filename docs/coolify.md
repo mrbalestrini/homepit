@@ -65,6 +65,28 @@ ObjectStorage__UseSsl=false
 ObjectStorage__CreateBucketOnStartup=true
 ```
 
+## OAuth for MCP
+
+Keep `Integrations__Enabled=false` and `Mcp__Enabled=false` until the migration is applied and discovery has been checked over HTTPS. Then configure the API resource with the public URLs and two distinct Base64 secrets containing at least 32 random bytes each:
+
+```txt
+Integrations__Enabled=true
+Integrations__TokenPepper=...
+Mcp__Enabled=true
+OAuth__Issuer=https://api.homepit.example.com
+OAuth__WebConsentUrl=https://homepit.example.com/oauth/consent
+OAuth__SigningKey=...
+OAuth__EncryptionKey=...
+OAuth__AccessTokenMinutes=15
+OAuth__RefreshTokenDays=30
+OAuth__InteractionMinutes=10
+OAuth__TrustedProxies__0=<IP-interno-do-proxy-Coolify-que-encaminha-para-a-API>
+AllowedHosts=api.homepit.example.com
+Cors__AllowedOrigins__0=https://homepit.example.com
+```
+
+The Coolify proxy must preserve `X-Forwarded-Proto: https`. Set `OAuth__TrustedProxies__0` to the address that appears as the direct peer of the API container (not a Cloudflare address); production startup rejects OAuth without an explicitly trusted proxy. Before enabling MCP, verify `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource/mcp` through the public API domain. Never reuse the JWT signing key for OAuth.
+
 ## Troubleshooting
 
 If the API logs an error like `column u.ProfilePhotoObjectKey does not exist`, the production database schema is behind the application model. The migration `20260601161000_AddUserProfilePhoto` must exist in `__EFMigrationsHistory` before the current API build can run correctly.

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using System.Net;
 using HomePit.Api.Security;
 using HomePit.Api.Integrations;
 using HomePit.Api.Mcp;
@@ -24,8 +25,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore;
 using Microsoft.IdentityModel.Tokens;
 using ModelContextProtocol.Server;
+using OpenIddict.Abstractions;
+using OpenIddict.Server.AspNetCore;
+using OpenIddict.Validation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +44,13 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserContext, HttpUserContext>();
 builder.Services.AddHomePitApplication();
 builder.Services.AddHomePitInfrastructure(builder.Configuration);
+
+var oauthOptions = builder.Configuration.GetSection(OAuthOptions.SectionName).Get<OAuthOptions>() ?? new OAuthOptions();
+var oauthEnabled = builder.Configuration.GetValue("Integrations:Enabled", false) &&
+    builder.Configuration.GetValue("Mcp:Enabled", false) &&
+    !string.IsNullOrWhiteSpace(oauthOptions.SigningKey) &&
+    !string.IsNullOrWhiteSpace(oauthOptions.EncryptionKey);
+builder.Services.Configure<OAuthOptions>(builder.Configuration.GetSection(OAuthOptions.SectionName));
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 builder.Services
@@ -60,7 +73,73 @@ builder.Services
         IntegrationTokenAuthenticationHandler.SchemeName,
         _ => { });
 
-builder.Services.AddAuthorization();
+if (oauthEnabled)
+{
+    EnsureOAuthConfiguration(oauthOptions);
+    if (builder.Environment.IsProduction() && oauthOptions.TrustedProxies.Length == 0)
+    {
+        throw new InvalidOperationException("OAuth em produção exige ao menos um proxy confiável para X-Forwarded-Proto.");
+    }
+
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+        foreach (var proxy in oauthOptions.TrustedProxies)
+        {
+            if (!IPAddress.TryParse(proxy, out var address))
+            {
+                throw new InvalidOperationException("OAuth:TrustedProxies deve conter somente endereços IP válidos.");
+            }
+
+            options.KnownProxies.Add(address);
+        }
+    });
+    builder.Services.AddOpenIddict()
+        .AddCore(options => options.UseEntityFrameworkCore().UseDbContext<HomePitDbContext>())
+        .AddServer(options =>
+        {
+            options.SetIssuer(new Uri(oauthOptions.Issuer))
+                .SetAuthorizationEndpointUris("/connect/authorize")
+                .SetTokenEndpointUris("/connect/token")
+                .SetRevocationEndpointUris("/connect/revocation")
+                .AllowAuthorizationCodeFlow()
+                .AllowRefreshTokenFlow()
+                .RequireProofKeyForCodeExchange()
+                .RegisterScopes("homepit.read", "homepit.write")
+                .SetAccessTokenLifetime(TimeSpan.FromMinutes(oauthOptions.AccessTokenMinutes))
+                .SetRefreshTokenLifetime(TimeSpan.FromDays(oauthOptions.RefreshTokenDays))
+                .UseReferenceAccessTokens()
+                .UseReferenceRefreshTokens()
+                .AddSigningKey(new SymmetricSecurityKey(Convert.FromBase64String(oauthOptions.SigningKey)))
+                .AddEncryptionKey(new SymmetricSecurityKey(Convert.FromBase64String(oauthOptions.EncryptionKey)));
+            options.UseAspNetCore()
+                .EnableAuthorizationEndpointPassthrough();
+        })
+        .AddValidation(options =>
+        {
+            options.UseLocalServer();
+            options.UseAspNetCore();
+            options.EnableTokenEntryValidation();
+            options.EnableAuthorizationEntryValidation();
+        });
+    builder.Services.AddScoped<OAuthConsentService>();
+    builder.Services.AddScoped<IAuthorizationHandler, OAuthMcpAuthorizationHandler>();
+}
+
+builder.Services.AddAuthorization(options =>
+{
+    if (oauthEnabled)
+    {
+        options.AddPolicy("mcp-oauth", policy =>
+        {
+            policy.AddAuthenticationSchemes(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
+            policy.RequireAuthenticatedUser();
+            policy.AddRequirements(new OAuthMcpRequirement());
+        });
+    }
+});
 builder.Services.AddScoped<IntegrationRestSupport>();
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
@@ -88,6 +167,17 @@ builder.Services.AddRateLimiter(options =>
             AutoReplenishment = true
         });
     });
+    options.AddPolicy("oauth-registration", context =>
+    {
+        var key = context.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+        return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = Math.Max(1, oauthOptions.DynamicRegistrationRequestsPerMinute),
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
 });
 builder.Services.AddCors(options =>
 {
@@ -109,9 +199,18 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseHomePitErrors();
 app.UseCors("web");
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    await next(context);
+    if (oauthEnabled && context.Request.Path.StartsWithSegments("/mcp") && context.Response.StatusCode == StatusCodes.Status401Unauthorized)
+    {
+        context.Response.Headers.WWWAuthenticate = $"Bearer resource_metadata=\"{oauthOptions.Issuer.TrimEnd('/')}/.well-known/oauth-protected-resource/mcp\", scope=\"homepit.read homepit.write\"";
+    }
+});
 app.UseAuthorization();
 app.UseRateLimiter();
 app.UseAccountStateGuard();
@@ -134,6 +233,118 @@ app.MapGet("/api/system/info", () => Results.Ok(new
     version = "0.5.0",
     timezone = "America/Sao_Paulo"
 }));
+
+if (oauthEnabled)
+{
+    app.MapGet("/.well-known/oauth-protected-resource/mcp", () => Results.Ok(new
+    {
+        resource = oauthOptions.CanonicalMcpResource,
+        authorization_servers = new[] { oauthOptions.Issuer.TrimEnd('/') },
+        scopes_supported = new[] { "homepit.read", "homepit.write" },
+        bearer_methods_supported = new[] { "header" }
+    }));
+
+    app.MapPost("/connect/register", async (
+        DynamicClientRegistrationRequest request,
+        IOpenIddictApplicationManager applications,
+        CancellationToken cancellationToken) =>
+    {
+        var clientName = string.IsNullOrWhiteSpace(request.ClientName) ? null : request.ClientName.Trim();
+        if (clientName is null || clientName.Length > 160 || request.RedirectUris is null || request.RedirectUris.Count == 0 ||
+            (request.GrantTypes is not null && request.GrantTypes.Any(item => item is not "authorization_code" and not "refresh_token")) ||
+            (request.ResponseTypes is not null && request.ResponseTypes.Any(item => item != "code")) ||
+            (!string.IsNullOrWhiteSpace(request.TokenEndpointAuthMethod) && request.TokenEndpointAuthMethod != "none"))
+        {
+            throw new ValidationException("O registro dinâmico aceita apenas cliente público com Authorization Code e PKCE.");
+        }
+
+        var redirectUris = request.RedirectUris.Select(NormalizeDynamicRedirectUri).Distinct(StringComparer.Ordinal).ToArray();
+        var clientId = $"mcp_{Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant()}";
+        var descriptor = new OpenIddictApplicationDescriptor
+        {
+            ClientId = clientId,
+            DisplayName = clientName,
+            ClientType = OpenIddictConstants.ClientTypes.Public,
+            ConsentType = OpenIddictConstants.ConsentTypes.Explicit
+        };
+        foreach (var uri in redirectUris)
+        {
+            descriptor.RedirectUris.Add(new Uri(uri));
+        }
+        descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Authorization);
+        descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Token);
+        descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode);
+        descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.RefreshToken);
+        descriptor.Permissions.Add(OpenIddictConstants.Permissions.ResponseTypes.Code);
+        descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + "homepit.read");
+        descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + "homepit.write");
+        await applications.CreateAsync(descriptor, cancellationToken);
+
+        return Results.Created($"/connect/register/{clientId}", new
+        {
+            client_id = clientId,
+            client_name = clientName,
+            redirect_uris = redirectUris,
+            grant_types = new[] { "authorization_code", "refresh_token" },
+            response_types = new[] { "code" },
+            token_endpoint_auth_method = "none"
+        });
+    }).RequireRateLimiting("oauth-registration");
+
+    app.MapGet("/connect/authorize", async (
+        HttpContext context,
+        OAuthConsentService consent,
+        IOpenIddictApplicationManager applications,
+        IOpenIddictAuthorizationManager authorizations,
+        CancellationToken cancellationToken) =>
+    {
+        var request = context.GetOpenIddictServerRequest() ?? throw new InvalidOperationException("Solicitação OAuth ausente.");
+        var interactionToken = request.GetParameter("interaction")?.ToString();
+        if (string.IsNullOrWhiteSpace(interactionToken))
+        {
+            return Results.Redirect(await consent.StartAsync(request, cancellationToken));
+        }
+
+        var interaction = await consent.ConsumeApprovedAsync(request, interactionToken, cancellationToken);
+        if (interaction.IntegrationConnection is null)
+        {
+            throw new UnauthorizedException("A conexão OAuth não está disponível.");
+        }
+
+        var application = await applications.FindByClientIdAsync(request.ClientId!, cancellationToken)
+            ?? throw new UnauthorizedException("Cliente OAuth não encontrado.");
+        var identity = new System.Security.Claims.ClaimsIdentity(
+            OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
+            OpenIddictConstants.Claims.Name,
+            OpenIddictConstants.Claims.Role);
+        identity.SetClaim(OpenIddictConstants.Claims.Subject, interaction.IntegrationConnection.UserId.ToString());
+        identity.SetClaim(OpenIddictConstants.Claims.Name, interaction.IntegrationConnection.Name);
+        identity.SetClaim("system_role", "User");
+        identity.SetClaim("integration", bool.TrueString);
+        identity.SetClaim("integration_connection_id", interaction.IntegrationConnection.Id.ToString());
+        identity.SetClaim("integration_household_id", interaction.IntegrationConnection.HouseholdId.ToString());
+        identity.SetClaim("integration_access_mode", interaction.IntegrationConnection.AccessMode.ToString());
+        identity.SetScopes(interaction.Scope.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        identity.SetResources(oauthOptions.CanonicalMcpResource);
+        identity.SetAccessTokenLifetime(TimeSpan.FromMinutes(Math.Min(oauthOptions.AccessTokenMinutes,
+            Math.Max(1, (int)Math.Floor((interaction.IntegrationConnection.ExpiresAt - DateTimeOffset.UtcNow).TotalMinutes)))));
+        identity.SetRefreshTokenLifetime(TimeSpan.FromDays(Math.Min(oauthOptions.RefreshTokenDays,
+            Math.Max(1, (int)Math.Floor((interaction.IntegrationConnection.ExpiresAt - DateTimeOffset.UtcNow).TotalDays)))));
+        var authorization = await authorizations.CreateAsync(
+            identity,
+            interaction.IntegrationConnection.UserId.ToString(),
+            await applications.GetIdAsync(application, cancellationToken) ?? throw new UnauthorizedException("Cliente OAuth inválido."),
+            OpenIddictConstants.AuthorizationTypes.Permanent,
+            identity.GetScopes(),
+            cancellationToken);
+        interaction.IntegrationConnection.OAuthAuthorizationId = await authorizations.GetIdAsync(authorization, cancellationToken);
+        identity.SetAuthorizationId(interaction.IntegrationConnection.OAuthAuthorizationId);
+        identity.SetDestinations(_ => new[] { OpenIddictConstants.Destinations.AccessToken });
+        await context.RequestServices.GetRequiredService<HomePitDbContext>().SaveChangesAsync(cancellationToken);
+        return Results.SignIn(new System.Security.Claims.ClaimsPrincipal(identity), properties: null,
+            authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    });
+}
 
 var auth = app.MapGroup("/api/auth");
 auth.MapPost("/register", async (RegisterRequest request, AuthService service, CancellationToken cancellationToken) =>
@@ -173,6 +384,17 @@ app.MapGet("/api/plans", async (CommercialPlanService service, CancellationToken
     Results.Ok(await service.ListPublicPlansAsync(cancellationToken)));
 
 var api = app.MapGroup("/api").RequireAuthorization();
+
+if (oauthEnabled)
+{
+    var oauthConsent = api.MapGroup("/oauth/consent");
+    oauthConsent.MapGet("/{interaction}", async (string interaction, OAuthConsentService service, CancellationToken cancellationToken) =>
+        Results.Ok(await service.GetAsync(interaction, cancellationToken)));
+    oauthConsent.MapPost("/{interaction}/approve", async (string interaction, ApproveOAuthConsentRequest request, OAuthConsentService service, CancellationToken cancellationToken) =>
+        Results.Ok(await service.ApproveAsync(interaction, request, cancellationToken)));
+    oauthConsent.MapPost("/{interaction}/deny", async (string interaction, OAuthConsentService service, CancellationToken cancellationToken) =>
+        Results.Ok(await service.DenyAsync(interaction, cancellationToken)));
+}
 
 api.MapGet("/admin/institutional-page", async (
     InstitutionalPageService service,
@@ -303,9 +525,15 @@ api.MapPost("/users/me/integration-connections", async (
 api.MapPost("/users/me/integration-connections/{id:guid}/revoke", async (
     Guid id,
     IntegrationConnectionService service,
+    IServiceProvider services,
     CancellationToken cancellationToken) =>
 {
-    await service.RevokeCurrentUserConnectionAsync(id, cancellationToken);
+    var authorizationId = await service.RevokeCurrentUserConnectionAsync(id, cancellationToken);
+    if (oauthEnabled && !string.IsNullOrWhiteSpace(authorizationId))
+    {
+        var authorizations = services.GetRequiredService<IOpenIddictAuthorizationManager>();
+        await authorizations.TryRevokeAsync(authorizationId, cancellationToken);
+    }
     return Results.NoContent();
 });
 api.MapPost("/users/me/profile-photo", async (
@@ -1344,13 +1572,10 @@ integrationProjects.MapPost("/activities/{id:guid}/pending-items", async (Guid i
     return Results.Created($"/api/integrations/v1/projects/activities/{id}/pending-items", resource);
 });
 
-if (app.Configuration.GetValue("Mcp:Enabled", false))
+if (oauthEnabled)
 {
     app.MapMcp("/mcp")
-        .RequireAuthorization(new AuthorizeAttribute
-        {
-            AuthenticationSchemes = IntegrationTokenAuthenticationHandler.SchemeName
-        })
+        .RequireAuthorization("mcp-oauth")
         .RequireRateLimiting("integrations");
 }
 
@@ -1377,6 +1602,51 @@ static Guid? ReadOptionalGuidQuery(HttpRequest request, string key)
     }
 
     throw new ValidationException($"O parâmetro '{key}' deve ser um GUID válido.");
+}
+
+static void EnsureOAuthConfiguration(OAuthOptions options)
+{
+    if (!Uri.TryCreate(options.Issuer, UriKind.Absolute, out var issuer) || issuer.Scheme != Uri.UriSchemeHttps ||
+        !Uri.TryCreate(options.WebConsentUrl, UriKind.Absolute, out var consent) || consent.Scheme != Uri.UriSchemeHttps ||
+        options.AccessTokenMinutes is < 1 or > 60 || options.RefreshTokenDays is < 1 or > 365 ||
+        options.InteractionMinutes is < 1 or > 30 || !IsValidOAuthKey(options.SigningKey) || !IsValidOAuthKey(options.EncryptionKey))
+    {
+        throw new InvalidOperationException("OAuth exige Issuer e URL de consentimento HTTPS, além de chaves Base64 distintas de 32 bytes.");
+    }
+
+    if (string.Equals(options.SigningKey, options.EncryptionKey, StringComparison.Ordinal))
+    {
+        throw new InvalidOperationException("OAuth exige chaves de assinatura e criptografia distintas.");
+    }
+}
+
+static bool IsValidOAuthKey(string value)
+{
+    try
+    {
+        return Convert.FromBase64String(value).Length >= 32;
+    }
+    catch (FormatException)
+    {
+        return false;
+    }
+}
+
+static string NormalizeDynamicRedirectUri(string value)
+{
+    if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || !string.IsNullOrEmpty(uri.Fragment) ||
+        !string.IsNullOrEmpty(uri.UserInfo) || string.IsNullOrEmpty(uri.Host) || uri.Query.Contains('*') || uri.AbsolutePath.Contains('*'))
+    {
+        throw new ValidationException("A URI de retorno OAuth é inválida.");
+    }
+
+    var isLoopback = uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || uri.Host.Equals("127.0.0.1", StringComparison.Ordinal);
+    if (uri.Scheme != Uri.UriSchemeHttps && !(isLoopback && uri.Scheme == Uri.UriSchemeHttp))
+    {
+        throw new ValidationException("A URI de retorno deve usar HTTPS, exceto localhost ou 127.0.0.1.");
+    }
+
+    return uri.AbsoluteUri;
 }
 
 static bool? ReadOptionalBoolQuery(HttpRequest request, string key)

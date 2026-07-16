@@ -11,7 +11,8 @@ public sealed class HttpUserContext(IHttpContextAccessor httpContextAccessor) : 
     {
         get
         {
-            var value = httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var value = httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? httpContextAccessor.HttpContext?.User.FindFirstValue("sub");
             return Guid.TryParse(value, out var userId) ? userId : Guid.Empty;
         }
     }
