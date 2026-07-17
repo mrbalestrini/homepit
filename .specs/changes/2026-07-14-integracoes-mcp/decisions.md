@@ -49,3 +49,8 @@
 ## 2026-07-17 - discovery de Dynamic Client Registration
 
 - O discovery OAuth continua sendo produzido pelo OpenIddict. Um handler de `HandleConfigurationRequestContext` acrescenta `registration_endpoint` para `/connect/register` e declara `none` entre os métodos aceitos pelo endpoint de token, preservando todos os métodos já anunciados pelo servidor.
+
+## 2026-07-17 - recurso canônico do MCP no OpenIddict
+
+- O recurso canônico `OAuthOptions.CanonicalMcpResource` é registrado no servidor OpenIddict e concedido explicitamente aos clientes públicos criados por Dynamic Client Registration. A validação de recurso permanece estrita no OpenIddict e em `OAuthConsentService`.
+- Clientes DCR persistidos antes desta correção não recebem a nova permissão retroativamente. Como foram criados para testes do MCP Inspector, devem ser descartados e registrados novamente após o deploy; não haverá migration ou backfill automático.

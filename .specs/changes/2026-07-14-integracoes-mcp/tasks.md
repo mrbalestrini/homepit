@@ -17,3 +17,6 @@
 
 - 2026-07-17: `dotnet test HomePit.sln` aprovou 142 testes, incluindo discovery OAuth com `registration_endpoint`, `none` em `token_endpoint_auth_methods_supported` e DCR público com callbacks loopback.
 - 2026-07-17: `dotnet publish src/HomePit.Api/HomePit.Api.csproj -c Release -o .\\artifacts\\api-publish /p:UseAppHost=false` foi concluído com sucesso.
+- 2026-07-17: `dotnet test tests/HomePit.IntegrationTests/HomePit.IntegrationTests.csproj --filter FullyQualifiedName~OAuthDiscoveryEndpointsTests` aprovou 6 testes: metadata do recurso, DCR com permissão de recurso, autorização canônica sem `invalid_target` e rejeição de recurso diferente.
+- 2026-07-17: `dotnet test HomePit.sln` aprovou 146 testes (101 unitários e 45 de integração).
+- 2026-07-17: `dotnet build src/HomePit.Api/HomePit.Api.csproj -c Release --no-restore` foi concluído com 0 avisos e 0 erros.

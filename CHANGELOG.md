@@ -8,6 +8,7 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ### Fixed
 - O discovery OAuth publicado pelo OpenIddict agora anuncia o endpoint de Dynamic Client Registration e o método público `none` no endpoint de token, permitindo que clientes MCP descubram e registrem clientes públicos.
+- O recurso canônico do MCP agora é registrado e autorizado explicitamente para clientes Dynamic Client Registration, evitando `invalid_target` ao iniciar a autorização OAuth pelo MCP Inspector.
 
 ## [1.12.0] - 2026-07-16
 

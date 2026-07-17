@@ -109,6 +109,7 @@ if (oauthEnabled)
                 .AllowRefreshTokenFlow()
                 .RequireProofKeyForCodeExchange()
                 .RegisterScopes("homepit.read", "homepit.write")
+                .RegisterResources(oauthOptions.CanonicalMcpResource)
                 .SetAccessTokenLifetime(TimeSpan.FromMinutes(oauthOptions.AccessTokenMinutes))
                 .SetRefreshTokenLifetime(TimeSpan.FromDays(oauthOptions.RefreshTokenDays))
                 .UseReferenceAccessTokens()
@@ -295,6 +296,7 @@ if (oauthEnabled)
         descriptor.Permissions.Add(OpenIddictConstants.Permissions.ResponseTypes.Code);
         descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + "homepit.read");
         descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + "homepit.write");
+        descriptor.AddResourcePermissions(oauthOptions.CanonicalMcpResource);
         await applications.CreateAsync(descriptor, cancellationToken);
 
         return Results.Created($"/connect/register/{clientId}", new
