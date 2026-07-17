@@ -30,6 +30,7 @@ using Microsoft.AspNetCore;
 using Microsoft.IdentityModel.Tokens;
 using ModelContextProtocol.Server;
 using OpenIddict.Abstractions;
+using OpenIddict.Server;
 using OpenIddict.Server.AspNetCore;
 using OpenIddict.Validation.AspNetCore;
 
@@ -119,6 +120,17 @@ if (oauthEnabled)
                 .AddEphemeralSigningKey()
                 .AddSigningKey(new SymmetricSecurityKey(Convert.FromBase64String(oauthOptions.SigningKey)))
                 .AddEncryptionKey(new SymmetricSecurityKey(Convert.FromBase64String(oauthOptions.EncryptionKey)));
+            options.AddEventHandler<OpenIddictServerEvents.HandleConfigurationRequestContext>(builder =>
+                builder.UseInlineHandler(context =>
+                {
+                    context.Metadata["registration_endpoint"] = $"{oauthOptions.Issuer.TrimEnd('/')}/connect/register";
+                    if (!context.TokenEndpointAuthenticationMethods.Contains("none", StringComparer.Ordinal))
+                    {
+                        context.TokenEndpointAuthenticationMethods.Add("none");
+                    }
+
+                    return default;
+                }));
             options.UseAspNetCore()
                 .EnableAuthorizationEndpointPassthrough();
         })

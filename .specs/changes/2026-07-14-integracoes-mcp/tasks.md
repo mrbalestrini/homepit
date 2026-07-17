@@ -12,3 +12,8 @@
 - Backend: testes unitários para cursor e ETag; testes de integração existentes para os módulos e credenciais. OAuth/MCP inclui discovery, DCR, PKCE, consentimento, revogação e autorização por conexão.
 - Frontend: testes da aba Conexão, revelação única e revogação; `npm test` e `npm run build`.
 - Operação: `dotnet ef migrations list`, MCP Inspector nos transports remoto e stdio, OpenAPI parsing estrutural, Docker build e smoke com flags.
+
+## Validações executadas
+
+- 2026-07-17: `dotnet test HomePit.sln` aprovou 142 testes, incluindo discovery OAuth com `registration_endpoint`, `none` em `token_endpoint_auth_methods_supported` e DCR público com callbacks loopback.
+- 2026-07-17: `dotnet publish src/HomePit.Api/HomePit.Api.csproj -c Release -o .\\artifacts\\api-publish /p:UseAppHost=false` foi concluído com sucesso.

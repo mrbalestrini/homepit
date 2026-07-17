@@ -45,3 +45,7 @@
 
 - O OpenIddict 7.6 exige uma credencial assimétrica mesmo quando o HomePit não concede o escopo `openid`. Foi adicionada uma chave RSA efêmera exclusivamente para esse requisito interno; as chaves simétricas configuradas continuam protegendo e sendo preferidas para access, refresh e authorization codes de referência.
 - Não há ID token nem JWKS nesta etapa. A chave efêmera não é exposta, não adiciona variável de ambiente e sua rotação a cada processo não invalida os tokens de referência emitidos com as chaves simétricas persistentes.
+
+## 2026-07-17 - discovery de Dynamic Client Registration
+
+- O discovery OAuth continua sendo produzido pelo OpenIddict. Um handler de `HandleConfigurationRequestContext` acrescenta `registration_endpoint` para `/connect/register` e declara `none` entre os métodos aceitos pelo endpoint de token, preservando todos os métodos já anunciados pelo servidor.

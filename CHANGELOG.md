@@ -4,6 +4,11 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.12.1] - 2026-07-17
+
+### Fixed
+- O discovery OAuth publicado pelo OpenIddict agora anuncia o endpoint de Dynamic Client Registration e o método público `none` no endpoint de token, permitindo que clientes MCP descubram e registrem clientes públicos.
+
 ## [1.12.0] - 2026-07-16
 
 ### Changed
