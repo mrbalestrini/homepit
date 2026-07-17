@@ -40,3 +40,8 @@
 - OpenIddict 7.6 persiste aplicações, autorizações, escopos e tokens no schema `homepit`. Access e refresh tokens são de referência; o access token dura 15 minutos e refresh tokens são rotativos, até 30 dias e nunca devem exceder a conexão.
 - DCR cria somente clientes públicos, sem segredo, com Authorization Code + PKCE. Callbacks exigem HTTPS, exceto loopback local explícito.
 - Produção usa duas chaves Base64 distintas de ao menos 32 bytes para assinatura e criptografia OAuth. Como os tokens são referência e a validação é local, esta etapa não publica JWKS.
+
+## 2026-07-17 - credencial assimétrica interna do OpenIddict
+
+- O OpenIddict 7.6 exige uma credencial assimétrica mesmo quando o HomePit não concede o escopo `openid`. Foi adicionada uma chave RSA efêmera exclusivamente para esse requisito interno; as chaves simétricas configuradas continuam protegendo e sendo preferidas para access, refresh e authorization codes de referência.
+- Não há ID token nem JWKS nesta etapa. A chave efêmera não é exposta, não adiciona variável de ambiente e sua rotação a cada processo não invalida os tokens de referência emitidos com as chaves simétricas persistentes.

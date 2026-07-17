@@ -112,6 +112,11 @@ if (oauthEnabled)
                 .SetRefreshTokenLifetime(TimeSpan.FromDays(oauthOptions.RefreshTokenDays))
                 .UseReferenceAccessTokens()
                 .UseReferenceRefreshTokens()
+                // OpenIddict requires an asymmetric credential for potential ID
+                // tokens. HomePit doesn't grant the `openid` scope, while the
+                // symmetric key below remains preferred for local reference
+                // access, refresh and authorization-code tokens.
+                .AddEphemeralSigningKey()
                 .AddSigningKey(new SymmetricSecurityKey(Convert.FromBase64String(oauthOptions.SigningKey)))
                 .AddEncryptionKey(new SymmetricSecurityKey(Convert.FromBase64String(oauthOptions.EncryptionKey)));
             options.UseAspNetCore()
