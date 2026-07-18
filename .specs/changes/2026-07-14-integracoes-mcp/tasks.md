@@ -4,6 +4,7 @@
 - [x] Implementar modelos, mappings, migration, autenticação de conexão, auditoria, idempotência e rate limiting.
 - [x] Completar REST externo de Financeiro e Projetos com paginação por cursor e ETags/`If-Match` reais.
 - [x] Implementar OAuth/OpenIddict e consentimento para MCP remoto; o bridge stdio permanece em etapa futura.
+- [x] Aceitar `openid` por compatibilidade OIDC, preservando `homepit.read` como requisito funcional do MCP.
 - [x] Implementar a aba Conexão e publicar a documentação canônica e o início rápido no perfil.
 - [ ] Validar OAuth, paridade integral OpenAPI/tools, MCP Inspector, Docker e smoke local com flags.
 
@@ -20,3 +21,5 @@
 - 2026-07-17: `dotnet test tests/HomePit.IntegrationTests/HomePit.IntegrationTests.csproj --filter FullyQualifiedName~OAuthDiscoveryEndpointsTests` aprovou 6 testes: metadata do recurso, DCR com permissão de recurso, autorização canônica sem `invalid_target` e rejeição de recurso diferente.
 - 2026-07-17: `dotnet test HomePit.sln` aprovou 146 testes (101 unitários e 45 de integração).
 - 2026-07-17: `dotnet build src/HomePit.Api/HomePit.Api.csproj -c Release --no-restore` foi concluído com 0 avisos e 0 erros.
+- 2026-07-18: `dotnet test HomePit.sln --no-restore` aprovou 155 testes (104 unitários e 51 de integração), incluindo scopes OIDC aceitos/rejeitados, redução ReadOnly, PKCE e ID token mínimo com `sub`.
+- 2026-07-18: `dotnet build src/HomePit.Api/HomePit.Api.csproj -c Release --no-restore` foi concluído com 0 avisos e 0 erros.

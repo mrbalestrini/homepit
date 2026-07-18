@@ -4,6 +4,12 @@ Todas as mudanças relevantes deste repositório devem ser registradas aqui.
 
 Este changelog segue uma linha compatível com [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e Semantic Versioning.
 
+## [1.12.2] - 2026-07-18
+
+### Fixed
+- O OAuth do MCP agora aceita `openid` e `offline_access` como scopes OIDC padrão sem ampliar o acesso funcional: `homepit.read` permanece obrigatório e `homepit.write` continua condicionado ao modo da conexão.
+- Fluxos com `openid` passam a emitir ID token mínimo, contendo apenas o `sub` estável da pessoa autenticada e sem dados da Casa ou da conexão de integração.
+
 ## [1.12.1] - 2026-07-17
 
 ### Fixed

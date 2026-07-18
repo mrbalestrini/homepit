@@ -54,3 +54,9 @@
 
 - O recurso canônico `OAuthOptions.CanonicalMcpResource` é registrado no servidor OpenIddict e concedido explicitamente aos clientes públicos criados por Dynamic Client Registration. A validação de recurso permanece estrita no OpenIddict e em `OAuthConsentService`.
 - Clientes DCR persistidos antes desta correção não recebem a nova permissão retroativamente. Como foram criados para testes do MCP Inspector, devem ser descartados e registrados novamente após o deploy; não haverá migration ou backfill automático.
+
+## 2026-07-18 - compatibilidade OIDC sem ampliação de acesso MCP
+
+- `openid` e `offline_access` são scopes aceitos e podem ser concedidos quando solicitados, mas não são scopes funcionais do MCP: `homepit.read` continua obrigatório e `homepit.write` continua condicionado à conexão `ReadWrite`.
+- Clientes públicos criados por DCR recebem permissões explícitas para os scopes OIDC padrão. Quando `openid` é concedido, o ID token recebe somente o `sub` estável do usuário; identificadores da Casa, conexão e modo de acesso permanecem exclusivamente no access token.
+- Clientes DCR já persistidos continuam funcionando com os scopes HomePit existentes. Para passar a solicitar `openid` ou `offline_access`, devem ser registrados novamente, pois permissões de scope de clientes existentes não são alteradas automaticamente.

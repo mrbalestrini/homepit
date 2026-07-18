@@ -1,9 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text.Json;
 using HomePit.Application.Common;
 using HomePit.Application.Storage;
+using HomePit.Domain.Households;
+using HomePit.Domain.Integrations;
 using HomePit.Infrastructure.Data;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -43,6 +47,8 @@ public sealed class OAuthDiscoveryEndpointsTests
         Assert.Equal("https://api.organiza.club/connect/register", metadata.GetProperty("registration_endpoint").GetString());
         Assert.Contains(metadata.GetProperty("token_endpoint_auth_methods_supported").EnumerateArray(),
             method => method.GetString() == "none");
+        Assert.Contains(metadata.GetProperty("scopes_supported").EnumerateArray(),
+            scope => scope.GetString() == OpenIddictConstants.Scopes.OpenId);
     }
 
     [Fact]
@@ -94,6 +100,115 @@ public sealed class OAuthDiscoveryEndpointsTests
         Assert.StartsWith("https://homepit.organiza.club/oauth/consent?interaction=", response.Headers.Location?.ToString());
     }
 
+    [Theory]
+    [InlineData("openid offline_access homepit.read homepit.write")]
+    [InlineData("openid homepit.read")]
+    [InlineData("offline_access homepit.read")]
+    public async Task Authorization_with_supported_scopes_reaches_the_consent_flow(string scope)
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = CreateOAuthClient(factory, allowAutoRedirect: false);
+        var registration = await RegisterDynamicClientAsync(client);
+        using var document = JsonDocument.Parse(await registration.Content.ReadAsStringAsync());
+        var clientId = document.RootElement.GetProperty("client_id").GetString();
+
+        var response = await client.GetAsync(CreateAuthorizationRequest(clientId!, CanonicalMcpResource, scope));
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith("https://homepit.organiza.club/oauth/consent?interaction=", response.Headers.Location?.ToString());
+    }
+
+    [Theory]
+    [InlineData("openid offline_access")]
+    [InlineData("openid homepit.read scope_invalido")]
+    public async Task Authorization_without_read_or_with_an_unknown_scope_is_rejected(string scope)
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = CreateOAuthClient(factory, allowAutoRedirect: false);
+        var registration = await RegisterDynamicClientAsync(client);
+        using var document = JsonDocument.Parse(await registration.Content.ReadAsStringAsync());
+        var clientId = document.RootElement.GetProperty("client_id").GetString();
+
+        var response = await client.GetAsync(CreateAuthorizationRequest(clientId!, CanonicalMcpResource, scope));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Authorization_code_with_openid_issues_an_id_token_with_only_the_stable_subject_claim()
+    {
+        await using var factory = new HomePitApiFactory();
+        using var client = CreateOAuthClient(factory, allowAutoRedirect: false);
+        var registration = await RegisterDynamicClientAsync(client);
+        using var registrationDocument = JsonDocument.Parse(await registration.Content.ReadAsStringAsync());
+        var clientId = registrationDocument.RootElement.GetProperty("client_id").GetString()!;
+        const string verifier = "this-is-a-valid-pkce-verifier-with-at-least-forty-three-characters";
+        var challenge = CreateCodeChallenge(verifier);
+        const string scope = "openid offline_access homepit.read homepit.write";
+
+        var start = await client.GetAsync(CreateAuthorizationRequest(clientId, CanonicalMcpResource, scope, challenge));
+        Assert.Equal(HttpStatusCode.Redirect, start.StatusCode);
+        var startLocation = start.Headers.Location ?? throw new InvalidOperationException("Redirecionamento de consentimento ausente.");
+        var interactionToken = QueryHelpers.ParseQuery(startLocation.Query)["interaction"].Single()
+            ?? throw new InvalidOperationException("Interação OAuth ausente.");
+
+        Guid userId;
+        await using (var serviceScope = factory.Services.CreateAsyncScope())
+        {
+            var db = serviceScope.ServiceProvider.GetRequiredService<HomePitDbContext>();
+            var user = new AppUser
+            {
+                Email = "oidc@homepit.dev",
+                PasswordHash = "hash",
+                DisplayName = "OIDC",
+                SystemRole = SystemRole.User
+            };
+            var household = new Household { Name = "Casa OIDC", CreatedByUserId = user.Id };
+            var connection = new IntegrationConnection
+            {
+                User = user,
+                Household = household,
+                Name = "MCP Inspector",
+                CredentialKind = IntegrationCredentialKind.OAuthGrant,
+                AccessMode = IntegrationAccessMode.ReadWrite,
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(30)
+            };
+            db.AddRange(user, household, new HouseholdMember { User = user, Household = household, Role = HouseholdRole.Owner }, connection);
+            var interaction = await db.OAuthAuthorizationInteractions.SingleAsync();
+            interaction.ApprovedAt = DateTimeOffset.UtcNow;
+            interaction.ApprovedByUser = user;
+            interaction.IntegrationConnection = connection;
+            await db.SaveChangesAsync();
+            userId = user.Id;
+        }
+
+        var callback = await client.GetAsync(CreateAuthorizationRequest(clientId, CanonicalMcpResource, scope, challenge) +
+            $"&interaction={Uri.EscapeDataString(interactionToken)}");
+        Assert.Equal(HttpStatusCode.Redirect, callback.StatusCode);
+        var callbackLocation = callback.Headers.Location ?? throw new InvalidOperationException("Callback OAuth ausente.");
+        var code = QueryHelpers.ParseQuery(callbackLocation.Query)["code"].Single()
+            ?? throw new InvalidOperationException("Código OAuth ausente.");
+        using var tokenResponse = await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["grant_type"] = "authorization_code",
+            ["client_id"] = clientId,
+            ["redirect_uri"] = "http://localhost:6274/oauth/callback",
+            ["code"] = code,
+            ["code_verifier"] = verifier,
+            ["resource"] = CanonicalMcpResource
+        }));
+
+        tokenResponse.EnsureSuccessStatusCode();
+        using var tokenDocument = JsonDocument.Parse(await tokenResponse.Content.ReadAsStringAsync());
+        var idToken = tokenDocument.RootElement.GetProperty("id_token").GetString()!;
+        using var payload = JsonDocument.Parse(Base64UrlDecode(idToken.Split('.')[1]));
+        Assert.Equal(userId.ToString(), payload.RootElement.GetProperty("sub").GetString());
+        Assert.False(payload.RootElement.TryGetProperty("integration_connection_id", out _));
+        Assert.False(payload.RootElement.TryGetProperty("integration_household_id", out _));
+        Assert.False(payload.RootElement.TryGetProperty("integration_access_mode", out _));
+        Assert.False(payload.RootElement.TryGetProperty("name", out _));
+    }
+
     [Fact]
     public async Task Authorization_with_a_different_resource_is_rejected()
     {
@@ -136,15 +251,29 @@ public sealed class OAuthDiscoveryEndpointsTests
             token_endpoint_auth_method = "none"
         });
 
-    private static string CreateAuthorizationRequest(string clientId, string resource) =>
+    private static string CreateAuthorizationRequest(
+        string clientId,
+        string resource,
+        string scope = "homepit.read",
+        string codeChallenge = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNO12345678901") =>
         "/connect/authorize?response_type=code" +
         $"&client_id={Uri.EscapeDataString(clientId)}" +
         "&redirect_uri=http%3A%2F%2Flocalhost%3A6274%2Foauth%2Fcallback" +
-        "&scope=homepit.read" +
+        $"&scope={Uri.EscapeDataString(scope)}" +
         "&state=state" +
-        "&code_challenge=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNO12345678901" +
+        $"&code_challenge={Uri.EscapeDataString(codeChallenge)}" +
         "&code_challenge_method=S256" +
         $"&resource={Uri.EscapeDataString(resource)}";
+
+    private static string CreateCodeChallenge(string verifier) => Convert.ToBase64String(SHA256.HashData(System.Text.Encoding.ASCII.GetBytes(verifier)))
+        .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    private static byte[] Base64UrlDecode(string value)
+    {
+        var padded = value.Replace('-', '+').Replace('_', '/');
+        padded += new string('=', (4 - padded.Length % 4) % 4);
+        return Convert.FromBase64String(padded);
+    }
 
     private static HttpClient CreateOAuthClient(WebApplicationFactory<Program> factory, bool allowAutoRedirect = true) =>
         factory.CreateClient(new WebApplicationFactoryClientOptions

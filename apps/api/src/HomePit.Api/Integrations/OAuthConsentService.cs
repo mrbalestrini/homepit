@@ -20,7 +20,10 @@ public sealed class OAuthConsentService(
 {
     private static readonly HashSet<string> AllowedScopes = new(StringComparer.Ordinal)
     {
-        "homepit.read", "homepit.write", "offline_access"
+        OpenIddictConstants.Scopes.OpenId,
+        OpenIddictConstants.Scopes.OfflineAccess,
+        "homepit.read",
+        "homepit.write"
     };
 
     private readonly OAuthOptions options = options.Value;

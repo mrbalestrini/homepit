@@ -108,15 +108,18 @@ if (oauthEnabled)
                 .AllowAuthorizationCodeFlow()
                 .AllowRefreshTokenFlow()
                 .RequireProofKeyForCodeExchange()
-                .RegisterScopes("homepit.read", "homepit.write")
+                .RegisterScopes(
+                    OpenIddictConstants.Scopes.OpenId,
+                    OpenIddictConstants.Scopes.OfflineAccess,
+                    "homepit.read",
+                    "homepit.write")
                 .RegisterResources(oauthOptions.CanonicalMcpResource)
                 .SetAccessTokenLifetime(TimeSpan.FromMinutes(oauthOptions.AccessTokenMinutes))
                 .SetRefreshTokenLifetime(TimeSpan.FromDays(oauthOptions.RefreshTokenDays))
                 .UseReferenceAccessTokens()
                 .UseReferenceRefreshTokens()
-                // OpenIddict requires an asymmetric credential for potential ID
-                // tokens. HomePit doesn't grant the `openid` scope, while the
-                // symmetric key below remains preferred for local reference
+                // OpenIddict requires an asymmetric credential for ID tokens.
+                // The symmetric keys below remain preferred for local reference
                 // access, refresh and authorization-code tokens.
                 .AddEphemeralSigningKey()
                 .AddSigningKey(new SymmetricSecurityKey(Convert.FromBase64String(oauthOptions.SigningKey)))
@@ -294,6 +297,8 @@ if (oauthEnabled)
         descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode);
         descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.RefreshToken);
         descriptor.Permissions.Add(OpenIddictConstants.Permissions.ResponseTypes.Code);
+        descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + OpenIddictConstants.Scopes.OpenId);
+        descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + OpenIddictConstants.Scopes.OfflineAccess);
         descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + "homepit.read");
         descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + "homepit.write");
         descriptor.AddResourcePermissions(oauthOptions.CanonicalMcpResource);
@@ -337,7 +342,6 @@ if (oauthEnabled)
             OpenIddictConstants.Claims.Name,
             OpenIddictConstants.Claims.Role);
         identity.SetClaim(OpenIddictConstants.Claims.Subject, interaction.IntegrationConnection.UserId.ToString());
-        identity.SetClaim(OpenIddictConstants.Claims.Name, interaction.IntegrationConnection.Name);
         identity.SetClaim("system_role", "User");
         identity.SetClaim("integration", bool.TrueString);
         identity.SetClaim("integration_connection_id", interaction.IntegrationConnection.Id.ToString());
@@ -358,7 +362,9 @@ if (oauthEnabled)
             cancellationToken);
         interaction.IntegrationConnection.OAuthAuthorizationId = await authorizations.GetIdAsync(authorization, cancellationToken);
         identity.SetAuthorizationId(interaction.IntegrationConnection.OAuthAuthorizationId);
-        identity.SetDestinations(_ => new[] { OpenIddictConstants.Destinations.AccessToken });
+        identity.SetDestinations(claim => claim.Type == OpenIddictConstants.Claims.Subject
+            ? [OpenIddictConstants.Destinations.AccessToken, OpenIddictConstants.Destinations.IdentityToken]
+            : [OpenIddictConstants.Destinations.AccessToken]);
         await context.RequestServices.GetRequiredService<HomePitDbContext>().SaveChangesAsync(cancellationToken);
         return Results.SignIn(new System.Security.Claims.ClaimsPrincipal(identity), properties: null,
             authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
