@@ -1,6 +1,6 @@
 # MinIO local
 
-Este recurso sobe o armazenamento de objetos privado do HomePit.
+Este recurso sobe o armazenamento de objetos privado do Organiza Club.
 O compose usa por padrão a imagem community `minio/minio` para evitar a edicao enterprise `aistor`, que bloqueia operacoes S3 sem licenca.
 
 ## Enderecos locais
@@ -20,8 +20,8 @@ Se voce ja subiu o container antigo com `quay.io/minio/aistor/minio`, recrie o s
 
 ```powershell
 Set-Location infra/minio
-docker compose -p homepit-minio -f docker-compose.yml down
-docker compose -p homepit-minio -f docker-compose.yml up -d
+docker compose -p organiza-club-minio -f docker-compose.yml down
+docker compose -p organiza-club-minio -f docker-compose.yml up -d
 ```
 
 Se o volume antigo tiver persistido configuracoes internas do AIStor, o MinIO community pode iniciar com erro semelhante a:
@@ -34,6 +34,6 @@ Nesse caso, para ambiente local, remova tambem o volume do MinIO e suba novament
 
 ```powershell
 Set-Location infra/minio
-docker compose -p homepit-minio -f docker-compose.yml down -v
-docker compose -p homepit-minio -f docker-compose.yml up -d
+docker compose -p organiza-club-minio -f docker-compose.yml down -v
+docker compose -p organiza-club-minio -f docker-compose.yml up -d
 ```

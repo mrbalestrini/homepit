@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ApiError, apiFetchBlob, type HouseholdMember, type User } from "@/lib/api";
+import { ApiError, apiFetchBlob, type SpaceMember, type User } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const photoCache = new Map<string, string>();
@@ -44,15 +44,15 @@ export function AvatarCircle({
 export function ProtectedUserAvatar({
   user,
   token,
-  householdId,
+  spaceId,
   className,
 }: {
   user: User;
   token: string;
-  householdId?: string;
+  spaceId?: string;
   className?: string;
 }) {
-  const imageUrl = useProtectedUserPhoto(user.id, user.hasProfilePhoto, user.profilePhotoUpdatedAt, token, householdId);
+  const imageUrl = useProtectedUserPhoto(user.id, user.hasProfilePhoto, user.profilePhotoUpdatedAt, token, spaceId);
   return <AvatarCircle name={user.displayName} imageUrl={imageUrl} className={className} />;
 }
 
@@ -61,18 +61,18 @@ export function useProtectedUserPhoto(
   hasProfilePhoto: boolean,
   profilePhotoUpdatedAt: string | null | undefined,
   token: string,
-  householdId?: string,
+  spaceId?: string,
 ) {
   const cacheKey = hasProfilePhoto && token
-    ? householdId
-      ? `member:${userId}:${householdId}:${profilePhotoUpdatedAt ?? ""}`
+    ? spaceId
+      ? `member:${userId}:${spaceId}:${profilePhotoUpdatedAt ?? ""}`
       : `me:${userId}:${profilePhotoUpdatedAt ?? ""}`
     : null;
-  const path = householdId
+  const path = spaceId
     ? `/api/users/${userId}/profile-photo`
     : "/api/users/me/profile-photo";
 
-  return useCachedProtectedUserPhoto(cacheKey, path, token, householdId);
+  return useCachedProtectedUserPhoto(cacheKey, path, token, spaceId);
 }
 
 export function useProtectedUserPhotoById(
@@ -80,24 +80,24 @@ export function useProtectedUserPhotoById(
   hasProfilePhoto: boolean,
   profilePhotoUpdatedAt: string | null | undefined,
   token: string,
-  householdId?: string,
+  spaceId?: string,
 ) {
-  const cacheKey = hasProfilePhoto && token && householdId
-    ? `member:${userId}:${householdId}:${profilePhotoUpdatedAt ?? ""}`
+  const cacheKey = hasProfilePhoto && token && spaceId
+    ? `member:${userId}:${spaceId}:${profilePhotoUpdatedAt ?? ""}`
     : null;
 
-  return useCachedProtectedUserPhoto(cacheKey, `/api/users/${userId}/profile-photo`, token, householdId);
+  return useCachedProtectedUserPhoto(cacheKey, `/api/users/${userId}/profile-photo`, token, spaceId);
 }
 
-export function HouseholdMemberAvatar({
+export function SpaceMemberAvatar({
   member,
   token,
-  householdId,
+  spaceId,
   className,
 }: {
-  member: HouseholdMember;
+  member: SpaceMember;
   token?: string;
-  householdId?: string;
+  spaceId?: string;
   className?: string;
 }) {
   const imageUrl = useProtectedUserPhotoById(
@@ -105,7 +105,7 @@ export function HouseholdMemberAvatar({
     member.hasProfilePhoto,
     member.profilePhotoUpdatedAt,
     token ?? "",
-    householdId,
+    spaceId,
   );
 
   return <AvatarCircle name={member.displayName} imageUrl={imageUrl} className={className} />;
@@ -115,7 +115,7 @@ function useCachedProtectedUserPhoto(
   cacheKey: string | null,
   path: string,
   token: string,
-  householdId?: string,
+  spaceId?: string,
 ) {
   const [fetchedImage, setFetchedImage] = useState<{ cacheKey: string; imageUrl: string | null } | null>(null);
 
@@ -137,7 +137,7 @@ function useCachedProtectedUserPhoto(
 
     const pendingRequest =
       photoRequests.get(cacheKey) ??
-      apiFetchBlob(path, { token, householdId })
+      apiFetchBlob(path, { token, spaceId })
         .then((blob) => {
           const objectUrl = URL.createObjectURL(blob);
           photoCache.set(cacheKey, objectUrl);
@@ -171,7 +171,7 @@ function useCachedProtectedUserPhoto(
     return () => {
       cancelled = true;
     };
-  }, [cacheKey, householdId, path, token]);
+  }, [cacheKey, spaceId, path, token]);
 
   if (!cacheKey) {
     return null;

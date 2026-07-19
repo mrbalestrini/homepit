@@ -1,4 +1,4 @@
 interface:
-  display_name: "HomePit Auth"
-  short_description: "Alterar autenticacao e autorizacao do HomePit"
-  default_prompt: "Use a skill auth para trabalhar em JWT, sessoes, perfis e permissoes do HomePit."
+  display_name: "OrganizaClub Auth"
+  short_description: "Alterar autenticacao e autorizacao do Organiza Club"
+  default_prompt: "Use a skill auth para trabalhar em JWT, sessoes, perfis e permissoes do Organiza Club."

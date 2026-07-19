@@ -1,6 +1,6 @@
 ---
 name: frontend
-description: Use for frontend Next.js, React, TypeScript, Tailwind, UI components, feature hooks, and browser behavior in HomePit. Do not use for backend, database, or infrastructure changes.
+description: Use for frontend Next.js, React, TypeScript, Tailwind, UI components, feature hooks, and browser behavior in OrganizaClub. Do not use for backend, database, or infrastructure changes.
 ---
 
 # Frontend

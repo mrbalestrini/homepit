@@ -5,7 +5,7 @@
 Create an external Docker network on the Coolify host:
 
 ```bash
-docker network create homepit_net
+docker network create organiza_club_net
 ```
 
 ## Resources
@@ -31,16 +31,16 @@ Start order:
 Use the Supabase internal host:
 
 ```txt
-ConnectionStrings__HomePitDb=Host=supabase-db;Port=5432;Database=postgres;Username=supabase_admin;Password=...
+ConnectionStrings__OrganizaClubDb=Host=organiza-club-supabase-db;Port=5432;Database=postgres;Username=supabase_admin;Password=...
 Database__ApplyMigrationsOnStartup=true
 ```
 
 Use the Evolution internal host:
 
 ```txt
-EvolutionApi__BaseUrl=http://evolution-api:8080
+EvolutionApi__BaseUrl=http://organiza-club-evolution-api:8080
 EvolutionApi__ApiKey=...
-EvolutionApi__InstanceName=homepit
+EvolutionApi__InstanceName=organiza-club
 ```
 
 Optional superadmin access:
@@ -57,10 +57,10 @@ Use the MinIO internal host:
 # Use the same credentials configured in the MinIO resource.
 # ObjectStorage__AccessKey must match MINIO_ROOT_USER.
 # ObjectStorage__SecretKey must match MINIO_ROOT_PASSWORD.
-ObjectStorage__Endpoint=http://homepit-minio:9000
+ObjectStorage__Endpoint=http://organiza-club-minio:9000
 ObjectStorage__AccessKey=...
 ObjectStorage__SecretKey=...
-ObjectStorage__BucketName=homepit-assets
+ObjectStorage__BucketName=organiza-club-assets
 ObjectStorage__UseSsl=false
 ObjectStorage__CreateBucketOnStartup=true
 ```
@@ -73,16 +73,16 @@ Keep `Integrations__Enabled=false` and `Mcp__Enabled=false` until the migration 
 Integrations__Enabled=true
 Integrations__TokenPepper=...
 Mcp__Enabled=true
-OAuth__Issuer=https://api.homepit.example.com
-OAuth__WebConsentUrl=https://homepit.example.com/oauth/consent
+OAuth__Issuer=https://api.organiza.club
+OAuth__WebConsentUrl=https://organiza.club/oauth/consent
 OAuth__SigningKey=...
 OAuth__EncryptionKey=...
 OAuth__AccessTokenMinutes=15
 OAuth__RefreshTokenDays=30
 OAuth__InteractionMinutes=10
 OAuth__TrustedProxies__0=<IP-interno-do-proxy-Coolify-que-encaminha-para-a-API>
-AllowedHosts=api.homepit.example.com
-Cors__AllowedOrigins__0=https://homepit.example.com
+AllowedHosts=api.organiza.club
+Cors__AllowedOrigins__0=https://organiza.club
 ```
 
 The Coolify proxy must preserve `X-Forwarded-Proto: https`. Set `OAuth__TrustedProxies__0` to the address that appears as the direct peer of the API container (not a Cloudflare address); production startup rejects OAuth without an explicitly trusted proxy. Before enabling MCP, verify `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource/mcp` through the public API domain. Never reuse the JWT signing key for OAuth.
@@ -102,7 +102,7 @@ ORDER BY "MigrationId";
 ```sql
 SELECT column_name
 FROM information_schema.columns
-WHERE table_schema = 'homepit'
+WHERE table_schema = 'organiza_club'
   AND table_name = 'users'
   AND column_name IN ('ProfilePhotoObjectKey', 'ProfilePhotoUpdatedAt');
 ```

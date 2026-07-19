@@ -1,7 +1,7 @@
 "use client";
 
 import { AccountStateGate } from "@/features/workspace/account-state-gate";
-import { HomePitAuth } from "@/features/workspace/homepit-auth";
+import { OrganizaClubAuth } from "@/features/workspace/organiza-club-auth";
 import { PromptBankWorkspace } from "./prompt-bank-workspace";
 import { usePromptBank } from "./use-prompt-bank";
 
@@ -9,7 +9,7 @@ export function PromptBank() {
   const bank = usePromptBank();
 
   if (!bank.session) {
-    return <HomePitAuth onAuthenticated={bank.handleAuthenticated} />;
+    return <OrganizaClubAuth onAuthenticated={bank.handleAuthenticated} />;
   }
 
   return (

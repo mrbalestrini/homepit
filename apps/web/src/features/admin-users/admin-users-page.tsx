@@ -12,8 +12,8 @@ import { type AdminUserListItem, apiFetch, clearSession } from "@/lib/api";
 import { useProjectDashboard } from "@/features/projects/use-project-dashboard";
 import { AccountStateGate } from "@/features/workspace/account-state-gate";
 import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmation-dialog";
-import { HomePitAuth } from "@/features/workspace/homepit-auth";
-import { HomePitWorkspaceShell, Notice } from "@/features/workspace/homepit-workspace-shell";
+import { OrganizaClubAuth } from "@/features/workspace/organiza-club-auth";
+import { OrganizaClubWorkspaceShell, Notice } from "@/features/workspace/organiza-club-workspace-shell";
 
 type UserFilter = "all" | "Active" | "PendingSelfDeletion" | "DisabledBySuperAdmin";
 
@@ -21,7 +21,7 @@ export function AdminUsersPage() {
   const dashboard = useProjectDashboard();
 
   if (!dashboard.session) {
-    return <HomePitAuth onAuthenticated={dashboard.handleAuthenticated} />;
+    return <OrganizaClubAuth onAuthenticated={dashboard.handleAuthenticated} />;
   }
 
   return (
@@ -39,46 +39,46 @@ function AdminUsersWorkspace({ dashboard }: { dashboard: ReturnType<typeof usePr
   }
 
   return (
-    <HomePitWorkspaceShell
+    <OrganizaClubWorkspaceShell
       controller={{
         session,
-        activeHouseholdId: dashboard.activeHouseholdId,
-        activeHousehold: dashboard.activeHousehold,
+        activeSpaceId: dashboard.activeSpaceId,
+        activeSpace: dashboard.activeSpace,
         members: dashboard.members,
         theme: dashboard.theme,
         sidebarCollapsed: dashboard.sidebarCollapsed,
         loading: dashboard.loading,
         error: dashboard.error,
-        canShareHousehold: dashboard.canShareHousehold,
-        canManageHousehold: dashboard.canManageHousehold,
-        editingHousehold: dashboard.editingHousehold,
-        isHouseholdDialogOpen: dashboard.activeModal === "household",
+        canShareSpace: dashboard.canShareSpace,
+        canManageSpace: dashboard.canManageSpace,
+        editingSpace: dashboard.editingSpace,
+        isSpaceDialogOpen: dashboard.activeModal === "space",
         isShareDialogOpen: dashboard.activeModal === "share",
         setError: dashboard.setError,
         setSidebarCollapsed: dashboard.setSidebarCollapsed,
         setTheme: dashboard.setTheme,
-        handleHouseholdChange: dashboard.handleHouseholdChange,
+        handleSpaceChange: dashboard.handleSpaceChange,
         handleLogout: dashboard.handleLogout,
-        refreshHouseholds: dashboard.refreshHouseholds,
+        refreshSpaces: dashboard.refreshSpaces,
         refreshWorkspace: async () => dashboard.loadWorkspace(),
-        openCreateHousehold: dashboard.openCreateHousehold,
-        openEditHousehold: dashboard.openEditHousehold,
-        openShareHousehold: dashboard.openShareHousehold,
+        openCreateSpace: dashboard.openCreateSpace,
+        openEditSpace: dashboard.openEditSpace,
+        openShareSpace: dashboard.openShareSpace,
         closeCommonModal: dashboard.closeModal,
-        createHousehold: dashboard.createHousehold,
-        updateHousehold: dashboard.updateHousehold,
-        deleteHousehold: dashboard.deleteHousehold,
-        shareHousehold: dashboard.shareHousehold,
+        createSpace: dashboard.createSpace,
+        updateSpace: dashboard.updateSpace,
+        deleteSpace: dashboard.deleteSpace,
+        shareSpace: dashboard.shareSpace,
       }}
       activeModule="platform"
       subtitle="Gestão global de contas, desativações e exclusões definitivas"
-      visibleCount={session.households.length}
-      visibleLabel="casas visíveis"
-      headerStats={[{ label: "casas", value: session.households.length }]}
-      requireHousehold={false}
+      visibleCount={session.spaces.length}
+      visibleLabel="espaços visíveis"
+      headerStats={[{ label: "espaços", value: session.spaces.length }]}
+      requireSpace={false}
     >
       <AdminUsersPanel token={session.accessToken} />
-    </HomePitWorkspaceShell>
+    </OrganizaClubWorkspaceShell>
   );
 }
 
@@ -184,7 +184,7 @@ function AdminUsersPanel({ token }: { token: string }) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">SuperAdmin</p>
             <h1 className="mt-2 text-3xl font-semibold text-foreground">Usuários da plataforma</h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Desative, reative ou exclua contas comuns com visibilidade sobre casas próprias e vínculos ativos.
+              Desative, reative ou exclua contas comuns com visibilidade sobre espaços próprios e vínculos ativos.
             </p>
           </div>
           <div className="w-full max-w-xs">
@@ -206,8 +206,8 @@ function AdminUsersPanel({ token }: { token: string }) {
       </div>
 
       <Notice tone="warning">
-        O superadmin é protegido e aparece apenas para leitura. Excluir um usuário proprietário apaga suas casas próprias e
-        todos os vínculos dessas casas.
+        O superadmin é protegido e aparece apenas para leitura. Excluir um usuário proprietário apaga seus espaços próprios e
+        todos os vínculos desses espaços.
       </Notice>
 
       <Card>
@@ -243,14 +243,14 @@ function AdminUsersPanel({ token }: { token: string }) {
       <DeleteConfirmationDialog
         open={Boolean(userToDelete)}
         title="Excluir usuário"
-        description="Essa ação remove a conta e todos os vínculos do usuário. Se ele possuir casas próprias, elas também serão apagadas com seus dados vinculados."
+        description="Essa ação remove a conta e todos os vínculos do usuário. Se ele possuir espaços próprios, elas também serão apagadas com seus dados vinculados."
         confirmationTarget={userToDelete?.email}
         confirmationLabel={`Digite o e-mail ${userToDelete?.email ?? ""} para confirmar`}
         confirmLabel="Excluir usuário"
         impactItems={[
           "A conta, os tokens e os vínculos ativos do usuário.",
-          "Comentários autorados por ele em outras casas.",
-          "Casas próprias do usuário e todos os vínculos dessas casas, quando existirem.",
+          "Comentários autorados por ele em outros espaços.",
+          "Espaços próprios do usuário e todos os vínculos desses espaços, quando existirem.",
         ]}
         onOpenChange={(open) => {
           if (!open) {
@@ -309,7 +309,7 @@ function UserRow({
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span>{user.email}</span>
             <span>{user.membershipCount} vínculo(s)</span>
-            <span>{user.ownedHouseholdCount} casa(s) própria(s)</span>
+            <span>{user.ownedSpaceCount} espaço(s) própria(s)</span>
           </div>
           {scheduledDeletionLabel ? (
             <p className="text-xs text-danger">Exclusão agendada para {scheduledDeletionLabel}</p>

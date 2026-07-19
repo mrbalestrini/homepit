@@ -81,7 +81,7 @@ function BlockedAccountScreen({ session }: { session: AuthResponse }) {
         <CardContent className="space-y-5">
           {isPendingSelfDeletion ? (
             <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4 text-sm leading-6 text-muted-foreground">
-              Você pode sair agora e manter o cancelamento agendado, ou desfazer o cancelamento para recuperar suas casa(s)
+              Você pode sair agora e manter o cancelamento agendado, ou desfazer o cancelamento para recuperar suas espaço(s)
               e continuar usando o sistema normalmente.
             </div>
           ) : (
@@ -98,7 +98,7 @@ function BlockedAccountScreen({ session }: { session: AuthResponse }) {
             {isPendingSelfDeletion ? (
               <Button className="sm:min-w-72" onClick={() => void reactivateAccount()} disabled={loading}>
                 {loading ? <Loader2 className="animate-spin" /> : <RotateCcw />}
-                Desfazer cancelamento da conta e recuperar casa(s)
+                Desfazer cancelamento da conta e recuperar espaço(s)
               </Button>
             ) : null}
           </div>

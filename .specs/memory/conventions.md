@@ -6,19 +6,19 @@
 - C#: namespaces por pasta, PascalCase, classes frequentemente `sealed`, DTOs como `record`,
   metodos assincronos com sufixo `Async` e `CancellationToken`.
 - Dependencias de servicos sao recebidas por construtores primarios e registradas por
-  extensoes `AddHomePitApplication` e `AddHomePitInfrastructure`.
+  extensoes `AddOrganizaClubApplication` e `AddOrganizaClubInfrastructure`.
 - Erros esperados usam subclasses de `AppException`; o middleware converte para Problem
   Details e codigos HTTP.
 - Minimal APIs sao agrupadas em `/api/auth` e `/api`, sem controllers MVC observados.
-- Entidades usam `Guid`, `AuditableEntity`, navegacoes EF e `IHouseholdScoped` quando aplicavel.
+- Entidades usam `Guid`, `AuditableEntity`, navegacoes EF e `ISpaceScoped` quando aplicavel.
 - Tabelas usam nomes `snake_case`; enums de status e papeis sao persistidos como texto.
-- Migrations usam prefixo timestamp e ficam em `HomePit.Infrastructure/Migrations`.
+- Migrations usam prefixo timestamp e ficam em `OrganizaClub.Infrastructure/Migrations`.
 - Frontend: arquivos em kebab-case, componentes em PascalCase, hooks `use*` e alias `@/*`.
 - Paginas em `src/app` delegam para componentes em `src/features`.
 - Componentes compartilhados ficam em `components/ui` e `features/workspace`.
 - Estado e mutacoes das telas ficam em hooks como `useProjectDashboard` e `usePromptBank`.
-- Persistencia local compartilhada fica em helpers de `src/lib`, como a selecao da casa
-  ativa por usuario em `household-selection.ts`.
+- Persistencia local compartilhada fica em helpers de `src/lib`, como a selecao do espaço
+  ativa por usuario em `space-selection.ts`.
 - Icones Lucide devem ser semanticos ao contexto da acao; `Sparkles` fica reservado para
   IA, automacao ou destaque realmente excepcional e nao deve ser o icone generico padrao.
 - A versao oficial deve ser igual em todos os `package.json`; so altere a versao quando o

@@ -2,25 +2,25 @@
 
 ## FATO OBSERVADO
 
-- Minimal APIs ficam em `Program.cs`; grupos autenticados usam `RequireAuthorization`.
-- `IUserContext` extrai usuario, perfil global e `X-Household-Id` do request.
+- Minimal APIs ficam em `Program.cs`; grupos autenticadas usam `RequireAuthorization`.
+- `IUserContext` extrai usuario, perfil global e `X-Space-Id` do request.
 - Servicos de Application aplicam validacao, tenancy e autorizacao antes de persistir.
 - Infrastructure implementa EF Core, JWT, PBKDF2, MinIO, Evolution e worker hospedado.
-- `IHomePitDbContext`, `IPasswordHasher`, `ITokenService`, `IObjectStorage` e
+- `IOrganizaClubDbContext`, `IPasswordHasher`, `ITokenService`, `IObjectStorage` e
   `IWhatsAppClient` isolam dependencias.
-- EF Core usa schema `homepit`, configuracao Fluent API, indices, constraints e migrations.
+- EF Core usa schema `organiza_club`, configuracao Fluent API, indices, constraints e migrations.
 - `appsettings.json` habilita `Database:ApplyMigrationsOnStartup`; em
   `appsettings.Development.json` essa automacao fica desativada e a API exige banco sem
   migrations pendentes.
 - O `DatabaseMigrator` ignora providers nao relacionais, o que permite testes com
   InMemory sem acionar APIs de migracao que dependem de banco relacional.
 - Migrations escritas ou ajustadas manualmente precisam manter os metadados que o EF Core
-  usa para descobri-las no assembly, incluindo `[DbContext(typeof(HomePitDbContext))]` e
+  usa para descobri-las no assembly, incluindo `[DbContext(typeof(OrganizaClubDbContext))]` e
   `[Migration("yyyyMMddHHmmss_NomeDaMigration")]`.
 - Entidades auditaveis recebem `CreatedAt` e `UpdatedAt` no `SaveChangesAsync`.
 - Exclusoes usam combinacao de cascata, `SetNull`, `Restrict` e inativacao conforme o vinculo.
 - Erros de aplicacao viram Problem Details; erros inesperados nao retornam detalhe interno.
-- Arquivos privados sao lidos por endpoints autenticados com `Cache-Control: no-store`.
+- Arquivos privados sao lidos por endpoints autenticadas com `Cache-Control: no-store`.
 - Imagens privadas de atividades seguem o mesmo padrao de upload multipart, leitura
   autenticada e remocao protegida, usando `Cache-Control: no-store` na leitura.
 - Uploads comuns de imagem agora passam por um `IImageUploadProcessor` compartilhado no
@@ -28,12 +28,12 @@
   enquanto SEO institucional permanece com policy separada.
 - Imagens institucionais sao a excecao publica do object storage e usam
   `Cache-Control: public, max-age=31536000, immutable` com timestamp na URL.
-- O CMS institucional e global, nao usa `X-Household-Id` e valida `SystemRole.SuperAdmin`
+- O CMS institucional e global, nao usa `X-Space-Id` e valida `SystemRole.SuperAdmin`
   no servico de Application.
 - Frontend centraliza tipos, fetch, refresh e eventos de sessao em `src/lib/api.ts`.
-- A selecao da casa ativa usa helper compartilhado em `src/lib/household-selection.ts`
+- A selecao do espaço ativo usa helper compartilhado em `src/lib/space-selection.ts`
   para persistencia segura, validacao contra a sessao e limpeza de valores obsoletos.
-- O banco de prompts envia `householdId` ao buscar imagens protegidas de prompt no card e
+- O banco de prompts envia `spaceId` ao buscar imagens protegidas de prompt no card e
   no detalhe, seguindo a mesma regra de tenancy das demais rotas protegidas.
 - O controller do banco de prompts expõe `viewMode` para alternar entre grade e lista,
   sem alterar filtros, paginação ou o restante do fluxo de leitura.
@@ -44,11 +44,11 @@
   controller.
 - O dashboard de projetos oculta localmente atividades concluídas há mais de 30 dias e
   destaca o botão de antigas quando a busca corresponde a uma atividade oculta.
-- Casas na sessao agora incluem `CreatedAt`, permitindo fallback por recencia quando a
+- Espaços na sessao agora incluem `CreatedAt`, permitindo fallback por recencia quando a
   selecao salva nao existe mais.
 - Hooks de feature funcionam como controladores de estado e mutacao.
 - O plano de esforço usa `GET` e `PUT /api/effort-plan`; a fila calculada usa `GET /api/activities/relevance` com data e offset local explícitos.
-- Telas reutilizam `HomePitWorkspaceShell` e componentes em `components/ui`.
+- Telas reutilizam `OrganizaClubWorkspaceShell` e componentes em `components/ui`.
 - Next.js gera output `standalone`; Docker usa build multi-stage e usuario nao root na web.
 - Testes backend usam xUnit, EF InMemory e WebApplicationFactory com fakes de storage.
 - Testes frontend usam Vitest, jsdom e Testing Library.
@@ -59,7 +59,7 @@
   introduzir uma nova camada.
 - Alteracoes de contrato devem atualizar implementacao, tipos frontend, OpenAPI e testes
   relacionados, pois hoje esses artefatos sao mantidos separadamente.
-- Em HomePit, validar migration significa tambem validar descobribilidade no startup do
+- Em Organiza Club, validar migration significa tambem validar descobribilidade no startup do
   deploy; arquivo presente no repositorio nao garante que o EF a considere pendente.
 - Em mudancas frontend com DTOs, patches otimistas, reconciliacao local ou hooks de
   controller, a conclusao segura exige `npm run build` em `apps/web`, porque o gate de

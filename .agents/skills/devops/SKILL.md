@@ -1,6 +1,6 @@
 ---
 name: devops
-description: Use for Dockerfiles, Docker Compose, Coolify, PowerShell setup, environment shape, ports, networks, and deployment operations in HomePit. Do not use for application feature code or unidentified CI automation.
+description: Use for Dockerfiles, Docker Compose, Coolify, PowerShell setup, environment shape, ports, networks, and deployment operations in OrganizaClub. Do not use for application feature code or unidentified CI automation.
 ---
 
 # DevOps
@@ -22,7 +22,7 @@ description: Use for Dockerfiles, Docker Compose, Coolify, PowerShell setup, env
 - A spec ativa em `.specs/changes/`, se existir.
 
 ## Responsabilidades
-- Preservar a separacao dos cinco recursos e a rede `homepit_net`.
+- Preservar a separacao dos cinco recursos e a rede `organiza_club_net`.
 - Tratar variaveis por nome, sem copiar valores sensiveis.
 - Explicitar efeitos destrutivos, dependencias e ordem de rollout.
 

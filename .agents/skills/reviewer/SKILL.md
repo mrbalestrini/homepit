@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Use for reviewing HomePit diffs, pull requests, regressions, risks, and spec compliance. Do not use for implementing new code.
+description: Use for reviewing OrganizaClub diffs, pull requests, regressions, risks, and spec compliance. Do not use for implementing new code.
 ---
 
 # Reviewer

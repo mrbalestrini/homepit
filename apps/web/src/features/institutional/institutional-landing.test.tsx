@@ -7,31 +7,38 @@ describe("InstitutionalLanding", () => {
   it("renders managed sections, external CTA and image alternative text", () => {
     render(<InstitutionalLanding page={buildPage()} />);
 
-    expect(screen.getByRole("heading", { name: "Uma casa que avança" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Um espaço que avança" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Benefício editável" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Etapa editável" })).toBeInTheDocument();
     expect(screen.getByAltText("Imagem principal acessível")).toBeInTheDocument();
     expect(screen.getByAltText("Imagem de destaque acessível")).toBeInTheDocument();
 
-    const contactLinks = screen.getAllByRole("link", { name: "Falar com a HomePit" });
+    const contactLinks = screen.getAllByRole("link", { name: "Falar com a Organiza Club" });
     expect(contactLinks.length).toBeGreaterThan(1);
     expect(contactLinks[0]).toHaveAttribute("href", "https://example.com/contact");
     expect(contactLinks[0]).toHaveAttribute("target", "_blank");
     expect(screen.getAllByRole("link", { name: /Entrar/ }).some((link) => link.getAttribute("href") === "/projects")).toBe(true);
   });
+
+  it("keeps an internal managed CTA inside the app", () => {
+    render(<InstitutionalLanding page={buildPage({ primaryCtaLabel: "Entrar no clube", primaryCtaUrl: "/projects" })} />);
+
+    const links = screen.getAllByRole("link", { name: "Entrar no clube" });
+    expect(links.some((link) => link.getAttribute("href") === "/projects" && !link.hasAttribute("target"))).toBe(true);
+  });
 });
 
-function buildPage(): InstitutionalPageContent {
+function buildPage(overrides: Partial<InstitutionalPageContent> = {}): InstitutionalPageContent {
   return {
     slug: "home",
-    seoTitle: "HomePit",
+    seoTitle: "Organiza Club",
     seoDescription: "Descrição",
-    brandName: "HomePit",
-    brandTagline: "Casa organizada",
+    brandName: "Organiza Club",
+    brandTagline: "Espaço organizado",
     heroEyebrow: "Destaque",
-    heroTitle: "Uma casa que avança",
+    heroTitle: "Um espaço que avança",
     heroDescription: "Descrição principal",
-    primaryCtaLabel: "Falar com a HomePit",
+    primaryCtaLabel: "Falar com a Organiza Club",
     primaryCtaUrl: "https://example.com/contact",
     benefitsTitle: "Benefícios",
     benefitsDescription: "Descrição dos benefícios",
@@ -54,5 +61,6 @@ function buildPage(): InstitutionalPageContent {
     hasSeoImage: false,
     seoImageUpdatedAt: null,
     updatedAt: "2026-06-15T12:00:00Z",
+    ...overrides,
   };
 }

@@ -8,9 +8,9 @@ import {
   PromptListItem,
   PromptListResponse,
   AuthResponse,
-  Household,
-  HouseholdMember,
-  Universe,
+  Space,
+  SpaceMember,
+  Core,
   apiFetch,
   clearSession,
   readSession,
@@ -19,20 +19,20 @@ import {
   updateStoredSession,
 } from "@/lib/api";
 import {
-  clearStoredActiveHouseholdId,
-  readStoredActiveHouseholdId,
-  resolveActiveHouseholdSelection,
-  storeActiveHouseholdId,
-} from "@/lib/household-selection";
+  clearStoredActiveSpaceId,
+  readStoredActiveSpaceId,
+  resolveActiveSpaceSelection,
+  storeActiveSpaceId,
+} from "@/lib/space-selection";
 import { defaultAppTheme, uiStorageKeys } from "@/features/projects/project-dashboard.constants";
 import type { AppTheme } from "@/features/projects/project-dashboard.types";
 import { getErrorMessage } from "@/features/projects/project-dashboard.utils";
 
-type PromptActiveModal = "household" | "share" | "prompt" | "category" | null;
+type PromptActiveModal = "space" | "share" | "prompt" | "category" | null;
 export type PromptViewMode = "grid" | "list";
 
 export type PromptFormInput = {
-  universeId?: string;
+  coreId?: string;
   title: string;
   description?: string;
   promptText: string;
@@ -44,11 +44,15 @@ export type PromptFormInput = {
 };
 
 function isAppTheme(value: string | null): value is AppTheme {
-  return value === "cozy" || value === "earthy" || value === "dark";
+  return value === "light" || value === "system" || value === "dark";
 }
 
 function applyDocumentTheme(theme: AppTheme) {
-  document.documentElement.dataset.theme = theme;
+  const resolved = theme === "system"
+    ? window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+    : theme;
+  document.documentElement.dataset.themePreference = theme;
+  document.documentElement.dataset.theme = resolved;
 }
 
 export function readStoredPromptImagesHidden() {
@@ -82,14 +86,14 @@ export function storePromptImagesHidden(hidden: boolean) {
 
 export function usePromptBank() {
   const [session, setSession] = useState<AuthResponse | null>(null);
-  const [activeHouseholdId, setActiveHouseholdId] = useState("");
-  const [universes, setUniverses] = useState<Universe[]>([]);
-  const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [activeSpaceId, setActiveSpaceId] = useState("");
+  const [cores, setCores] = useState<Core[]>([]);
+  const [members, setMembers] = useState<SpaceMember[]>([]);
   const [categories, setCategories] = useState<PromptCategory[]>([]);
   const [promptPage, setPromptPage] = useState<PromptListResponse>({ items: [], page: 1, pageSize: 12, totalCount: 0 });
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
-  const [universeFilter, setUniverseFilter] = useState("all");
+  const [coreFilter, setCoreFilter] = useState("all");
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [viewMode, setViewModeState] = useState<PromptViewMode>("grid");
   const [page, setPage] = useState(1);
@@ -98,7 +102,7 @@ export function usePromptBank() {
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
   const [theme, setThemeState] = useState<AppTheme>(defaultAppTheme);
   const [activeModal, setActiveModal] = useState<PromptActiveModal>(null);
-  const [editingHousehold, setEditingHousehold] = useState<Household | null>(null);
+  const [editingSpace, setEditingSpace] = useState<Space | null>(null);
   const [editingPrompt, setEditingPrompt] = useState<PromptDetail | null>(null);
   const [editingCategory, setEditingCategory] = useState<PromptCategory | null>(null);
   const [deletingCategory, setDeletingCategory] = useState<PromptCategory | null>(null);
@@ -108,20 +112,20 @@ export function usePromptBank() {
   const [loadingPrompts, setLoadingPrompts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sessionUserIdRef = useRef<string | null>(null);
-  const activeHouseholdIdRef = useRef("");
+  const activeSpaceIdRef = useRef("");
 
   const resetWorkspaceState = useCallback(() => {
-    setUniverses([]);
+    setCores([]);
     setMembers([]);
     setCategories([]);
     setPromptPage({ items: [], page: 1, pageSize: 12, totalCount: 0 });
     setSearch("");
-    setUniverseFilter("all");
+    setCoreFilter("all");
     setSelectedCategoryIds([]);
     setViewModeState("grid");
     setPage(1);
     setArchivedOnlyState(false);
-    setEditingHousehold(null);
+    setEditingSpace(null);
     setEditingPrompt(null);
     setEditingCategory(null);
     setDeletingCategory(null);
@@ -145,25 +149,25 @@ export function usePromptBank() {
 
       setSession(nextSession);
       if (!nextSession) {
-        setActiveHouseholdId("");
+        setActiveSpaceId("");
         return;
       }
 
-      const storedHouseholdId = readStoredActiveHouseholdId(nextSession.user.id);
-      const { householdId, shouldClearStoredHouseholdId } = resolveActiveHouseholdSelection(
-        nextSession.households,
-        activeHouseholdIdRef.current,
-        storedHouseholdId,
+      const storedSpaceId = readStoredActiveSpaceId(nextSession.user.id);
+      const { spaceId, shouldClearStoredSpaceId } = resolveActiveSpaceSelection(
+        nextSession.spaces,
+        activeSpaceIdRef.current,
+        storedSpaceId,
       );
 
-      if (shouldClearStoredHouseholdId) {
-        clearStoredActiveHouseholdId(nextSession.user.id);
+      if (shouldClearStoredSpaceId) {
+        clearStoredActiveSpaceId(nextSession.user.id);
       }
 
-      setActiveHouseholdId(householdId);
-      const hasHouseholds = Boolean(nextSession && nextSession.households.length > 0);
-      setLoadingReferences(hasHouseholds);
-      setLoadingPrompts(hasHouseholds);
+      setActiveSpaceId(spaceId);
+      const hasSpaces = Boolean(nextSession && nextSession.spaces.length > 0);
+      setLoadingReferences(hasSpaces);
+      setLoadingPrompts(hasSpaces);
     },
     [resetWorkspaceState],
   );
@@ -208,8 +212,8 @@ export function usePromptBank() {
   }, [theme]);
 
   useEffect(() => {
-    activeHouseholdIdRef.current = activeHouseholdId;
-  }, [activeHouseholdId]);
+    activeSpaceIdRef.current = activeSpaceId;
+  }, [activeSpaceId]);
 
   useEffect(() => {
     const userId = session?.user.id;
@@ -218,36 +222,36 @@ export function usePromptBank() {
       return;
     }
 
-    if (activeHouseholdId) {
-      storeActiveHouseholdId(userId, activeHouseholdId);
+    if (activeSpaceId) {
+      storeActiveSpaceId(userId, activeSpaceId);
       return;
     }
 
-    clearStoredActiveHouseholdId(userId);
-  }, [activeHouseholdId, session?.user.id]);
+    clearStoredActiveSpaceId(userId);
+  }, [activeSpaceId, session?.user.id]);
 
-  const activeHousehold = useMemo(() => {
-    return session?.households.find((household) => household.id === activeHouseholdId) ?? null;
-  }, [activeHouseholdId, session?.households]);
+  const activeSpace = useMemo(() => {
+    return session?.spaces.find((space) => space.id === activeSpaceId) ?? null;
+  }, [activeSpaceId, session?.spaces]);
   const isAccountActive = (session?.user.accountState ?? "Active") === "Active";
 
-  const canShareHousehold = activeHousehold?.role === "Owner" || activeHousehold?.role === "Admin";
-  const canManageHousehold = activeHousehold?.role === "Owner";
+  const canShareSpace = activeSpace?.role === "Owner" || activeSpace?.role === "Admin";
+  const canManageSpace = activeSpace?.role === "Owner";
   const loading = loadingReferences || loadingPrompts || detailLoading;
 
-  const selectedUniverse = useMemo(() => {
-    return universes.find((universe) => universe.id === universeFilter) ?? null;
-  }, [universeFilter, universes]);
+  const selectedCore = useMemo(() => {
+    return cores.find((core) => core.id === coreFilter) ?? null;
+  }, [coreFilter, cores]);
 
   const subtitle = useMemo(() => {
     const archivedPrefix = archivedOnly ? "Arquivados" : "Prompts";
 
-    if (universeFilter === "none") {
-      return archivedOnly ? "Prompts arquivados sem universo" : "Prompts sem universo";
+    if (coreFilter === "none") {
+      return archivedOnly ? "Prompts arquivados sem núcleo" : "Prompts sem núcleo";
     }
 
-    if (selectedUniverse) {
-      return archivedOnly ? `Prompts arquivados em ${selectedUniverse.name}` : `Prompts em ${selectedUniverse.name}`;
+    if (selectedCore) {
+      return archivedOnly ? `Prompts arquivados em ${selectedCore.name}` : `Prompts em ${selectedCore.name}`;
     }
 
     if (selectedCategoryIds.length === 1) {
@@ -262,7 +266,7 @@ export function usePromptBank() {
     }
 
     return archivedOnly ? "Banco de prompts arquivados" : "Banco de Prompts";
-  }, [archivedOnly, categories, selectedCategoryIds, selectedUniverse, universeFilter]);
+  }, [archivedOnly, categories, selectedCategoryIds, selectedCore, coreFilter]);
 
   const imageCount = useMemo(() => promptPage.items.filter((item) => item.hasImage).length, [promptPage.items]);
 
@@ -279,21 +283,21 @@ export function usePromptBank() {
   }, []);
 
   const loadReferenceData = useCallback(
-    async (token = session?.accessToken, householdId = activeHouseholdId) => {
-      if (!token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
+    async (token = session?.accessToken, spaceId = activeSpaceId) => {
+      if (!token || !spaceId || (session?.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
       setLoadingReferences(true);
       setError(null);
       try {
-        const [nextUniverses, nextMembers, nextCategories] = await Promise.all([
-          apiFetch<Universe[]>("/api/universes", { token, householdId }),
-          apiFetch<HouseholdMember[]>("/api/households/members", { token, householdId }),
-          apiFetch<PromptCategory[]>("/api/prompt-categories", { token, householdId }),
+        const [nextCores, nextMembers, nextCategories] = await Promise.all([
+          apiFetch<Core[]>("/api/cores", { token, spaceId }),
+          apiFetch<SpaceMember[]>("/api/spaces/members", { token, spaceId }),
+          apiFetch<PromptCategory[]>("/api/prompt-categories", { token, spaceId }),
         ]);
 
-        setUniverses(nextUniverses);
+        setCores(nextCores);
         setMembers(nextMembers);
         setCategories(nextCategories);
       } catch (exception) {
@@ -302,27 +306,27 @@ export function usePromptBank() {
         setLoadingReferences(false);
       }
     },
-    [activeHouseholdId, session?.accessToken, session?.user],
+    [activeSpaceId, session?.accessToken, session?.user],
   );
 
   const loadPrompts = useCallback(
     async (
       token = session?.accessToken,
-      householdId = activeHouseholdId,
+      spaceId = activeSpaceId,
       options?: {
         search?: string;
-        universeFilter?: string;
+        coreFilter?: string;
         categoryIds?: string[];
         page?: number;
         archivedOnly?: boolean;
       },
     ) => {
-      if (!token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
+      if (!token || !spaceId || (session?.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
       const nextSearch = options?.search ?? deferredSearch;
-      const nextUniverseFilter = options?.universeFilter ?? universeFilter;
+      const nextCoreFilter = options?.coreFilter ?? coreFilter;
       const nextCategoryIds = options?.categoryIds ?? selectedCategoryIds;
       const nextPage = options?.page ?? page;
       const nextArchivedOnly = options?.archivedOnly ?? archivedOnly;
@@ -331,10 +335,10 @@ export function usePromptBank() {
         query.set("search", nextSearch.trim());
       }
 
-      if (nextUniverseFilter === "none") {
-        query.set("withoutUniverse", "true");
-      } else if (nextUniverseFilter !== "all") {
-        query.set("universeId", nextUniverseFilter);
+      if (nextCoreFilter === "none") {
+        query.set("withoutCore", "true");
+      } else if (nextCoreFilter !== "all") {
+        query.set("coreId", nextCoreFilter);
       }
 
       nextCategoryIds.forEach((categoryId) => query.append("categoryId", categoryId));
@@ -349,7 +353,7 @@ export function usePromptBank() {
       try {
         const response = await apiFetch<PromptListResponse>(`/api/prompts?${query.toString()}`, {
           token,
-          householdId,
+          spaceId,
         });
         setPromptPage(response);
       } catch (exception) {
@@ -358,59 +362,59 @@ export function usePromptBank() {
         setLoadingPrompts(false);
       }
     },
-    [activeHouseholdId, archivedOnly, deferredSearch, page, promptPage.pageSize, selectedCategoryIds, session?.accessToken, session?.user, universeFilter],
+    [activeSpaceId, archivedOnly, deferredSearch, page, promptPage.pageSize, selectedCategoryIds, session?.accessToken, session?.user, coreFilter],
   );
 
   const refreshWorkspace = useCallback(async () => {
-    if (!session || !activeHouseholdId || !isAccountActive) {
+    if (!session || !activeSpaceId || !isAccountActive) {
       return;
     }
 
     await Promise.all([
-      loadReferenceData(session.accessToken, activeHouseholdId),
-      loadPrompts(session.accessToken, activeHouseholdId),
+      loadReferenceData(session.accessToken, activeSpaceId),
+      loadPrompts(session.accessToken, activeSpaceId),
     ]);
-  }, [activeHouseholdId, isAccountActive, loadPrompts, loadReferenceData, session]);
+  }, [activeSpaceId, isAccountActive, loadPrompts, loadReferenceData, session]);
 
   useEffect(() => {
-    if (!session || !activeHouseholdId || !isAccountActive) {
+    if (!session || !activeSpaceId || !isAccountActive) {
       return;
     }
 
     const timer = window.setTimeout(() => {
-      void loadReferenceData(session.accessToken, activeHouseholdId);
+      void loadReferenceData(session.accessToken, activeSpaceId);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeHouseholdId, isAccountActive, loadReferenceData, session]);
+  }, [activeSpaceId, isAccountActive, loadReferenceData, session]);
 
   useEffect(() => {
-    if (!session || !activeHouseholdId || !isAccountActive) {
+    if (!session || !activeSpaceId || !isAccountActive) {
       return;
     }
 
     const timer = window.setTimeout(() => {
-      void loadPrompts(session.accessToken, activeHouseholdId);
+      void loadPrompts(session.accessToken, activeSpaceId);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeHouseholdId, archivedOnly, deferredSearch, isAccountActive, loadPrompts, page, selectedCategoryIds, session, universeFilter]);
+  }, [activeSpaceId, archivedOnly, deferredSearch, isAccountActive, loadPrompts, page, selectedCategoryIds, session, coreFilter]);
 
   const handleAuthenticated = useCallback((auth: AuthResponse) => {
     storeSession(auth);
     toast.success("Sessão iniciada com sucesso.");
   }, []);
 
-  const handleHouseholdChange = useCallback((householdId: string) => {
+  const handleSpaceChange = useCallback((spaceId: string) => {
     setLoadingReferences(true);
     setLoadingPrompts(true);
-    setUniverses([]);
+    setCores([]);
     setMembers([]);
     setCategories([]);
     setPromptPage({ items: [], page: 1, pageSize: 12, totalCount: 0 });
-    setActiveHouseholdId(householdId);
+    setActiveSpaceId(spaceId);
     setSearch("");
-    setUniverseFilter("all");
+    setCoreFilter("all");
     setSelectedCategoryIds([]);
     setPage(1);
     setArchivedOnlyState(false);
@@ -427,11 +431,11 @@ export function usePromptBank() {
     toast.success("Sessão encerrada.");
   }, []);
 
-  const updateSessionHouseholds = useCallback(
-    (nextHouseholds: Household[], preferredHouseholdId?: string) => {
+  const updateSessionSpaces = useCallback(
+    (nextSpaces: Space[], preferredSpaceId?: string) => {
       const nextSession = updateStoredSession((currentSession) => ({
         ...currentSession,
-        households: nextHouseholds,
+        spaces: nextSpaces,
       }));
 
       if (!nextSession) {
@@ -440,19 +444,19 @@ export function usePromptBank() {
 
       setSession(nextSession);
 
-      const storedHouseholdId = readStoredActiveHouseholdId(nextSession.user.id);
-      const { householdId, shouldClearStoredHouseholdId } = resolveActiveHouseholdSelection(
-        nextHouseholds,
-        activeHouseholdIdRef.current,
-        storedHouseholdId,
-        preferredHouseholdId,
+      const storedSpaceId = readStoredActiveSpaceId(nextSession.user.id);
+      const { spaceId, shouldClearStoredSpaceId } = resolveActiveSpaceSelection(
+        nextSpaces,
+        activeSpaceIdRef.current,
+        storedSpaceId,
+        preferredSpaceId,
       );
 
-      if (shouldClearStoredHouseholdId) {
-        clearStoredActiveHouseholdId(nextSession.user.id);
+      if (shouldClearStoredSpaceId) {
+        clearStoredActiveSpaceId(nextSession.user.id);
       }
 
-      setActiveHouseholdId(householdId);
+      setActiveSpaceId(spaceId);
     },
     [],
   );
@@ -485,7 +489,7 @@ export function usePromptBank() {
     [],
   );
 
-  const refreshHouseholds = useCallback(async () => {
+  const refreshSpaces = useCallback(async () => {
     if (!session) {
       return;
     }
@@ -493,78 +497,78 @@ export function usePromptBank() {
     setLoadingReferences(true);
     setError(null);
     try {
-      const nextHouseholds = await apiFetch<Household[]>("/api/households", {
+      const nextSpaces = await apiFetch<Space[]>("/api/spaces", {
         token: session.accessToken,
       });
-      updateSessionHouseholds(nextHouseholds);
-      toast.success("Casas atualizadas.");
+      updateSessionSpaces(nextSpaces);
+      toast.success("Espaços atualizados.");
     } catch (exception) {
-      setError(getErrorMessage(exception, "Falha ao carregar casas."));
-      toast.error(getErrorMessage(exception, "Falha ao carregar casas."));
+      setError(getErrorMessage(exception, "Falha ao carregar espaços."));
+      toast.error(getErrorMessage(exception, "Falha ao carregar espaços."));
     } finally {
       setLoadingReferences(false);
     }
-  }, [session, updateSessionHouseholds]);
+  }, [session, updateSessionSpaces]);
 
-  async function createHousehold(name: string) {
+  async function createSpace(name: string) {
     if (!session) {
       return;
     }
 
     try {
-      const created = await apiFetch<Household>("/api/households", {
+      const created = await apiFetch<Space>("/api/spaces", {
         method: "POST",
         token: session.accessToken,
         body: JSON.stringify({ name }),
       });
-      updateSessionHouseholds(
-        [...session.households, created].sort((a, b) => a.name.localeCompare(b.name)),
+      updateSessionSpaces(
+        [...session.spaces, created].sort((a, b) => a.name.localeCompare(b.name)),
         created.id,
       );
-      toast.success("Casa criada.");
+      toast.success("Espaço criado.");
     } catch (exception) {
-      reportError(exception, "Não foi possível criar a casa.");
+      reportError(exception, "Não foi possível criar o espaço.");
     }
   }
 
-  async function updateHousehold(householdId: string, name: string) {
+  async function updateSpace(spaceId: string, name: string) {
     if (!session) {
       return;
     }
 
     try {
-      const updated = await apiFetch<Household>(`/api/households/${householdId}`, {
+      const updated = await apiFetch<Space>(`/api/spaces/${spaceId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId,
+        spaceId,
         body: JSON.stringify({ name }),
       });
-      updateSessionHouseholds(
-        session.households
-          .map((household) => (household.id === updated.id ? updated : household))
+      updateSessionSpaces(
+        session.spaces
+          .map((space) => (space.id === updated.id ? updated : space))
           .sort((a, b) => a.name.localeCompare(b.name)),
         updated.id,
       );
-      toast.success("Casa atualizada.");
+      toast.success("Espaço atualizado.");
     } catch (exception) {
-      reportError(exception, "Não foi possível salvar a casa.");
+      reportError(exception, "Não foi possível salvar o espaço.");
     }
   }
 
-  async function deleteHousehold(household: Household) {
+  async function deleteSpace(space: Space) {
     if (!session) {
       return;
     }
 
     try {
-      await apiFetch<void>(`/api/households/${household.id}`, {
+      await apiFetch<void>(`/api/spaces/${space.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: household.id,
+        spaceId: space.id,
       });
 
-      const nextHouseholds = session.households.filter((item) => item.id !== household.id);
-      setUniverses([]);
+      const nextSpaces = session.spaces.filter((item) => item.id !== space.id);
+      setCores([]);
       setMembers([]);
       setCategories([]);
       setPromptPage({ items: [], page: 1, pageSize: 12, totalCount: 0 });
@@ -572,28 +576,28 @@ export function usePromptBank() {
       setEditingPrompt(null);
       setEditingCategory(null);
       setDeletingCategory(null);
-      updateSessionHouseholds(nextHouseholds);
-      toast.success("Casa excluída.");
+      updateSessionSpaces(nextSpaces);
+      toast.success("Espaço excluído.");
     } catch (exception) {
-      reportError(exception, "Não foi possível excluir a casa.");
+      reportError(exception, "Não foi possível excluir o espaço.");
     }
   }
 
-  function openCreateHousehold() {
-    setEditingHousehold(null);
-    setActiveModal("household");
+  function openCreateSpace() {
+    setEditingSpace(null);
+    setActiveModal("space");
   }
 
-  function openEditHousehold() {
-    if (!activeHousehold) {
+  function openEditSpace() {
+    if (!activeSpace) {
       return;
     }
 
-    setEditingHousehold(activeHousehold);
-    setActiveModal("household");
+    setEditingSpace(activeSpace);
+    setActiveModal("space");
   }
 
-  function openShareHousehold() {
+  function openShareSpace() {
     setActiveModal("share");
   }
 
@@ -603,14 +607,14 @@ export function usePromptBank() {
   }
 
   async function openEditPrompt(promptId: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
     try {
       const detail = await apiFetch<PromptDetail>(`/api/prompts/${promptId}`, {
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       setEditingPrompt(detail);
       setActiveModal("prompt");
@@ -642,9 +646,9 @@ export function usePromptBank() {
   }
 
   function closeCommonModal() {
-    if (activeModal === "household" || activeModal === "share") {
+    if (activeModal === "space" || activeModal === "share") {
       setActiveModal(null);
-      setEditingHousehold(null);
+      setEditingSpace(null);
     }
   }
 
@@ -654,22 +658,22 @@ export function usePromptBank() {
     setEditingCategory(null);
   }
 
-  async function shareHousehold(input: { email: string; role: "Admin" | "Member" }) {
-    if (!session || !activeHouseholdId) {
+  async function shareSpace(input: { email: string; role: "Admin" | "Member" }) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
     try {
-      const created = await apiFetch<HouseholdMember>("/api/households/share", {
+      const created = await apiFetch<SpaceMember>("/api/spaces/share", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       setMembers((current) => [...current, created].sort((a, b) => a.displayName.localeCompare(b.displayName)));
-      toast.success("Pessoa adicionada à casa.");
+      toast.success("Pessoa adicionada ao espaço.");
     } catch (exception) {
-      reportError(exception, "Não foi possível compartilhar a casa.");
+      reportError(exception, "Não foi possível compartilhar o espaço.");
     }
   }
 
@@ -715,7 +719,7 @@ export function usePromptBank() {
   }
 
   async function createPrompt(input: PromptFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -723,9 +727,9 @@ export function usePromptBank() {
       const created = await apiFetch<PromptDetail>("/api/prompts", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({
-          universeId: input.universeId || null,
+          coreId: input.coreId || null,
           title: input.title,
           description: input.description || null,
           promptText: input.promptText,
@@ -741,7 +745,7 @@ export function usePromptBank() {
         await apiFetch<PromptDetail>(`/api/prompts/${created.id}/image`, {
           method: "POST",
           token: session.accessToken,
-          householdId: activeHouseholdId,
+          spaceId: activeSpaceId,
           body: formData,
         });
       }
@@ -754,7 +758,7 @@ export function usePromptBank() {
   }
 
   async function updatePrompt(promptId: string, input: PromptFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -762,9 +766,9 @@ export function usePromptBank() {
       await apiFetch<PromptDetail>(`/api/prompts/${promptId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({
-          universeId: input.universeId || null,
+          coreId: input.coreId || null,
           title: input.title,
           description: input.description || null,
           promptText: input.promptText,
@@ -780,14 +784,14 @@ export function usePromptBank() {
         await apiFetch<PromptDetail>(`/api/prompts/${promptId}/image`, {
           method: "POST",
           token: session.accessToken,
-          householdId: activeHouseholdId,
+          spaceId: activeSpaceId,
           body: formData,
         });
       } else if (input.removeImage) {
         await apiFetch<PromptDetail>(`/api/prompts/${promptId}/image`, {
           method: "DELETE",
           token: session.accessToken,
-          householdId: activeHouseholdId,
+          spaceId: activeSpaceId,
         });
       }
 
@@ -802,7 +806,7 @@ export function usePromptBank() {
   }
 
   async function deletePrompt(prompt: PromptListItem | PromptDetail) {
-    if (!session || !activeHouseholdId || !prompt.canDelete || !window.confirm(`Excluir o prompt "${prompt.title}"?`)) {
+    if (!session || !activeSpaceId || !prompt.canDelete || !window.confirm(`Excluir o prompt "${prompt.title}"?`)) {
       return;
     }
 
@@ -810,7 +814,7 @@ export function usePromptBank() {
       await apiFetch<void>(`/api/prompts/${prompt.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       if (selectedPromptDetail?.id === prompt.id) {
         setSelectedPromptDetail(null);
@@ -823,7 +827,7 @@ export function usePromptBank() {
   }
 
   async function setPromptArchived(promptId: string, isArchived: boolean) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -831,7 +835,7 @@ export function usePromptBank() {
       const updated = await apiFetch<PromptDetail>(`/api/prompts/${promptId}/archive`, {
         method: isArchived ? "POST" : "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       if (selectedPromptDetail?.id === promptId) {
         setSelectedPromptDetail(updated);
@@ -844,7 +848,7 @@ export function usePromptBank() {
   }
 
   async function openPrompt(promptId: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -852,7 +856,7 @@ export function usePromptBank() {
     try {
       const detail = await apiFetch<PromptDetail>(`/api/prompts/${promptId}`, {
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       setSelectedPromptDetail(detail);
     } catch (exception) {
@@ -867,7 +871,7 @@ export function usePromptBank() {
   }
 
   async function createCategory(name: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -875,7 +879,7 @@ export function usePromptBank() {
       await apiFetch<PromptCategory>("/api/prompt-categories", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({ name }),
       });
       await refreshWorkspace();
@@ -886,7 +890,7 @@ export function usePromptBank() {
   }
 
   async function updateCategory(categoryId: string, name: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -894,7 +898,7 @@ export function usePromptBank() {
       await apiFetch<PromptCategory>(`/api/prompt-categories/${categoryId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({ name }),
       });
       await refreshWorkspace();
@@ -905,7 +909,7 @@ export function usePromptBank() {
   }
 
   async function deleteCategory(categoryId: string, replacementCategoryId?: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -914,7 +918,7 @@ export function usePromptBank() {
       await apiFetch<void>(`/api/prompt-categories/${categoryId}${query}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       setSelectedCategoryIds((current) => current.filter((id) => id !== categoryId));
       setDeletingCategory(null);
@@ -932,9 +936,9 @@ export function usePromptBank() {
     );
   }
 
-  function setUniverseFilterValue(value: string) {
+  function setCoreFilterValue(value: string) {
     setPage(1);
-    setUniverseFilter(value);
+    setCoreFilter(value);
   }
 
   function setSearchValue(value: string) {
@@ -946,14 +950,14 @@ export function usePromptBank() {
 
   return {
     session,
-    activeHouseholdId,
-    activeHousehold,
-    universes,
+    activeSpaceId,
+    activeSpace,
+    cores,
     members,
     categories,
     promptPage,
     search,
-    universeFilter,
+    coreFilter,
     selectedCategoryIds,
     viewMode,
     page,
@@ -965,7 +969,7 @@ export function usePromptBank() {
     sidebarCollapsed,
     theme,
     activeModal,
-    editingHousehold,
+    editingSpace,
     editingPrompt,
     editingCategory,
     deletingCategory,
@@ -973,8 +977,8 @@ export function usePromptBank() {
     detailLoading,
     loading,
     error,
-    canShareHousehold,
-    canManageHousehold,
+    canShareSpace,
+    canManageSpace,
     setError,
     setSidebarCollapsed: (collapsed: boolean) => {
       setSidebarCollapsedState(collapsed);
@@ -986,7 +990,7 @@ export function usePromptBank() {
       window.localStorage.setItem(uiStorageKeys.theme, nextTheme);
     },
     setSearchValue,
-    setUniverseFilterValue,
+    setCoreFilterValue,
     toggleCategoryFilter,
     setViewMode: (mode: PromptViewMode) => {
       setViewModeState(mode);
@@ -1001,19 +1005,19 @@ export function usePromptBank() {
       storePromptImagesHidden(!value);
     },
     handleAuthenticated,
-    handleHouseholdChange,
+    handleSpaceChange,
     handleLogout,
-    refreshHouseholds,
+    refreshSpaces,
     refreshWorkspace,
-    createHousehold,
-    updateHousehold,
-    deleteHousehold,
-    openCreateHousehold,
-    openEditHousehold,
-    openShareHousehold,
+    createSpace,
+    updateSpace,
+    deleteSpace,
+    openCreateSpace,
+    openEditSpace,
+    openShareSpace,
     closeCommonModal,
     closeModuleModal,
-    shareHousehold,
+    shareSpace,
     updateProfile,
     openCreatePrompt,
     openEditPrompt,

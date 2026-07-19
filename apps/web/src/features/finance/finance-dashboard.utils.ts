@@ -1,13 +1,13 @@
 import type { CreditCardTransaction, FinanceEntry, FinanceEntryOrigin, FinanceEntryType } from "@/lib/api";
 
-export type FinanceEntryGroupBy = "none" | "type" | "universe" | "project";
+export type FinanceEntryGroupBy = "none" | "type" | "core" | "project";
 
 export type FinanceEntryFilters = {
   search: string;
   type: "all" | FinanceEntryType;
   verified: "all" | "verified" | "pending";
   origin: "all" | FinanceEntryOrigin;
-  universeId: "all" | string;
+  coreId: "all" | string;
   projectId: "all" | string;
   groupBy: FinanceEntryGroupBy;
 };
@@ -129,7 +129,7 @@ export function filterFinanceEntries(entries: FinanceEntry[], filters: FinanceEn
       return false;
     }
 
-    if (filters.universeId !== "all" && entry.universeId !== filters.universeId) {
+    if (filters.coreId !== "all" && entry.coreId !== filters.coreId) {
       return false;
     }
 
@@ -145,7 +145,7 @@ export function filterFinanceEntries(entries: FinanceEntry[], filters: FinanceEn
       [
         entry.title,
         entry.notes ?? "",
-        entry.universeName ?? "",
+        entry.coreName ?? "",
         entry.projectName ?? "",
       ].join(" "),
     );
@@ -168,7 +168,7 @@ export function filterCreditCardTransactions(transactions: CreditCardTransaction
         transaction.purchasedOn,
         formatDateOnlyPtBr(transaction.purchasedOn, ""),
         transaction.categoryName ?? "",
-        transaction.universeName ?? "",
+        transaction.coreName ?? "",
         transaction.projectName ?? "",
         transaction.creditCardStatementId ? "fechada" : "em aberto",
         transaction.amount.toFixed(2),
@@ -193,8 +193,8 @@ export function groupFinanceEntries(entries: FinanceEntry[], groupBy: FinanceEnt
     const key =
       groupBy === "type"
         ? entry.type
-        : groupBy === "universe"
-          ? entry.universeId ?? "without-universe"
+        : groupBy === "core"
+          ? entry.coreId ?? "without-core"
           : entry.projectId ?? "without-project";
 
     const current = groups.get(key) ?? [];
@@ -209,8 +209,8 @@ export function groupFinanceEntries(entries: FinanceEntry[], groupBy: FinanceEnt
         ? key === "Entrada"
           ? "Entradas"
           : "Saídas"
-        : groupBy === "universe"
-          ? groupEntries[0]?.universeName ?? "Sem universo"
+        : groupBy === "core"
+          ? groupEntries[0]?.coreName ?? "Sem núcleo"
           : groupEntries[0]?.projectName ?? "Sem projeto",
     entries: groupEntries,
   }));

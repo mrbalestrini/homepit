@@ -1,9 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Activity, AuthResponse, HouseholdMember, Project } from "@/lib/api";
+import type { Activity, AuthResponse, SpaceMember, Project } from "@/lib/api";
 import * as api from "@/lib/api";
-import { readStoredActiveHouseholdId, storeActiveHouseholdId } from "@/lib/household-selection";
+import { readStoredActiveSpaceId, storeActiveSpaceId } from "@/lib/space-selection";
 import { uiStorageKeys } from "./project-dashboard.constants";
 import { useProjectDashboard } from "./use-project-dashboard";
 
@@ -46,10 +46,10 @@ function buildSession(): AuthResponse {
       hasProfilePhoto: false,
       profilePhotoUpdatedAt: null,
     },
-    households: [
+    spaces: [
       {
-        id: "household-1",
-        name: "Casa principal",
+        id: "space-1",
+        name: "Espaço principal",
         role: "Owner",
       },
     ],
@@ -61,11 +61,11 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
     id: overrides.id,
     projectId: "project-1",
     projectName: "Projeto Alfa",
-    universeId: "universe-1",
-    universeName: "Universo Alfa",
-    universeImageUrl: null,
-    universeHasImage: false,
-    universeImageUpdatedAt: null,
+    coreId: "core-1",
+    coreName: "Núcleo Alfa",
+    coreImageUrl: null,
+    coreHasImage: false,
+    coreImageUpdatedAt: null,
     createdByMemberId: null,
     createdAt: "2026-06-20T12:00:00.000Z",
     title: overrides.title,
@@ -87,12 +87,12 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
   };
 }
 
-function buildMember(overrides: Partial<HouseholdMember> & Pick<HouseholdMember, "id" | "userId" | "displayName">): HouseholdMember {
+function buildMember(overrides: Partial<SpaceMember> & Pick<SpaceMember, "id" | "userId" | "displayName">): SpaceMember {
   return {
     id: overrides.id,
     userId: overrides.userId,
     displayName: overrides.displayName,
-    email: "member@homepit.dev",
+    email: "member@organiza.club",
     phoneNumber: null,
     hasProfilePhoto: false,
     profilePhotoUpdatedAt: null,
@@ -105,11 +105,11 @@ function buildMember(overrides: Partial<HouseholdMember> & Pick<HouseholdMember,
 function buildProject(overrides: Partial<Project> & Pick<Project, "id" | "name">): Project {
   return {
     id: overrides.id,
-    universeId: "universe-1",
-    universeName: "Universo Alfa",
-    universeImageUrl: null,
-    universeHasImage: false,
-    universeImageUpdatedAt: null,
+    coreId: "core-1",
+    coreName: "Núcleo Alfa",
+    coreImageUrl: null,
+    coreHasImage: false,
+    coreImageUpdatedAt: null,
     name: overrides.name,
     createdByMemberId: null,
     activityCount: 1,
@@ -137,7 +137,7 @@ describe("useProjectDashboard activity status optimism", () => {
     mockedReadSession.mockReturnValue(session);
     mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
     mockedApiFetch.mockImplementation(async (path: string) => {
-      if (path === "/api/universes" || path === "/api/projects" || path === "/api/households/members") {
+      if (path === "/api/cores" || path === "/api/projects" || path === "/api/spaces/members") {
         return [];
       }
 
@@ -194,7 +194,7 @@ describe("useProjectDashboard activity status optimism", () => {
     mockedReadSession.mockReturnValue(session);
     mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
     mockedApiFetch.mockImplementation(async (path: string) => {
-      if (path === "/api/universes" || path === "/api/projects" || path === "/api/households/members") {
+      if (path === "/api/cores" || path === "/api/projects" || path === "/api/spaces/members") {
         return [];
       }
 
@@ -246,7 +246,7 @@ describe("useProjectDashboard activity status optimism", () => {
     mockedReadSession.mockReturnValue(session);
     mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
     mockedApiFetch.mockImplementation(async (path: string) => {
-      if (path === "/api/universes" || path === "/api/households/members") {
+      if (path === "/api/cores" || path === "/api/spaces/members") {
         return [];
       }
 
@@ -302,7 +302,7 @@ describe("useProjectDashboard activity status optimism", () => {
     mockedReadSession.mockReturnValue(session);
     mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
     mockedApiFetch.mockImplementation(async (path: string) => {
-      if (path === "/api/universes" || path === "/api/projects") {
+      if (path === "/api/cores" || path === "/api/projects") {
         return [];
       }
 
@@ -310,7 +310,7 @@ describe("useProjectDashboard activity status optimism", () => {
         return [activity];
       }
 
-      if (path === "/api/households/members") {
+      if (path === "/api/spaces/members") {
         return [currentMember];
       }
 
@@ -340,7 +340,7 @@ describe("useProjectDashboard activity status optimism", () => {
       expect.objectContaining({
         method: "PUT",
         token: session.accessToken,
-        householdId: "household-1",
+        spaceId: "space-1",
       }),
     );
     expect(JSON.parse(String((updateCall?.[1] as { body?: BodyInit } | undefined)?.body))).toMatchObject({
@@ -353,34 +353,34 @@ describe("useProjectDashboard activity status optimism", () => {
   });
 });
 
-describe("useProjectDashboard household selection persistence", () => {
+describe("useProjectDashboard space selection persistence", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
   });
 
-  it("restores the stored household and persists later changes for the same user", async () => {
+  it("restores the stored space and persists later changes for the same user", async () => {
     const session = {
       ...buildSession(),
-      households: [
+      spaces: [
         {
-          id: "household-1",
-          name: "Casa A",
+          id: "space-1",
+          name: "Espaço A",
           role: "Owner" as const,
         },
         {
-          id: "household-2",
-          name: "Casa B",
+          id: "space-2",
+          name: "Espaço B",
           role: "Admin" as const,
         },
       ],
     };
 
-    storeActiveHouseholdId(session.user.id, "household-2");
+    storeActiveSpaceId(session.user.id, "space-2");
     mockedReadSession.mockReturnValue(session);
     mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
     mockedApiFetch.mockImplementation(async (path: string) => {
-      if (path === "/api/universes" || path === "/api/projects" || path === "/api/activities" || path === "/api/households/members") {
+      if (path === "/api/cores" || path === "/api/projects" || path === "/api/activities" || path === "/api/spaces/members") {
         return [];
       }
 
@@ -389,37 +389,37 @@ describe("useProjectDashboard household selection persistence", () => {
 
     const { result } = renderHook(() => useProjectDashboard());
 
-    await waitFor(() => expect(result.current.activeHouseholdId).toBe("household-2"));
+    await waitFor(() => expect(result.current.activeSpaceId).toBe("space-2"));
 
     act(() => {
-      result.current.handleHouseholdChange("household-1");
+      result.current.handleSpaceChange("space-1");
     });
 
-    await waitFor(() => expect(readStoredActiveHouseholdId(session.user.id)).toBe("household-1"));
+    await waitFor(() => expect(readStoredActiveSpaceId(session.user.id)).toBe("space-1"));
   });
 
-  it("clears an invalid stored household and falls back to the last available one", async () => {
+  it("clears an invalid stored space and falls back to the last available one", async () => {
     const session = {
       ...buildSession(),
-      households: [
+      spaces: [
         {
-          id: "household-1",
-          name: "Casa A",
+          id: "space-1",
+          name: "Espaço A",
           role: "Owner" as const,
         },
         {
-          id: "household-2",
-          name: "Casa B",
+          id: "space-2",
+          name: "Espaço B",
           role: "Member" as const,
         },
       ],
     };
 
-    storeActiveHouseholdId(session.user.id, "household-missing");
+    storeActiveSpaceId(session.user.id, "space-missing");
     mockedReadSession.mockReturnValue(session);
     mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
     mockedApiFetch.mockImplementation(async (path: string) => {
-      if (path === "/api/universes" || path === "/api/projects" || path === "/api/activities" || path === "/api/households/members") {
+      if (path === "/api/cores" || path === "/api/projects" || path === "/api/activities" || path === "/api/spaces/members") {
         return [];
       }
 
@@ -428,8 +428,8 @@ describe("useProjectDashboard household selection persistence", () => {
 
     const { result } = renderHook(() => useProjectDashboard());
 
-    await waitFor(() => expect(result.current.activeHouseholdId).toBe("household-2"));
-    await waitFor(() => expect(readStoredActiveHouseholdId(session.user.id)).toBe("household-2"));
+    await waitFor(() => expect(result.current.activeSpaceId).toBe("space-2"));
+    await waitFor(() => expect(readStoredActiveSpaceId(session.user.id)).toBe("space-2"));
   });
 });
 
@@ -447,10 +447,10 @@ describe("useProjectDashboard sort persistence", () => {
     mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
     mockedApiFetch.mockImplementation(async (path: string) => {
       if (
-        path === "/api/universes" ||
+        path === "/api/cores" ||
         path === "/api/projects" ||
         path === "/api/activities" ||
-        path === "/api/households/members"
+        path === "/api/spaces/members"
       ) {
         return [];
       }
@@ -496,9 +496,9 @@ describe("useProjectDashboard old completed activities", () => {
     mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
     mockedApiFetch.mockImplementation(async (path: string) => {
       if (
-        path === "/api/universes" ||
+        path === "/api/cores" ||
         path === "/api/projects" ||
-        path === "/api/households/members"
+        path === "/api/spaces/members"
       ) {
         return [];
       }
@@ -538,20 +538,20 @@ describe("useProjectDashboard profile redirect", () => {
     window.localStorage.clear();
   });
 
-  it("redirects a regular user without households to /profile", async () => {
+  it("redirects a regular user without spaces to /profile", async () => {
     const session = {
       ...buildSession(),
-      households: [],
+      spaces: [],
     };
 
     mockedReadSession.mockReturnValue(session);
     mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
     mockedApiFetch.mockImplementation(async (path: string) => {
       if (
-        path === "/api/universes" ||
+        path === "/api/cores" ||
         path === "/api/projects" ||
         path === "/api/activities" ||
-        path === "/api/households/members"
+        path === "/api/spaces/members"
       ) {
         return [];
       }

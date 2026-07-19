@@ -8,8 +8,8 @@ import {
   type GsmRecharge,
   type GsmNumberPlan,
   type GsmNumberStatus,
-  type Household,
-  type HouseholdMember,
+  type Space,
+  type SpaceMember,
   apiFetch,
   clearSession,
   readSession,
@@ -18,17 +18,17 @@ import {
   updateStoredSession,
 } from "@/lib/api";
 import {
-  clearStoredActiveHouseholdId,
-  readStoredActiveHouseholdId,
-  resolveActiveHouseholdSelection,
-  storeActiveHouseholdId,
-} from "@/lib/household-selection";
+  clearStoredActiveSpaceId,
+  readStoredActiveSpaceId,
+  resolveActiveSpaceSelection,
+  storeActiveSpaceId,
+} from "@/lib/space-selection";
 import { defaultAppTheme, uiStorageKeys } from "@/features/projects/project-dashboard.constants";
 import type { AppTheme } from "@/features/projects/project-dashboard.types";
 import { getErrorMessage } from "@/features/projects/project-dashboard.utils";
 import { sortGsmNumbersByUrgency } from "./gsm-dashboard.utils";
 
-type GsmActiveModal = "household" | "share" | "gsm" | "recharge-history" | "recharge" | null;
+type GsmActiveModal = "space" | "share" | "gsm" | "recharge-history" | "recharge" | null;
 
 export type GsmFormInput = {
   title: string;
@@ -48,23 +48,27 @@ export type GsmRechargeFormInput = {
 };
 
 function isAppTheme(value: string | null): value is AppTheme {
-  return value === "cozy" || value === "earthy" || value === "dark";
+  return value === "light" || value === "system" || value === "dark";
 }
 
 function applyDocumentTheme(theme: AppTheme) {
-  document.documentElement.dataset.theme = theme;
+  const resolved = theme === "system"
+    ? window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+    : theme;
+  document.documentElement.dataset.themePreference = theme;
+  document.documentElement.dataset.theme = resolved;
 }
 
 export function useGsmDashboard() {
   const [session, setSession] = useState<AuthResponse | null>(null);
-  const [activeHouseholdId, setActiveHouseholdId] = useState("");
-  const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [activeSpaceId, setActiveSpaceId] = useState("");
+  const [members, setMembers] = useState<SpaceMember[]>([]);
   const [gsmNumbers, setGsmNumbers] = useState<GsmNumber[]>([]);
   const [gsmRecharges, setGsmRecharges] = useState<GsmRecharge[]>([]);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
   const [theme, setThemeState] = useState<AppTheme>(defaultAppTheme);
   const [activeModal, setActiveModal] = useState<GsmActiveModal>(null);
-  const [editingHousehold, setEditingHousehold] = useState<Household | null>(null);
+  const [editingSpace, setEditingSpace] = useState<Space | null>(null);
   const [editingGsmNumber, setEditingGsmNumber] = useState<GsmNumber | null>(null);
   const [editingGsmRecharge, setEditingGsmRecharge] = useState<GsmRecharge | null>(null);
   const [selectedRechargeGsmNumber, setSelectedRechargeGsmNumber] = useState<GsmNumber | null>(null);
@@ -73,13 +77,13 @@ export function useGsmDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sessionUserIdRef = useRef<string | null>(null);
-  const activeHouseholdIdRef = useRef("");
+  const activeSpaceIdRef = useRef("");
 
   const resetWorkspaceState = useCallback(() => {
     setMembers([]);
     setGsmNumbers([]);
     setGsmRecharges([]);
-    setEditingHousehold(null);
+    setEditingSpace(null);
     setEditingGsmNumber(null);
     setEditingGsmRecharge(null);
     setSelectedRechargeGsmNumber(null);
@@ -102,23 +106,23 @@ export function useGsmDashboard() {
 
       setSession(nextSession);
       if (!nextSession) {
-        setActiveHouseholdId("");
+        setActiveSpaceId("");
         return;
       }
 
-      const storedHouseholdId = readStoredActiveHouseholdId(nextSession.user.id);
-      const { householdId, shouldClearStoredHouseholdId } = resolveActiveHouseholdSelection(
-        nextSession.households,
-        activeHouseholdIdRef.current,
-        storedHouseholdId,
+      const storedSpaceId = readStoredActiveSpaceId(nextSession.user.id);
+      const { spaceId, shouldClearStoredSpaceId } = resolveActiveSpaceSelection(
+        nextSession.spaces,
+        activeSpaceIdRef.current,
+        storedSpaceId,
       );
 
-      if (shouldClearStoredHouseholdId) {
-        clearStoredActiveHouseholdId(nextSession.user.id);
+      if (shouldClearStoredSpaceId) {
+        clearStoredActiveSpaceId(nextSession.user.id);
       }
 
-      setActiveHouseholdId(householdId);
-      setLoading(Boolean(nextSession.households.length > 0));
+      setActiveSpaceId(spaceId);
+      setLoading(Boolean(nextSession.spaces.length > 0));
     },
     [resetWorkspaceState],
   );
@@ -160,8 +164,8 @@ export function useGsmDashboard() {
   }, [theme]);
 
   useEffect(() => {
-    activeHouseholdIdRef.current = activeHouseholdId;
-  }, [activeHouseholdId]);
+    activeSpaceIdRef.current = activeSpaceId;
+  }, [activeSpaceId]);
 
   useEffect(() => {
     const userId = session?.user.id;
@@ -170,21 +174,21 @@ export function useGsmDashboard() {
       return;
     }
 
-    if (activeHouseholdId) {
-      storeActiveHouseholdId(userId, activeHouseholdId);
+    if (activeSpaceId) {
+      storeActiveSpaceId(userId, activeSpaceId);
       return;
     }
 
-    clearStoredActiveHouseholdId(userId);
-  }, [activeHouseholdId, session?.user.id]);
+    clearStoredActiveSpaceId(userId);
+  }, [activeSpaceId, session?.user.id]);
 
-  const activeHousehold = useMemo(() => {
-    return session?.households.find((household) => household.id === activeHouseholdId) ?? null;
-  }, [activeHouseholdId, session?.households]);
+  const activeSpace = useMemo(() => {
+    return session?.spaces.find((space) => space.id === activeSpaceId) ?? null;
+  }, [activeSpaceId, session?.spaces]);
   const isAccountActive = (session?.user.accountState ?? "Active") === "Active";
 
-  const canShareHousehold = activeHousehold?.role === "Owner" || activeHousehold?.role === "Admin";
-  const canManageHousehold = activeHousehold?.role === "Owner";
+  const canShareSpace = activeSpace?.role === "Owner" || activeSpace?.role === "Admin";
+  const canManageSpace = activeSpace?.role === "Owner";
 
   const reportError = useCallback((exception: unknown, fallback: string) => {
     const message = getErrorMessage(exception, fallback);
@@ -199,8 +203,8 @@ export function useGsmDashboard() {
   }, []);
 
   const loadWorkspace = useCallback(
-    async (token = session?.accessToken, householdId = activeHouseholdId) => {
-      if (!token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
+    async (token = session?.accessToken, spaceId = activeSpaceId) => {
+      if (!token || !spaceId || (session?.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
@@ -208,8 +212,8 @@ export function useGsmDashboard() {
       setError(null);
       try {
         const [nextMembers, nextNumbers] = await Promise.all([
-          apiFetch<HouseholdMember[]>("/api/households/members", { token, householdId }),
-          apiFetch<GsmNumber[]>("/api/gsm-numbers", { token, householdId }),
+          apiFetch<SpaceMember[]>("/api/spaces/members", { token, spaceId }),
+          apiFetch<GsmNumber[]>("/api/gsm-numbers", { token, spaceId }),
         ]);
 
         setMembers(nextMembers);
@@ -227,27 +231,27 @@ export function useGsmDashboard() {
         setLoading(false);
       }
     },
-    [activeHouseholdId, session?.accessToken, session?.user],
+    [activeSpaceId, session?.accessToken, session?.user],
   );
 
   useEffect(() => {
-    if (!session || !activeHouseholdId || !isAccountActive) {
+    if (!session || !activeSpaceId || !isAccountActive) {
       return;
     }
 
     const timer = window.setTimeout(() => {
-      void loadWorkspace(session.accessToken, activeHouseholdId);
+      void loadWorkspace(session.accessToken, activeSpaceId);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeHouseholdId, isAccountActive, loadWorkspace, session]);
+  }, [activeSpaceId, isAccountActive, loadWorkspace, session]);
 
   const handleAuthenticated = useCallback((auth: AuthResponse) => {
     storeSession(auth);
     toast.success("Sessão iniciada com sucesso.");
   }, []);
 
-  const handleHouseholdChange = useCallback((householdId: string) => {
+  const handleSpaceChange = useCallback((spaceId: string) => {
     setLoading(true);
     setMembers([]);
     setGsmNumbers([]);
@@ -257,7 +261,7 @@ export function useGsmDashboard() {
     setSelectedRechargeGsmNumber(null);
     setGsmRechargesError(null);
     setGsmRechargesLoading(false);
-    setActiveHouseholdId(householdId);
+    setActiveSpaceId(spaceId);
     setError(null);
     setActiveModal(null);
   }, []);
@@ -267,11 +271,11 @@ export function useGsmDashboard() {
     toast.success("Sessão encerrada.");
   }, []);
 
-  const updateSessionHouseholds = useCallback(
-    (nextHouseholds: Household[], preferredHouseholdId?: string) => {
+  const updateSessionSpaces = useCallback(
+    (nextSpaces: Space[], preferredSpaceId?: string) => {
       const nextSession = updateStoredSession((currentSession) => ({
         ...currentSession,
-        households: nextHouseholds,
+        spaces: nextSpaces,
       }));
 
       if (!nextSession) {
@@ -280,19 +284,19 @@ export function useGsmDashboard() {
 
       setSession(nextSession);
 
-      const storedHouseholdId = readStoredActiveHouseholdId(nextSession.user.id);
-      const { householdId, shouldClearStoredHouseholdId } = resolveActiveHouseholdSelection(
-        nextHouseholds,
-        activeHouseholdIdRef.current,
-        storedHouseholdId,
-        preferredHouseholdId,
+      const storedSpaceId = readStoredActiveSpaceId(nextSession.user.id);
+      const { spaceId, shouldClearStoredSpaceId } = resolveActiveSpaceSelection(
+        nextSpaces,
+        activeSpaceIdRef.current,
+        storedSpaceId,
+        preferredSpaceId,
       );
 
-      if (shouldClearStoredHouseholdId) {
-        clearStoredActiveHouseholdId(nextSession.user.id);
+      if (shouldClearStoredSpaceId) {
+        clearStoredActiveSpaceId(nextSession.user.id);
       }
 
-      setActiveHouseholdId(householdId);
+      setActiveSpaceId(spaceId);
     },
     [],
   );
@@ -322,7 +326,7 @@ export function useGsmDashboard() {
     );
   }, []);
 
-  const refreshHouseholds = useCallback(async () => {
+  const refreshSpaces = useCallback(async () => {
     if (!session) {
       return;
     }
@@ -330,77 +334,77 @@ export function useGsmDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const nextHouseholds = await apiFetch<Household[]>("/api/households", {
+      const nextSpaces = await apiFetch<Space[]>("/api/spaces", {
         token: session.accessToken,
       });
-      updateSessionHouseholds(nextHouseholds);
-      toast.success("Casas atualizadas.");
+      updateSessionSpaces(nextSpaces);
+      toast.success("Espaços atualizados.");
     } catch (exception) {
-      setError(getErrorMessage(exception, "Falha ao carregar casas."));
-      toast.error(getErrorMessage(exception, "Falha ao carregar casas."));
+      setError(getErrorMessage(exception, "Falha ao carregar espaços."));
+      toast.error(getErrorMessage(exception, "Falha ao carregar espaços."));
     } finally {
       setLoading(false);
     }
-  }, [session, updateSessionHouseholds]);
+  }, [session, updateSessionSpaces]);
 
-  async function createHousehold(name: string) {
+  async function createSpace(name: string) {
     if (!session) {
       return;
     }
 
     try {
-      const created = await apiFetch<Household>("/api/households", {
+      const created = await apiFetch<Space>("/api/spaces", {
         method: "POST",
         token: session.accessToken,
         body: JSON.stringify({ name }),
       });
-      updateSessionHouseholds(
-        [...session.households, created].sort((a, b) => a.name.localeCompare(b.name)),
+      updateSessionSpaces(
+        [...session.spaces, created].sort((a, b) => a.name.localeCompare(b.name)),
         created.id,
       );
-      toast.success("Casa criada.");
+      toast.success("Espaço criado.");
     } catch (exception) {
-      reportError(exception, "Não foi possível criar a casa.");
+      reportError(exception, "Não foi possível criar o espaço.");
     }
   }
 
-  async function updateHousehold(householdId: string, name: string) {
+  async function updateSpace(spaceId: string, name: string) {
     if (!session) {
       return;
     }
 
     try {
-      const updated = await apiFetch<Household>(`/api/households/${householdId}`, {
+      const updated = await apiFetch<Space>(`/api/spaces/${spaceId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId,
+        spaceId,
         body: JSON.stringify({ name }),
       });
-      updateSessionHouseholds(
-        session.households
-          .map((household) => (household.id === updated.id ? updated : household))
+      updateSessionSpaces(
+        session.spaces
+          .map((space) => (space.id === updated.id ? updated : space))
           .sort((a, b) => a.name.localeCompare(b.name)),
         updated.id,
       );
-      toast.success("Casa atualizada.");
+      toast.success("Espaço atualizado.");
     } catch (exception) {
-      reportError(exception, "Não foi possível salvar a casa.");
+      reportError(exception, "Não foi possível salvar o espaço.");
     }
   }
 
-  async function deleteHousehold(household: Household) {
+  async function deleteSpace(space: Space) {
     if (!session) {
       return;
     }
 
     try {
-      await apiFetch<void>(`/api/households/${household.id}`, {
+      await apiFetch<void>(`/api/spaces/${space.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: household.id,
+        spaceId: space.id,
       });
 
-      const nextHouseholds = session.households.filter((item) => item.id !== household.id);
+      const nextSpaces = session.spaces.filter((item) => item.id !== space.id);
       setMembers([]);
       setGsmNumbers([]);
       setGsmRecharges([]);
@@ -409,54 +413,54 @@ export function useGsmDashboard() {
       setSelectedRechargeGsmNumber(null);
       setGsmRechargesError(null);
       setGsmRechargesLoading(false);
-      updateSessionHouseholds(nextHouseholds);
-      toast.success("Casa excluída.");
+      updateSessionSpaces(nextSpaces);
+      toast.success("Espaço excluído.");
     } catch (exception) {
-      reportError(exception, "Não foi possível excluir a casa.");
+      reportError(exception, "Não foi possível excluir o espaço.");
     }
   }
 
-  function openCreateHousehold() {
-    setEditingHousehold(null);
-    setActiveModal("household");
+  function openCreateSpace() {
+    setEditingSpace(null);
+    setActiveModal("space");
   }
 
-  function openEditHousehold() {
-    if (!activeHousehold) {
+  function openEditSpace() {
+    if (!activeSpace) {
       return;
     }
 
-    setEditingHousehold(activeHousehold);
-    setActiveModal("household");
+    setEditingSpace(activeSpace);
+    setActiveModal("space");
   }
 
-  function openShareHousehold() {
+  function openShareSpace() {
     setActiveModal("share");
   }
 
   function closeCommonModal() {
-    if (activeModal === "household" || activeModal === "share") {
+    if (activeModal === "space" || activeModal === "share") {
       setActiveModal(null);
-      setEditingHousehold(null);
+      setEditingSpace(null);
     }
   }
 
-  async function shareHousehold(input: { email: string; role: "Admin" | "Member" }) {
-    if (!session || !activeHouseholdId) {
+  async function shareSpace(input: { email: string; role: "Admin" | "Member" }) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
     try {
-      const created = await apiFetch<HouseholdMember>("/api/households/share", {
+      const created = await apiFetch<SpaceMember>("/api/spaces/share", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       setMembers((current) => [...current, created].sort((a, b) => a.displayName.localeCompare(b.displayName)));
-      toast.success("Pessoa adicionada à casa.");
+      toast.success("Pessoa adicionada ao espaço.");
     } catch (exception) {
-      reportError(exception, "Não foi possível compartilhar a casa.");
+      reportError(exception, "Não foi possível compartilhar o espaço.");
     }
   }
 
@@ -521,7 +525,7 @@ export function useGsmDashboard() {
   }
 
   async function loadRechargeHistory(gsmNumberId: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -530,7 +534,7 @@ export function useGsmDashboard() {
     try {
       const history = await apiFetch<GsmRecharge[]>(`/api/gsm-numbers/${gsmNumberId}/recharges`, {
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       setGsmRecharges(history);
     } catch (exception) {
@@ -597,7 +601,7 @@ export function useGsmDashboard() {
   }
 
   async function createGsmNumber(input: GsmFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -605,7 +609,7 @@ export function useGsmDashboard() {
       await apiFetch<GsmNumber>("/api/gsm-numbers", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({
           title: input.title,
           number: input.number,
@@ -626,7 +630,7 @@ export function useGsmDashboard() {
   }
 
   async function updateGsmNumber(gsmNumberId: string, input: GsmFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -634,7 +638,7 @@ export function useGsmDashboard() {
       await apiFetch<GsmNumber>(`/api/gsm-numbers/${gsmNumberId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({
           title: input.title,
           number: input.number,
@@ -655,7 +659,7 @@ export function useGsmDashboard() {
   }
 
   async function deleteGsmNumber(gsmNumber: GsmNumber) {
-    if (!session || !activeHouseholdId || !gsmNumber.canDelete) {
+    if (!session || !activeSpaceId || !gsmNumber.canDelete) {
       return;
     }
 
@@ -663,7 +667,7 @@ export function useGsmDashboard() {
       await apiFetch<void>(`/api/gsm-numbers/${gsmNumber.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       await loadWorkspace();
       if (selectedRechargeGsmNumber?.id === gsmNumber.id) {
@@ -676,7 +680,7 @@ export function useGsmDashboard() {
   }
 
   async function createRecharge(input: GsmRechargeFormInput) {
-    if (!session || !activeHouseholdId || !selectedRechargeGsmNumber) {
+    if (!session || !activeSpaceId || !selectedRechargeGsmNumber) {
       return;
     }
 
@@ -684,7 +688,7 @@ export function useGsmDashboard() {
       await apiFetch<GsmRecharge>(`/api/gsm-numbers/${selectedRechargeGsmNumber.id}/recharges`, {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({
           rechargedOn: input.rechargedOn,
           amount: input.amount,
@@ -701,7 +705,7 @@ export function useGsmDashboard() {
   }
 
   async function updateRecharge(rechargeId: string, input: GsmRechargeFormInput) {
-    if (!session || !activeHouseholdId || !selectedRechargeGsmNumber) {
+    if (!session || !activeSpaceId || !selectedRechargeGsmNumber) {
       return;
     }
 
@@ -709,7 +713,7 @@ export function useGsmDashboard() {
       await apiFetch<GsmRecharge>(`/api/gsm-numbers/${selectedRechargeGsmNumber.id}/recharges/${rechargeId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({
           rechargedOn: input.rechargedOn,
           amount: input.amount,
@@ -726,7 +730,7 @@ export function useGsmDashboard() {
   }
 
   async function deleteRecharge(recharge: GsmRecharge) {
-    if (!session || !activeHouseholdId || !selectedRechargeGsmNumber || !recharge.canDelete) {
+    if (!session || !activeSpaceId || !selectedRechargeGsmNumber || !recharge.canDelete) {
       return;
     }
 
@@ -734,7 +738,7 @@ export function useGsmDashboard() {
       await apiFetch<void>(`/api/gsm-numbers/${selectedRechargeGsmNumber.id}/recharges/${recharge.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       await loadWorkspace();
       await loadRechargeHistory(selectedRechargeGsmNumber.id);
@@ -746,15 +750,15 @@ export function useGsmDashboard() {
 
   return {
     session,
-    activeHouseholdId,
-    activeHousehold,
+    activeSpaceId,
+    activeSpace,
     members,
     gsmNumbers,
     gsmRecharges,
     sidebarCollapsed,
     theme,
     activeModal,
-    editingHousehold,
+    editingSpace,
     editingGsmNumber,
     editingGsmRecharge,
     selectedRechargeGsmNumber,
@@ -762,9 +766,9 @@ export function useGsmDashboard() {
     gsmRechargesError,
     loading,
     error,
-    subtitle: "Gestão compartilhada de linhas, chips e recargas da casa",
-    canShareHousehold,
-    canManageHousehold,
+    subtitle: "Gestão compartilhada de linhas, chips e recargas do espaço",
+    canShareSpace,
+    canManageSpace,
     setError,
     setSidebarCollapsed: (collapsed: boolean) => {
       setSidebarCollapsedState(collapsed);
@@ -776,18 +780,18 @@ export function useGsmDashboard() {
       window.localStorage.setItem(uiStorageKeys.theme, nextTheme);
     },
     handleAuthenticated,
-    handleHouseholdChange,
+    handleSpaceChange,
     handleLogout,
-    refreshHouseholds,
+    refreshSpaces,
     refreshWorkspace: loadWorkspace,
-    createHousehold,
-    updateHousehold,
-    deleteHousehold,
-    openCreateHousehold,
-    openEditHousehold,
-    openShareHousehold,
+    createSpace,
+    updateSpace,
+    deleteSpace,
+    openCreateSpace,
+    openEditSpace,
+    openShareSpace,
     closeCommonModal,
-    shareHousehold,
+    shareSpace,
     updateProfile,
     openCreateGsmNumber,
     openEditGsmNumber,

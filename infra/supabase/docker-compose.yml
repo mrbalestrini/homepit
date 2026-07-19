@@ -1,7 +1,7 @@
 services:
-  supabase-db:
+  organiza-club-supabase-db:
     image: supabase/postgres:15.8.1.060
-    container_name: supabase-db
+    container_name: organiza-club-supabase-db
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -13,51 +13,51 @@ services:
     volumes:
       - supabase_db_data-20260529:/var/lib/postgresql/data
     networks:
-      - homepit_net
+      - organiza_club_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-supabase_admin} -d ${POSTGRES_DB:-postgres} -h localhost"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  supabase-meta:
+  organiza-club-supabase-meta:
     image: supabase/postgres-meta:v0.96.6
-    container_name: supabase-meta
+    container_name: organiza-club-supabase-meta
     restart: unless-stopped
     depends_on:
-      supabase-db:
+      organiza-club-supabase-db:
         condition: service_healthy
     environment:
       PG_META_PORT: 8080
-      PG_META_DB_HOST: supabase-db
+      PG_META_DB_HOST: organiza-club-supabase-db
       PG_META_DB_PORT: 5432
       PG_META_DB_NAME: ${POSTGRES_DB:-postgres}
       PG_META_DB_USER: ${POSTGRES_USER:-supabase_admin}
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
     networks:
-      - homepit_net
+      - organiza_club_net
 
-  supabase-studio:
+  organiza-club-supabase-studio:
     image: supabase/studio:latest
-    container_name: supabase-studio
+    container_name: organiza-club-supabase-studio
     restart: unless-stopped
     depends_on:
-      - supabase-meta
+      - organiza-club-supabase-meta
     environment:
       HOSTNAME: "0.0.0.0"
       PORT: "3000"
-      STUDIO_PG_META_URL: http://supabase-meta:8080
+      STUDIO_PG_META_URL: http://organiza-club-supabase-meta:8080
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      DEFAULT_ORGANIZATION_NAME: HomePit
-      DEFAULT_PROJECT_NAME: HomePit
+      DEFAULT_ORGANIZATION_NAME: Organiza Club
+      DEFAULT_PROJECT_NAME: Organiza Club
       SUPABASE_URL: http://localhost:8000
       SUPABASE_PUBLIC_URL: http://localhost:8000
-      SUPABASE_ANON_KEY: local-anon-key-not-used-by-homepit
-      SUPABASE_SERVICE_KEY: local-service-key-not-used-by-homepit
+      SUPABASE_ANON_KEY: local-anon-key-not-used-by-organiza-club
+      SUPABASE_SERVICE_KEY: local-service-key-not-used-by-organiza-club
     ports:
       - "127.0.0.1:${STUDIO_PORT:-54323}:3000"
     networks:
-      - homepit_net
+      - organiza_club_net
     healthcheck:
       disable: true
 
@@ -65,5 +65,5 @@ volumes:
   supabase_db_data-20260529:
 
 networks:
-  homepit_net:
+  organiza_club_net:
     external: true

@@ -1,6 +1,6 @@
 # Architecture
 
-HomePit is a modular monolith with deployable edges split for Coolify.
+Organiza Club is a modular monolith with deployable edges split for Coolify.
 
 ## Runtime Resources
 
@@ -10,14 +10,14 @@ HomePit is a modular monolith with deployable edges split for Coolify.
 - `apps/api`: ASP.NET Core API, custom auth, EF Core migrations and WhatsApp digest worker.
 - `apps/web`: Next.js operational UI.
 
-All resources join the external Docker network `homepit_net`.
+All resources join the external Docker network `organiza_club_net`.
 
 ## Backend Modules
 
 - `Auth`: custom login/register/refresh tokens.
-- `Households`: tenant boundary for a family/home.
-- `Projects`: `Universe > Project > Activity > PendingItem`.
-- `Prompts`: prompt bank shared by household, reusing `Universe` as an optional taxonomy and storing prompt images in private object storage.
+- `Spaces`: shared tenant boundary for a person, family or group.
+- `Projects`: `Core > Project > Activity > PendingItem`.
+- `Prompts`: prompt bank shared by space, reusing `Core` as an optional taxonomy and storing prompt images in private object storage.
 - `Notifications`: daily WhatsApp summaries through Evolution API.
 - `Storage`: private object storage abstraction backed by MinIO.
 
@@ -25,7 +25,7 @@ Future modules should stay inside the same API until they need independent scali
 
 ## Tenancy
 
-Every user belongs to one or more households. Data-bearing project entities store `HouseholdId`; the API resolves the active household from `X-Household-Id`. If a user has only one household, the API can infer it.
+Every user belongs to one or more spaces. Data-bearing project entities store `SpaceId`; the API resolves the active space from `X-Space-Id`. If a user has only one space, the API can infer it.
 
 ## Secrets
 

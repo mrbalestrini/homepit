@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Este arquivo e o ponto de entrada para trabalho assistido por IA no HomePit.
+Este arquivo e o ponto de entrada para trabalho assistido por IA no Organiza Club.
 
 ## Como iniciar
 

@@ -1,6 +1,6 @@
 ---
 name: architect
-description: Use for architecture, module boundaries, cross-cutting impact, and broad technical decisions in HomePit. Do not use for small local changes or simple reviews.
+description: Use for architecture, module boundaries, cross-cutting impact, and broad technical decisions in OrganizaClub. Do not use for small local changes or simple reviews.
 ---
 
 # Architect

@@ -1,4 +1,4 @@
-# PR review: <identificador>
+# PR review: <identificadar>
 
 ## Contexto
 

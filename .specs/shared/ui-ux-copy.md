@@ -13,7 +13,7 @@ decisões de implementação ou preencher espaço com frases genéricas.
 - Mostre somente a informação necessária naquele momento para a pessoa agir com
   segurança e entender a consequência relevante da ação.
 - Nunca exponha detalhes internos, como conversões, processamento, limites técnicos
-  aplicados internamente, estrutura de componentes, evolução planejada ou preparação
+  aplicadas internamente, estrutura de componentes, evolução planejada ou preparação
   para funcionalidades futuras, salvo se isso mudar uma decisão da pessoa.
 - Não use textos de preenchimento ou autoexplicação da tela, como "área preparada para
   futuras abas", "campos organizados para crescer" ou equivalentes.

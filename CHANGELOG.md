@@ -6,14 +6,18 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ## [1.12.2] - 2026-07-18
 
+### Changed
+- O produto foi reidentificado como Organiza Club, com a hierarquia `Espaço -> Núcleo -> Projeto` (`Space -> Core -> Project` nos contratos técnicos), novos ativos, copy, temas e paleta oficiais.
+- API, banco, integrações e infraestrutura passaram a usar os identificadores `OrganizaClub.*`, sem aliases para os contratos HomePit anteriores.
+
 ### Fixed
-- O OAuth do MCP agora aceita `openid` e `offline_access` como scopes OIDC padrão sem ampliar o acesso funcional: `homepit.read` permanece obrigatório e `homepit.write` continua condicionado ao modo da conexão.
-- Fluxos com `openid` passam a emitir ID token mínimo, contendo apenas o `sub` estável da pessoa autenticada e sem dados da Casa ou da conexão de integração.
+- O OAuth do MCP agora aceita `openid` e `offline_access` como scopes OIDC padrão sem ampliar o acesso funcional: `organiza.read` permanece obrigatório e `organiza.write` continua condicionado ao modo da conexão.
+- Fluxos com `openid` passam a emitir ID token mínimo, contendo apenas o `sub` estável da pessoa autenticada e sem dados do Espaço ou da conexão de integração.
 
 ## [1.12.1] - 2026-07-17
 
 ### Fixed
-- O discovery OAuth publicado pelo OpenIddict agora anuncia o endpoint de Dynamic Client Registration e o método público `none` no endpoint de token, permitindo que clientes MCP descubram e registrem clientes públicos.
+- O discovery OAuth publicada pelo OpenIddict agora anuncia o endpoint de Dynamic Client Registration e o método público `none` no endpoint de token, permitindo que clientes MCP descubram e registrem clientes públicos.
 - O recurso canônico do MCP agora é registrado e autorizado explicitamente para clientes Dynamic Client Registration, evitando `invalid_target` ao iniciar a autorização OAuth pelo MCP Inspector.
 
 ## [1.12.0] - 2026-07-16
@@ -26,12 +30,12 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 ## [1.11.1] - 2026-07-14
 
 ### Changed
-- A API interna passou para `0.5.0` e ganhou conexões de integração por Casa, com chave revelada uma única vez, expiração, permissão de leitura/escrita, revogação, limite técnico, idempotência e auditoria sem payloads.
+- A API interna passou para `0.5.0` e ganhou conexões de integração por Espaço, com chave revelada uma única vez, expiração, permissão de leitura/escrita, revogação, limite técnico, idempotência e auditoria sem payloads.
 - O perfil ganhou a aba `Conexão`, com criação, listagem, cópia única do segredo e revogação de conexões.
 - A plataforma passou a expor a API externa inicial em `/api/integrations/v1` e o endpoint MCP Streamable HTTP em `/mcp`, ambos protegidos por feature flags.
 - A página `/profile` passou a mostrar o `Plano` antes do fluxo de assinatura, sem exibir os valores do plano atual nessa seção.
 - A solicitação de assinatura virou uma modal acionada por botão, com cards de plano mais visuais e destaque para o plano popular.
-- O catálogo comercial passou a registrar um plano popular por destaque, com o Gold vindo marcado por padrão e o SuperAdmin podendo alternar esse selo.
+- O catálogo comercial passou a registrar um plano popular por destaque, com o Gold vindo marcada por padrão e o SuperAdmin podendo alternar esse selo.
 - O catálogo público de planos passou a respeitar a opção `Mostrar plano` no SuperAdmin, mantendo visível para cada conta o plano efetivo atual mesmo quando ele estiver oculto.
 - O topo da página de perfil passou a respeitar melhor o tema terroso com um fundo baseado nos tokens visuais do tema.
 - Os ícones de navegação e ações da interface passaram a refletir melhor a semântica de cada contexto, reservando `Sparkles` para casos realmente ligados a IA, automação ou destaque excepcional.
@@ -44,7 +48,7 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 ## [1.11.0] - 2026-07-13
 
 ### Added
-- Cada membro agora pode configurar esforço semanal pessoal, de segunda a domingo, na Casa, nos Universos e nos Projetos.
+- Cada membro agora pode configurar esforço semanal pessoal, de segunda a domingo, no Espaço, nos Núcleos e nos Projetos.
 - A ordenação `Mais relevantes` apresenta uma fila diária com score de prioridade, prazo, antiguidade e atribuição, respeitando os pontos disponíveis.
 - O menu de ações das atividades ganhou o atalho `Atribuir-me` para assumir rapidamente o responsável logado.
 
@@ -60,19 +64,19 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - API global de configurações da plataforma para o `SuperAdmin`, com leitura pública separada para uso da landing.
 - Novo fluxo para usuários enviarem sugestões de melhoria pelo menu do perfil, com modal dedicada e orientações de contexto.
 - Nova aba `Sugestões` no hub `/admin/platform`, com filtros persistidos, triagem interna por status/prioridade e atualização em massa para o `SuperAdmin`.
-- Convites de casa passaram a ser pendentes, com aceite ou recusa explícitos na área de Casa e visibilidade do status para quem convidou.
+- Convites de espaço passaram a ser pendentes, com aceite ou recusa explícitos na área de Espaço e visibilidade do status para quem convidou.
 - A página `/profile` passou a listar o catálogo público de planos com CTA de solicitação de assinatura e destino automático para WhatsApp ou e-mail.
 
 ### Changed
 - O hub global da plataforma passou a separar o catálogo comercial das configurações institucionais e de contato.
 - O contrato da API e `/api/system/info` passaram a expor a versão `0.3.0`.
-- A propriedade comercial das casas passou a ser persistida pelo criador da casa, separada do papel `Owner`, para que vínculos em casas de terceiros não contem como casas próprias do usuário logado.
-- As cotas de `universos por casa`, `projetos por universo`, o selo `Fora do plano` e a exclusão com purge de casas próprias passaram a seguir o criador da casa compartilhada.
-- As cotas de universos e projetos passaram a contar o total criado pela pessoa usuária, sem depender da casa ou do universo onde os itens estão, e a edição deixou de ser bloqueada para itens já existentes acima da cota.
-- O catálogo de planos ganhou a cota opcional de membros convidados ativos por casas próprias, com `vazio = ilimitado`, e o perfil passou a mostrar consumo/restante com modal de listagem e exclusão segura para casas, universos e projetos criados pela pessoa.
+- A propriedade comercial dos espaços passou a ser persistida pelo criador do espaço, separada do papel `Owner`, para que vínculos em espaços de terceiros não contem como espaços próprios do usuário logado.
+- As cotas de `núcleos por espaço`, `projetos por núcleo`, o selo `Fora do plano` e a exclusão com purge de espaços próprios passaram a seguir o criador do espaço compartilhado.
+- As cotas de núcleos e projetos passaram a contar o total criado pela pessoa usuária, sem depender do espaço ou do núcleo onde os itens estão, e a edição deixou de ser bloqueada para itens já existentes acima da cota.
+- O catálogo de planos ganhou a cota opcional de membros convidados ativos por espaços próprios, com `vazio = ilimitado`, e o perfil passou a mostrar consumo/restante com modal de listagem e exclusão segura para espaços, núcleos e projetos criados pela pessoa.
 - O módulo de projetos deixou de usar a permissão de edição como atalho visual para o selo `Fora do plano`, evitando falso positivo para membros sem ownership do item.
-- O menu lateral passou a seguir a ordem `Casa > Rotinas > Projetos > Financeiro > Mercado > GSM > Prompts`, removendo `Perfil` do card de módulos e escondendo módulos quando não há casa vinculada.
-- Usuários sem casa passaram a cair em `/profile` ao acessar módulos, mantendo os atalhos globais do `SuperAdmin` como exceção operacional.
+- O menu lateral passou a seguir a ordem `Espaço > Rotinas > Projetos > Financeiro > Mercado > GSM > Prompts`, removendo `Perfil` do card de módulos e escondendo módulos quando não há espaço vinculado.
+- Usuários sem espaço passaram a cair em `/profile` ao acessar módulos, mantendo os atalhos globais do `SuperAdmin` como exceção operacional.
 
 ## [1.9.0] - 2026-07-09
 
@@ -84,11 +88,11 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - Novo domínio comercial persistido para planos globais, assinaturas manuais por usuário e ledger de imagens privadas governadas por cota.
 
 ### Changed
-- O cadastro deixou de aceitar criação imediata de casa, mantendo o fluxo de conta sem casa para que a primeira casa seja criada depois do login.
+- O cadastro deixou de aceitar criação imediata de espaço, mantendo o fluxo de conta sem espaço para que o primeiro espaço seja criada depois do login.
 - A seção de compras do cartão ganhou um filtro textual compatível com os principais campos exibidos na linha, e o selecionar todos passou a atuar apenas sobre os itens visíveis no filtro.
 - O fechamento de fatura passou a oferecer uma ação explícita para selecionar ou desmarcar todas as compras disponíveis de uma vez.
-- Todo usuário novo passa a operar comercialmente no plano `Free`, com bloqueio para criar casas próprias e fallback automático para esse plano quando não há assinatura ativa.
-- A criação de casas, universos e projetos agora respeita os limites configuráveis do plano efetivo do usuário.
+- Todo usuário novo passa a operar comercialmente no plano `Free`, com bloqueio para criar espaços próprios e fallback automático para esse plano quando não há assinatura ativa.
+- A criação de espaços, núcleos e projetos agora respeita os limites configuráveis do plano efetivo do usuário.
 - O perfil do usuário passou a exibir plano efetivo, vigência da assinatura ativa, uso atual das cotas e a política dinâmica de degradação de imagens.
 - Uploads privados governados por plano agora preservam apenas a cota mais recente em qualidade original e rebaixam imagens antigas para `WEBP` com até `300 px` e qualidade `30%`.
 - A navegação lateral do `SuperAdmin` passou a concentrar a gestão global em `Plataforma`, mantendo `/admin/users` apenas como redirecionamento compatível.
@@ -100,18 +104,18 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ### Changed
 - A área central do módulo financeiro passou a alternar entre `Caixa` e `Cartões` por abas locais, mantendo `Patrimônio` sempre visível abaixo da navegação.
-- A importação em lote de compras de cartão passou a validar universo e projeto por nome antes do envio e só grava o lote inteiro quando todas as linhas estiverem válidas.
+- A importação em lote de compras de cartão passou a validar núcleo e projeto por nome antes do envio e só grava o lote inteiro quando todas as linhas estiverem válidas.
 - Faturas fechadas do cartão passaram a ser tratadas como verificadas no caixa mensal, inclusive no lançamento consolidado e no resumo do período.
-- Uploads comuns de imagem agora são normalizados no backend para `WEBP`, com limite máximo de `2000 px` por lado e rejeição de animações em foto de perfil, universo, atividade, prompt e imagens institucionais não SEO.
+- Uploads comuns de imagem agora são normalizados no backend para `WEBP`, com limite máximo de `2000 px` por lado e rejeição de animações em foto de perfil, núcleo, atividade, prompt e imagens institucionais não SEO.
 
 ## [1.7.1] - 2026-07-07
 
 ### Added
-- O módulo financeiro passou a ter uma seção de categorias por household, com 12 categorias padrão fixas e gestão de categorias personalizadas.
+- O módulo financeiro passou a ter uma seção de categorias por space, com 12 categorias padrão fixas e gestão de categorias personalizadas.
 
 ### Changed
-- O topo do financeiro passou a oferecer `Inserir Recorrências` como ação principal e um atalho dedicado para a gestão de recorrências.
-- A gestão de recorrências saiu da página principal e passou a viver em uma modal quase tela cheia, mantendo a lista e as ações de edição em um espaço dedicado.
+- O topo do financeiro passou a oferecer `Inserir Recorrências` como ação principal e um atalho dedicada para a gestão de recorrências.
+- A gestão de recorrências saiu da página principal e passou a viver em uma modal quase tela cheia, mantendo a lista e as ações de edição em um espaço dedicada.
 - A edição de recorrências dentro da janela dedicada voltou a aceitar cliques nos campos sem fechar a modal principal nem a modal de edição.
 - A copy do módulo financeiro foi revisada para pt-BR com acentuação correta em botões, títulos, mensagens e textos de apoio.
 - Lançamentos de caixa, recorrências e compras de cartão agora aceitam categoria opcional e exibem a classificação escolhida nas tabelas do financeiro.
@@ -122,21 +126,21 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 ## [1.7.0] - 2026-07-06
 
 ### Added
-- Novo módulo interno `/finance` compartilhado por household, com seções de resumo, caixa, recorrências, cartões e patrimônio.
+- Novo módulo interno `/finance` compartilhado por space, com seções de resumo, caixa, recorrências, cartões e patrimônio.
 - API protegida em `/api/finance`, com CRUD para períodos, lançamentos, recorrências, bens, referências anuais, cartões, compras e faturas.
 - Persistência financeira dedicada no banco para períodos mensais, templates recorrentes, patrimônio, avaliações anuais e fluxo de cartão de crédito.
 
 ### Changed
 - O shell do workspace agora ativa `Financeiro` como rota real em vez de espaço reservado.
 - O resumo mensal passou a separar fluxo de caixa e visão analítica de gastos, somando compras de cartão sem duplicar a fatura consolidada.
-- `Universe` e `Project` passaram a funcionar como classificações opcionais no financeiro, com validação e nulificação segura ao excluir vínculos.
+- `Core` e `Project` passaram a funcionar como classificações opcionais no financeiro, com validação e nulificação segura ao excluir vínculos.
 
 ## [1.6.1] - 2026-06-26
 
 ### Changed
 - Os comentários no detalhe da atividade passaram a exibir o avatar real do autor quando a foto de perfil existe, com leitura protegida da imagem do usuário correspondente.
 - A coluna de responsável na tabela de projetos, o detalhe da atividade e os cards do kanban agora exibem o avatar real do membro quando a foto existe, com fallback seguro para iniciais.
-- As listas de membros da casa e o diálogo de compartilhamento passaram a reutilizar o avatar protegido dos participantes, com cache compartilhado para evitar downloads repetidos da mesma foto.
+- As listas de membros do espaço e o diálogo de compartilhamento passaram a reutilizar o avatar protegido dos participantes, com cache compartilhado para evitar downloads repetidos da mesma foto.
 
 ## [1.6.0] - 2026-06-24
 
@@ -149,7 +153,7 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 
 ### Changed
 - A gestão GSM saiu do layout em cards e passou a usar tabela responsiva com título, número, plano, custo, datas e ações.
-- O texto principal da tela foi simplificado para focar no gerenciamento de números de telefone da casa.
+- O texto principal da tela foi simplificada para focar no gerenciamento de números de telefone do espaço.
 - A listagem GSM agora combina tabela no desktop com cards no mobile, e exibe a proxima recarga com destaque de atraso.
 - `LastRechargeOn` deixou de ser editado diretamente no formulario e passou a ser um resumo do historico.
 - A listagem padrão do banco de prompts passou a exibir apenas prompts ativos.
@@ -158,12 +162,12 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 ## [1.5.0] - 2026-06-23
 
 ### Added
-- Novo módulo interno `/gsm` para gestão compartilhada de números GSM por household, com cadastro completo de título, número, descrição, aquisição, última recarga e status.
-- API protegida em `/api/gsm-numbers`, com CRUD completo, tenancy por `X-Household-Id` e regras de autoria alinhadas aos demais módulos da casa.
+- Novo módulo interno `/gsm` para gestão compartilhada de números GSM por space, com cadastro completo de título, número, descrição, aquisição, última recarga e status.
+- API protegida em `/api/gsm-numbers`, com CRUD completo, tenancy por `X-Space-Id` e regras de autoria alinhadas aos demais módulos do espaço.
 - Máscara e normalização de números com DDI opcional, além do contador textual de tempo desde a última recarga na interface.
 
 ### Changed
-- A navegação lateral do workspace agora expõe o módulo `GSM` como recurso ativo da operação da casa.
+- A navegação lateral do workspace agora expõe o módulo `GSM` como recurso ativo da operação do espaço.
 - O contrato OpenAPI e a suíte de testes backend passaram a cobrir o novo recurso de números GSM e o enum de status correspondente.
 
 ## [1.4.0] - 2026-06-22
@@ -174,7 +178,7 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - A API e o contrato OpenAPI ganharam os endpoints de upload, leitura e exclusao de imagem por atividade.
 
 ### Changed
-- A exclusao de atividade, projeto ou universo agora remove os binarios de imagem vinculados para evitar anexos orfaos.
+- A exclusao de atividade, projeto ou núcleo agora remove os binarios de imagem vinculados para evitar anexos orfaos.
 
 ## [1.3.0] - 2026-06-20
 
@@ -186,7 +190,7 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - A formatação de datas sem horário no frontend passou a usar UTC para evitar deslocamento de fuso.
 
 ### Fixed
-- A imagem protegida de prompts passou a enviar `X-Household-Id` no card e no detalhe, evitando `400` em contas com mais de uma casa.
+- A imagem protegida de prompts passou a enviar `X-Space-Id` no card e no detalhe, evitando `400` em contas com mais de um espaço.
 
 ## [1.2.1] - 2026-06-15
 
@@ -196,12 +200,12 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - API pública e administrativa para conteúdo institucional, incluindo imagens públicas versionadas em object storage.
 
 ### Changed
-- A seleção da casa ativa agora é lembrada por usuário no navegador, com limpeza automática quando a casa salva não existe mais e fallback seguro para a casa existente mais recente.
+- A seleção do espaço ativo agora é lembrada por usuário no navegador, com limpeza automática quando o espaço salva não existe mais e fallback seguro para o espaço existente mais recente.
 
 ## [1.2.0] - 2026-06-12
 
 ### Changed
-- As exclusões de casa, universo e projeto agora usam modais de confirmação com resumo explícito dos impactos; casa e universo exigem digitação do nome antes da exclusão.
+- As exclusões de espaço, núcleo e projeto agora usam modais de confirmação com resumo explícito dos impactos; espaço e núcleo exigem digitação do nome antes da exclusão.
 
 ## [1.1.0] - 2026-06-10
 
@@ -210,15 +214,15 @@ Este changelog segue uma linha compatível com [Keep a Changelog](https://keepac
 - Ajustei a concordância dos textos de categoria no banco de prompts para respeitar singular e plural quando o total é 1.
 - Removi da interface de categorias o texto explicativo sobre prompts que exigiriam substituição ao excluir uma categoria.
 - Corrigi a largura dos cards da tela de prompts para respeitar o masonry responsivo e preencher a coluna por completo.
-- Removi os cards redundantes de "Atalhos" e "Retirada de membros" da administração da casa.
+- Removi os cards redundantes de "Atalhos" e "Retirada de membros" da administração do espaço.
 - Ajustei a tipografia dos selects de filtro das atividades para reduzir o corte dos textos sem alterar a largura visual dos campos.
 
 ### Added
-- Nova página de administração da casa em `/household`, com visão em estilo dashboard para nome, membros, permissões e atalhos.
-- Atalho de acesso à administração da casa no topo e na navegação lateral compartilhada.
+- Nova página de administração do espaço em `/space`, com visão em estilo dashboard para nome, membros, permissões e atalhos.
+- Atalho de acesso à administração do espaço no topo e na navegação lateral compartilhada.
 - Bloco de membros preparado para futura retirada individual sem apagar o histórico de ações.
-- Navegação entre casas e criação de nova casa diretamente no topo da administração.
-- Endpoints para editar e remover membros da casa com proteção de proprietário e preservação de histórico.
+- Navegação entre espaços e criação de novo espaço diretamente no topo da administração.
+- Endpoints para editar e remover membros do espaço com proteção de proprietário e preservação de histórico.
 
 ## [1.0.0] - 2026-06-10
 

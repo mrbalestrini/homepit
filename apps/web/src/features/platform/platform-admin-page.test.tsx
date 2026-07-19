@@ -29,12 +29,12 @@ vi.mock("@/features/workspace/account-state-gate", () => ({
   AccountStateGate: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock("@/features/workspace/homepit-auth", () => ({
-  HomePitAuth: () => <div>auth</div>,
+vi.mock("@/features/workspace/organiza-club-auth", () => ({
+  OrganizaClubAuth: () => <div>auth</div>,
 }));
 
-vi.mock("@/features/workspace/homepit-workspace-shell", () => ({
-  HomePitWorkspaceShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+vi.mock("@/features/workspace/organiza-club-workspace-shell", () => ({
+  OrganizaClubWorkspaceShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Notice: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
@@ -68,14 +68,14 @@ describe("PlatformAdminPage", () => {
         return [
           {
             id: "user-1",
-            email: "user@homepit.dev",
+            email: "user@organiza.club",
             displayName: "User",
             phoneNumber: null,
             systemRole: "User",
             accountState: "Active",
             scheduledDeletionAt: null,
             deactivatedAt: null,
-            ownedHouseholdCount: 0,
+            ownedSpaceCount: 0,
             membershipCount: 1,
             isProtected: false,
             effectivePlanSlug: "free",
@@ -99,8 +99,8 @@ describe("PlatformAdminPage", () => {
             currencyCode: "BRL",
             monthlyPrice: 9.9,
             annualPrice: 99,
-            maxOwnedHouseholds: 1,
-            maxUniverses: 3,
+            maxOwnedSpaces: 1,
+            maxCores: 3,
             maxProjects: 3,
             maxInvitedMembers: null,
             maxOriginalImages: 30,
@@ -144,8 +144,8 @@ describe("PlatformAdminPage", () => {
           currencyCode: "BRL",
           monthlyPrice: 11.9,
           annualPrice: 119,
-          maxOwnedHouseholds: 1,
-          maxUniverses: 3,
+          maxOwnedSpaces: 1,
+          maxCores: 3,
           maxProjects: 3,
           maxInvitedMembers: 5,
           maxOriginalImages: 30,
@@ -237,10 +237,10 @@ describe("PlatformAdminPage", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Configurações" }));
 
     fireEvent.change(await screen.findByLabelText("Nome administrador"), {
-      target: { value: "Equipe HomePit" },
+      target: { value: "Equipe Organiza Club" },
     });
     fireEvent.change(screen.getByLabelText("E-mail contato"), {
-      target: { value: "contato@homepit.dev" },
+      target: { value: "contato@organiza.club" },
     });
     fireEvent.change(screen.getByLabelText("Telefone contato"), {
       target: { value: "(11) 99999-0000" },
@@ -249,7 +249,7 @@ describe("PlatformAdminPage", () => {
       target: { value: "(11) 98888-7777" },
     });
     fireEvent.change(screen.getByLabelText("Instagram"), {
-      target: { value: "@homepit" },
+      target: { value: "@organizaclub" },
     });
     fireEvent.change(screen.getByLabelText("Endereço linha 1"), {
       target: { value: "Rua das Flores, 123" },
@@ -277,7 +277,7 @@ describe("PlatformAdminPage", () => {
         expect.objectContaining({
           method: "PUT",
           token: "access-token",
-          body: expect.stringContaining('"adminName":"Equipe HomePit"'),
+          body: expect.stringContaining('"adminName":"Equipe Organiza Club"'),
         }),
       );
     });
@@ -286,7 +286,7 @@ describe("PlatformAdminPage", () => {
   it("filters suggestions, restores the filter from localStorage and applies bulk updates", async () => {
     mockedUseProjectDashboard.mockReturnValue(buildDashboard("SuperAdmin"));
     window.localStorage.setItem(
-      "homepit.platform.suggestion-filters",
+      "organizaclub.platform.suggestion-filters",
       JSON.stringify({ search: "projetos", status: "NaoLido", priority: "Alta" }),
     );
     mockedApiFetch
@@ -298,7 +298,7 @@ describe("PlatformAdminPage", () => {
           id: "suggestion-1",
           userId: "user-1",
           userDisplayName: "Paula",
-          userEmail: "paula@homepit.dev",
+          userEmail: "paula@organiza.club",
           submittedAt: "2026-07-10T12:00:00Z",
           suggestionText: "Melhorar filtros de Projetos.",
           status: "NaoLido",
@@ -312,7 +312,7 @@ describe("PlatformAdminPage", () => {
           id: "suggestion-2",
           userId: "user-2",
           userDisplayName: "Marcos",
-          userEmail: "marcos@homepit.dev",
+          userEmail: "marcos@organiza.club",
           submittedAt: "2026-07-10T13:00:00Z",
           suggestionText: "Revisar o módulo Financeiro.",
           status: "Feito",
@@ -341,7 +341,7 @@ describe("PlatformAdminPage", () => {
           id: "suggestion-1",
           userId: "user-1",
           userDisplayName: "Paula",
-          userEmail: "paula@homepit.dev",
+          userEmail: "paula@organiza.club",
           submittedAt: "2026-07-10T12:00:00Z",
           suggestionText: "Melhorar filtros de Projetos.",
           status: "EmExecucao",
@@ -377,7 +377,7 @@ describe("PlatformAdminPage", () => {
       );
     });
 
-    expect(window.localStorage.getItem("homepit.platform.suggestion-filters")).toContain('"search":"projetos"');
+    expect(window.localStorage.getItem("organizaclub.platform.suggestion-filters")).toContain('"search":"projetos"');
   });
 });
 
@@ -389,39 +389,39 @@ function buildDashboard(systemRole: "User" | "Admin" | "SuperAdmin") {
       expiresAt: "2026-07-09T18:00:00Z",
       user: {
         id: "user-1",
-        email: "user@homepit.dev",
+        email: "user@organiza.club",
         displayName: "User",
         systemRole,
         hasProfilePhoto: false,
       },
-      households: [],
+      spaces: [],
     },
-    activeHouseholdId: "",
-    activeHousehold: null,
+    activeSpaceId: "",
+    activeSpace: null,
     members: [],
-    theme: "cozy" as const,
+    theme: "light" as const,
     sidebarCollapsed: false,
     loading: false,
     error: null,
-    canShareHousehold: false,
-    canManageHousehold: false,
-    editingHousehold: null,
+    canShareSpace: false,
+    canManageSpace: false,
+    editingSpace: null,
     activeModal: null,
     setError: vi.fn(),
     setSidebarCollapsed: vi.fn(),
     setTheme: vi.fn(),
-    handleHouseholdChange: vi.fn(),
+    handleSpaceChange: vi.fn(),
     handleLogout: vi.fn(),
-    refreshHouseholds: vi.fn(async () => undefined),
+    refreshSpaces: vi.fn(async () => undefined),
     loadWorkspace: vi.fn(async () => undefined),
-    openCreateHousehold: vi.fn(),
-    openEditHousehold: vi.fn(),
-    openShareHousehold: vi.fn(),
+    openCreateSpace: vi.fn(),
+    openEditSpace: vi.fn(),
+    openShareSpace: vi.fn(),
     closeModal: vi.fn(),
-    createHousehold: vi.fn(async () => undefined),
-    updateHousehold: vi.fn(async () => undefined),
-    deleteHousehold: vi.fn(async () => undefined),
-    shareHousehold: vi.fn(async () => undefined),
+    createSpace: vi.fn(async () => undefined),
+    updateSpace: vi.fn(async () => undefined),
+    deleteSpace: vi.fn(async () => undefined),
+    shareSpace: vi.fn(async () => undefined),
     handleAuthenticated: vi.fn(),
   };
 }

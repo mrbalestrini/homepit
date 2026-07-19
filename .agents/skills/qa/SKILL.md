@@ -1,6 +1,6 @@
 ---
 name: qa
-description: Use for executing HomePit validation, regression checks, test evidence, and coverage assessment across xUnit and Vitest. Do not use for designing architecture or implementing the feature under test.
+description: Use for executing OrganizaClub validation, regression checks, test evidence, and coverage assessment across xUnit and Vitest. Do not use for designing architecture or implementing the feature under test.
 ---
 
 # QA
@@ -21,7 +21,7 @@ description: Use for executing HomePit validation, regression checks, test evide
 - A spec e os criterios de aceite em `.specs/changes/`.
 
 ## Responsabilidades
-- Usar apenas comandos identificados ou explicitamente autorizados.
+- Usar apenas comandos identificadas ou explicitamente autorizados.
 - Distinguir teste executado, nao executado e bloqueado.
 - Cobrir Vitest, xUnit e integracao conforme a superficie alterada.
 

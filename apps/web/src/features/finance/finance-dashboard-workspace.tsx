@@ -48,10 +48,10 @@ import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmati
 import {
   EmptyState,
   Field,
-  HomePitWorkspaceShell,
+  OrganizaClubWorkspaceShell,
   LoadingState,
   Notice,
-} from "@/features/workspace/homepit-workspace-shell";
+} from "@/features/workspace/organiza-club-workspace-shell";
 import { cn } from "@/lib/utils";
 import type {
   AssetFormInput,
@@ -98,7 +98,7 @@ const defaultFilters: FinanceEntryFilters = {
   type: "all",
   verified: "all",
   origin: "all",
-  universeId: "all",
+  coreId: "all",
   projectId: "all",
   groupBy: "type",
 };
@@ -178,7 +178,7 @@ function createEmptyImportedTransactionDraft(overrides: Partial<ImportedCreditCa
     purchasedOn: formatDateOnlyInputValue(),
     notes: "",
     categoryName: "",
-    universeName: "",
+    coreName: "",
     projectName: "",
     externalSource: "",
     externalReference: "",
@@ -223,7 +223,7 @@ function parseImportedTransactionDraftsFromJson(content: string) {
       purchasedOn: coerceOptionalImportText(value.purchasedOn, "purchasedOn"),
       notes: coerceOptionalImportText(value.notes, "notes"),
       categoryName: coerceOptionalImportText(value.categoryName, "categoryName"),
-      universeName: coerceOptionalImportText(value.universeName, "universeName"),
+      coreName: coerceOptionalImportText(value.coreName, "coreName"),
       projectName: coerceOptionalImportText(value.projectName, "projectName"),
       externalSource: coerceOptionalImportText(value.externalSource, "externalSource"),
       externalReference: coerceOptionalImportText(value.externalReference, "externalReference"),
@@ -243,7 +243,7 @@ function buildCreditCardImportExampleJson() {
           purchasedOn: "2026-07-06",
           notes: "Compra mensal",
           categoryName: "Mercado",
-          universeName: "Casa",
+          coreName: "Espaço",
           projectName: "Moradia",
           externalSource: "JSON",
           externalReference: "json-001",
@@ -272,8 +272,8 @@ async function readImportFileContent(file: File) {
 function validateImportedTransactionDrafts(
   drafts: ImportedCreditCardTransactionDraft[],
   categories: FinanceCategory[],
-  universes: { id: string; name: string }[],
-  projects: { id: string; name: string; universeId: string }[],
+  cores: { id: string; name: string }[],
+  projects: { id: string; name: string; coreId: string }[],
 ) {
   const normalizedCategories = new Set(categories.map((category) => normalizeImportLookup(category.name)));
 
@@ -283,7 +283,7 @@ function validateImportedTransactionDrafts(
     const amount = parseCurrencyInput(draft.amount);
     const purchasedOn = draft.purchasedOn.trim();
     const categoryName = draft.categoryName.trim();
-    const universeName = draft.universeName.trim();
+    const coreName = draft.coreName.trim();
     const projectName = draft.projectName.trim();
     const importedAt = draft.importedAt.trim();
 
@@ -307,16 +307,16 @@ function validateImportedTransactionDrafts(
       }
     }
 
-    const universeMatches = universeName
-      ? universes.filter((universe) => normalizeImportLookup(universe.name) === normalizeImportLookup(universeName))
+    const coreMatches = coreName
+      ? cores.filter((core) => normalizeImportLookup(core.name) === normalizeImportLookup(coreName))
       : [];
 
-    if (universeName && universeMatches.length === 0) {
-      errors.push({ field: "universeName", message: "Universo não encontrado." });
+    if (coreName && coreMatches.length === 0) {
+      errors.push({ field: "coreName", message: "Núcleo não encontrado." });
     }
 
-    if (universeMatches.length > 1) {
-      errors.push({ field: "universeName", message: "Há mais de um universo com esse nome." });
+    if (coreMatches.length > 1) {
+      errors.push({ field: "coreName", message: "Há mais de um núcleo com esse nome." });
     }
 
     if (projectName) {
@@ -325,8 +325,8 @@ function validateImportedTransactionDrafts(
           return false;
         }
 
-        if (universeMatches.length === 1) {
-          return project.universeId === universeMatches[0]?.id;
+        if (coreMatches.length === 1) {
+          return project.coreId === coreMatches[0]?.id;
         }
 
         return true;
@@ -335,12 +335,12 @@ function validateImportedTransactionDrafts(
       if (matchingProjects.length === 0) {
         errors.push({
           field: "projectName",
-          message: universeMatches.length === 1 ? "Projeto não encontrado no universo informado." : "Projeto não encontrado.",
+          message: coreMatches.length === 1 ? "Projeto não encontrado no núcleo informado." : "Projeto não encontrado.",
         });
       } else if (matchingProjects.length > 1) {
         errors.push({
           field: "projectName",
-          message: universeMatches.length === 1 ? "Há mais de um projeto com esse nome neste universo." : "Informe também o universo para este projeto.",
+          message: coreMatches.length === 1 ? "Há mais de um projeto com esse nome neste núcleo." : "Informe também o núcleo para este projeto.",
         });
       }
     }
@@ -351,7 +351,7 @@ function validateImportedTransactionDrafts(
       merchant: draft.merchant.trim(),
       notes: draft.notes.trim(),
       categoryName,
-      universeName,
+      coreName,
       projectName,
       externalSource: draft.externalSource.trim(),
       externalReference: draft.externalReference.trim(),
@@ -401,7 +401,7 @@ function buildImportRequestItems(drafts: ImportedCreditCardTransactionDraft[]): 
     purchasedOn: draft.purchasedOn.trim(),
     notes: draft.notes.trim() || null,
     categoryName: draft.categoryName.trim() || null,
-    universeName: draft.universeName.trim() || null,
+    coreName: draft.coreName.trim() || null,
     projectName: draft.projectName.trim() || null,
     externalSource: draft.externalSource.trim() || null,
     externalReference: draft.externalReference.trim() || null,
@@ -955,8 +955,8 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
   const visibleCount = activeSection === "cash" ? filteredEntries.length : filteredCreditCardTransactions.length;
   const visibleLabel = activeSection === "cash" ? "lançamentos" : "compras";
   const importReviewDrafts = useMemo(
-    () => validateImportedTransactionDrafts(importDrafts, dashboard.categories, dashboard.universes, dashboard.projects),
-    [dashboard.categories, dashboard.projects, dashboard.universes, importDrafts],
+    () => validateImportedTransactionDrafts(importDrafts, dashboard.categories, dashboard.cores, dashboard.projects),
+    [dashboard.categories, dashboard.projects, dashboard.cores, importDrafts],
   );
   const importSummary = useMemo(
     () => summarizeImportedTransactionDrafts(importReviewDrafts, dashboard.categories),
@@ -1082,7 +1082,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       referenceDate: entry.referenceDate,
       recurringTemplateId: entry.recurringTemplateId ?? null,
       categoryId: entry.categoryId ?? null,
-      universeId: entry.universeId ?? null,
+      coreId: entry.coreId ?? null,
       projectId: entry.projectId ?? null,
       ...overrides,
     };
@@ -1102,7 +1102,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       monthOfYear: template.monthOfYear ?? null,
       isActive: template.isActive,
       categoryId: template.categoryId ?? null,
-      universeId: template.universeId ?? null,
+      coreId: template.coreId ?? null,
       projectId: template.projectId ?? null,
       ...overrides,
     };
@@ -1119,7 +1119,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
       purchasedOn: transaction.purchasedOn,
       notes: transaction.notes ?? "",
       categoryId: transaction.categoryId ?? null,
-      universeId: transaction.universeId ?? null,
+      coreId: transaction.coreId ?? null,
       projectId: transaction.projectId ?? null,
       externalSource: transaction.externalSource ?? "",
       externalReference: transaction.externalReference ?? "",
@@ -1173,7 +1173,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
     const objectUrl = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = objectUrl;
-    anchor.download = "homepit-cartao-import-exemplo.json";
+    anchor.download = "organiza-club-cartao-import-exemplo.json";
     anchor.click();
     window.URL.revokeObjectURL(objectUrl);
   }
@@ -1291,36 +1291,36 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
 
   return (
     <>
-      <HomePitWorkspaceShell
+      <OrganizaClubWorkspaceShell
         controller={{
           session: dashboard.session,
-          activeHouseholdId: dashboard.activeHouseholdId,
-          activeHousehold: dashboard.activeHousehold,
+          activeSpaceId: dashboard.activeSpaceId,
+          activeSpace: dashboard.activeSpace,
           members: dashboard.members,
           theme: dashboard.theme,
           sidebarCollapsed: dashboard.sidebarCollapsed,
           loading: dashboard.loading,
           error: dashboard.error,
-          canShareHousehold: dashboard.canShareHousehold,
-          canManageHousehold: dashboard.canManageHousehold,
-          editingHousehold: dashboard.editingHousehold,
-          isHouseholdDialogOpen: dashboard.isHouseholdDialogOpen,
+          canShareSpace: dashboard.canShareSpace,
+          canManageSpace: dashboard.canManageSpace,
+          editingSpace: dashboard.editingSpace,
+          isSpaceDialogOpen: dashboard.isSpaceDialogOpen,
           isShareDialogOpen: dashboard.isShareDialogOpen,
           setError: dashboard.setError,
           setSidebarCollapsed: dashboard.setSidebarCollapsed,
           setTheme: dashboard.setTheme,
-          handleHouseholdChange: dashboard.handleHouseholdChange,
+          handleSpaceChange: dashboard.handleSpaceChange,
           handleLogout: dashboard.handleLogout,
-          refreshHouseholds: dashboard.refreshHouseholds,
+          refreshSpaces: dashboard.refreshSpaces,
           refreshWorkspace: dashboard.refreshWorkspace,
-          openCreateHousehold: dashboard.openCreateHousehold,
-          openEditHousehold: dashboard.openEditHousehold,
-          openShareHousehold: dashboard.openShareHousehold,
+          openCreateSpace: dashboard.openCreateSpace,
+          openEditSpace: dashboard.openEditSpace,
+          openShareSpace: dashboard.openShareSpace,
           closeCommonModal: dashboard.closeCommonModal,
-          createHousehold: dashboard.createHousehold,
-          updateHousehold: dashboard.updateHousehold,
-          deleteHousehold: dashboard.deleteHousehold,
-          shareHousehold: dashboard.shareHousehold,
+          createSpace: dashboard.createSpace,
+          updateSpace: dashboard.updateSpace,
+          deleteSpace: dashboard.deleteSpace,
+          shareSpace: dashboard.shareSpace,
         }}
         activeModule="finance"
         subtitle={dashboard.subtitle}
@@ -1332,7 +1332,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
           <CardContent className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Financeiro</p>
-              <h1 className="mt-2 text-2xl font-semibold text-foreground">Operação financeira da casa</h1>
+              <h1 className="mt-2 text-2xl font-semibold text-foreground">Operação financeira do espaço</h1>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Controle o caixa do mês, mantenha recorrências, acompanhe cartões e preserve o patrimônio em um único lugar.
               </p>
@@ -1386,7 +1386,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         {dashboard.loading && !dashboard.periodDetail ? (
           <LoadingState
             title="Carregando financeiro"
-            description="Estamos reunindo o período mensal, recorrências, cartões e patrimônio da casa."
+            description="Estamos reunindo o período mensal, recorrências, cartões e patrimônio do espaço."
             icon={<Wallet className="size-5 animate-pulse" />}
           />
         ) : (
@@ -1422,7 +1422,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                   value={String(periodSummary?.cardPurchaseCount ?? 0)}
                   helper="Quantidade de compras no período analítico"
                 />
-                <InfoBlock label="Verificados" value={`${periodSummary?.verifiedEntries ?? 0}/${entries.length}`} helper="Lançamentos revisados no caixa mensal" />
+                <InfoBlock label="Verificadas" value={`${periodSummary?.verifiedEntries ?? 0}/${entries.length}`} helper="Lançamentos revisados no caixa mensal" />
               </CardContent>
             </Card>
 
@@ -1483,7 +1483,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                   </Select>
                   <Select value={filters.verified} onChange={(event) => setFilters((current) => ({ ...current, verified: event.target.value as FinanceEntryFilters["verified"] }))}>
                     <option value="all">Todos</option>
-                    <option value="verified">Verificados</option>
+                    <option value="verified">Verificadas</option>
                     <option value="pending">Pendentes</option>
                   </Select>
                   <Select value={filters.origin} onChange={(event) => setFilters((current) => ({ ...current, origin: event.target.value as FinanceEntryOrigin | "all" }))}>
@@ -1492,11 +1492,11 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                     <option value="RecurringTemplate">Recorrência</option>
                     <option value="CreditCardStatement">Fatura</option>
                   </Select>
-                  <Select value={filters.universeId} onChange={(event) => setFilters((current) => ({ ...current, universeId: event.target.value }))}>
-                    <option value="all">Todos os universos</option>
-                    {dashboard.universes.map((universe) => (
-                      <option key={universe.id} value={universe.id}>
-                        {universe.name}
+                  <Select value={filters.coreId} onChange={(event) => setFilters((current) => ({ ...current, coreId: event.target.value }))}>
+                    <option value="all">Todos os núcleos</option>
+                    {dashboard.cores.map((core) => (
+                      <option key={core.id} value={core.id}>
+                        {core.name}
                       </option>
                     ))}
                   </Select>
@@ -1515,7 +1515,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                   <Select value={filters.groupBy} onChange={(event) => setFilters((current) => ({ ...current, groupBy: event.target.value as FinanceEntryFilters["groupBy"] }))}>
                     <option value="none">Sem agrupamento</option>
                     <option value="type">Tipo</option>
-                    <option value="universe">Universo</option>
+                    <option value="core">Núcleo</option>
                     <option value="project">Projeto</option>
                   </Select>
                 </div>
@@ -1548,7 +1548,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                   <TableHead>Data</TableHead>
                                   <TableHead>Projeto</TableHead>
                                   <TableHead>Valor</TableHead>
-                                  <TableHead>Verificado</TableHead>
+                                  <TableHead>Verificada</TableHead>
                                   <TableHead className="min-w-[220px] text-right">Ações</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -1640,7 +1640,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                           }
                                         />
                                       </TableCell>
-                                      <TableCell>{entry.projectName ?? entry.universeName ?? "Sem classificação"}</TableCell>
+                                      <TableCell>{entry.projectName ?? entry.coreName ?? "Sem classificação"}</TableCell>
                                       <TableCell className={`font-medium ${entry.type === "Entrada" ? "text-success" : "text-danger"}`}>
                                         <InlineInputCell
                                           value={entry.amount}
@@ -2000,7 +2000,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                                                 }
                                               />
                                             </TableCell>
-                                            <TableCell>{transaction.projectName ?? transaction.universeName ?? "Sem classificação"}</TableCell>
+                                            <TableCell>{transaction.projectName ?? transaction.coreName ?? "Sem classificação"}</TableCell>
                                             <TableCell>{transaction.creditCardStatementId ? "Fechada" : "Em aberto"}</TableCell>
                                             <TableCell className="font-medium text-foreground">
                                               <InlineInputCell
@@ -2196,7 +2196,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
                     <EmptyState
                       icon={<Landmark className="size-5" />}
                       title="Nenhum bem cadastrado"
-                      description="Registre casa, carro e outros bens de alto valor para manter o contexto patrimonial da household."
+                      description="Registre espaço, carro e outros bens de alto valor para manter o contexto patrimonial da space."
                     />
                   </div>
                 ) : (
@@ -2263,7 +2263,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
             </Card>
           </>
         )}
-      </HomePitWorkspaceShell>
+      </OrganizaClubWorkspaceShell>
 
       <EntryDialog
         open={Boolean(entryDialog)}
@@ -2273,7 +2273,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         activeMonth={dashboard.activeMonth}
         categories={dashboard.categories}
         templates={dashboard.recurringTemplates}
-        universes={dashboard.universes}
+        cores={dashboard.cores}
         projects={dashboard.projects}
         onOpenChange={(open) => !open && setEntryDialog(null)}
         onSave={async (input) => {
@@ -2290,7 +2290,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         open={templateDialog !== null}
         template={templateDialog && templateDialog !== "create" ? templateDialog : null}
         categories={dashboard.categories}
-        universes={dashboard.universes}
+        cores={dashboard.cores}
         projects={dashboard.projects}
         onOpenChange={(open) => !open && setTemplateDialog(null)}
         onSave={async (input) => {
@@ -2403,7 +2403,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
         open={transactionDialog !== null}
         transaction={transactionDialog && transactionDialog !== "create" ? transactionDialog : null}
         categories={dashboard.categories}
-        universes={dashboard.universes}
+        cores={dashboard.cores}
         projects={dashboard.projects}
         onOpenChange={(open) => !open && setTransactionDialog(null)}
         onSave={async (input) => {
@@ -2439,7 +2439,7 @@ export function FinanceDashboardWorkspace({ dashboard }: { dashboard: FinanceDas
           error={importError}
           loading={importSubmitting}
           categories={dashboard.categories}
-          universes={dashboard.universes}
+          cores={dashboard.cores}
           projects={dashboard.projects}
           onOpenChange={(open) => {
             if (!open) {
@@ -2806,7 +2806,7 @@ function EntryDialog({
   activeMonth,
   categories,
   templates,
-  universes,
+  cores,
   projects,
   onOpenChange,
   onSave,
@@ -2818,8 +2818,8 @@ function EntryDialog({
   activeMonth: number;
   categories: FinanceCategory[];
   templates: FinanceRecurringTemplate[];
-  universes: { id: string; name: string }[];
-  projects: { id: string; name: string; universeId: string }[];
+  cores: { id: string; name: string }[];
+  projects: { id: string; name: string; coreId: string }[];
   onOpenChange: (open: boolean) => void;
   onSave: (input: FinanceEntryFormInput) => Promise<void>;
 }) {
@@ -2833,7 +2833,7 @@ function EntryDialog({
   const [referenceDate, setReferenceDate] = useState(entry?.referenceDate ?? `${activeYear}-${String(activeMonth).padStart(2, "0")}-01`);
   const [recurringTemplateId, setRecurringTemplateId] = useState(entry?.recurringTemplateId ?? "none");
   const [categoryId, setCategoryId] = useState(entry?.categoryId ?? "none");
-  const [universeId, setUniverseId] = useState(entry?.universeId ?? "none");
+  const [coreId, setCoreId] = useState(entry?.coreId ?? "none");
   const [projectId, setProjectId] = useState(entry?.projectId ?? "none");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -2849,15 +2849,15 @@ function EntryDialog({
     setReferenceDate(entry?.referenceDate ?? `${activeYear}-${String(activeMonth).padStart(2, "0")}-01`);
     setRecurringTemplateId(entry?.recurringTemplateId ?? "none");
     setCategoryId(entry?.categoryId ?? "none");
-    setUniverseId(entry?.universeId ?? "none");
+    setCoreId(entry?.coreId ?? "none");
     setProjectId(entry?.projectId ?? "none");
     setError(null);
     setSaving(false);
   }, [activeMonth, activeYear, defaultEntryType, entry, open]);
 
   const scopedProjects = useMemo(
-    () => (universeId === "none" ? projects : projects.filter((project) => project.universeId === universeId)),
-    [projects, universeId],
+    () => (coreId === "none" ? projects : projects.filter((project) => project.coreId === coreId)),
+    [projects, coreId],
   );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -2899,7 +2899,7 @@ function EntryDialog({
         referenceDate,
         recurringTemplateId: recurringTemplateId === "none" ? null : recurringTemplateId,
         categoryId: categoryId === "none" ? null : categoryId,
-        universeId: universeId === "none" ? null : universeId,
+        coreId: coreId === "none" ? null : coreId,
         projectId: projectId === "none" ? null : projectId,
       });
     } catch (exception) {
@@ -2914,7 +2914,7 @@ function EntryDialog({
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{entry ? "Editar lançamento" : "Novo lançamento"}</DialogTitle>
-          <DialogDescription>Registre entradas e saídas do caixa mensal com classificação opcional por universo e projeto.</DialogDescription>
+          <DialogDescription>Registre entradas e saídas do caixa mensal com classificação opcional por núcleo e projeto.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
@@ -2972,12 +2972,12 @@ function EntryDialog({
                 ))}
               </Select>
             </Field>
-            <Field label="Universo">
-              <Select value={universeId} onChange={(event) => setUniverseId(event.target.value)}>
-                <option value="none">Sem universo</option>
-                {universes.map((universe) => (
-                  <option key={universe.id} value={universe.id}>
-                    {universe.name}
+            <Field label="Núcleo">
+              <Select value={coreId} onChange={(event) => setCoreId(event.target.value)}>
+                <option value="none">Sem núcleo</option>
+                {cores.map((core) => (
+                  <option key={core.id} value={core.id}>
+                    {core.name}
                   </option>
                 ))}
               </Select>
@@ -2998,7 +2998,7 @@ function EntryDialog({
           </Field>
           <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
             <input type="checkbox" checked={verified} onChange={(event) => setVerified(event.target.checked)} />
-            Marcar como verificado
+            Marcar como verificada
           </label>
           <DialogFooter>
             <Button variant="secondary" type="button" onClick={() => onOpenChange(false)} disabled={saving}>
@@ -3018,7 +3018,7 @@ function RecurringTemplateDialog({
   open,
   template,
   categories,
-  universes,
+  cores,
   projects,
   onOpenChange,
   onSave,
@@ -3026,8 +3026,8 @@ function RecurringTemplateDialog({
   open: boolean;
   template: FinanceRecurringTemplate | null;
   categories: FinanceCategory[];
-  universes: { id: string; name: string }[];
-  projects: { id: string; name: string; universeId: string }[];
+  cores: { id: string; name: string }[];
+  projects: { id: string; name: string; coreId: string }[];
   onOpenChange: (open: boolean) => void;
   onSave: (input: FinanceRecurringTemplateFormInput) => Promise<void>;
 }) {
@@ -3040,7 +3040,7 @@ function RecurringTemplateDialog({
   const [monthOfYear, setMonthOfYear] = useState(template?.monthOfYear?.toString() ?? "");
   const [isActive, setIsActive] = useState(template?.isActive ?? true);
   const [categoryId, setCategoryId] = useState(template?.categoryId ?? "none");
-  const [universeId, setUniverseId] = useState(template?.universeId ?? "none");
+  const [coreId, setCoreId] = useState(template?.coreId ?? "none");
   const [projectId, setProjectId] = useState(template?.projectId ?? "none");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -3055,15 +3055,15 @@ function RecurringTemplateDialog({
     setMonthOfYear(template?.monthOfYear?.toString() ?? "");
     setIsActive(template?.isActive ?? true);
     setCategoryId(template?.categoryId ?? "none");
-    setUniverseId(template?.universeId ?? "none");
+    setCoreId(template?.coreId ?? "none");
     setProjectId(template?.projectId ?? "none");
     setError(null);
     setSaving(false);
   }, [open, template]);
 
   const scopedProjects = useMemo(
-    () => (universeId === "none" ? projects : projects.filter((project) => project.universeId === universeId)),
-    [projects, universeId],
+    () => (coreId === "none" ? projects : projects.filter((project) => project.coreId === coreId)),
+    [projects, coreId],
   );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -3095,7 +3095,7 @@ function RecurringTemplateDialog({
         monthOfYear: recurrence === "Annual" ? parsedMonth : null,
         isActive,
         categoryId: categoryId === "none" ? null : categoryId,
-        universeId: universeId === "none" ? null : universeId,
+        coreId: coreId === "none" ? null : coreId,
         projectId: projectId === "none" ? null : projectId,
       });
     } catch (exception) {
@@ -3162,12 +3162,12 @@ function RecurringTemplateDialog({
                 ))}
               </Select>
             </Field>
-            <Field label="Universo">
-              <Select value={universeId} onChange={(event) => setUniverseId(event.target.value)}>
-                <option value="none">Sem universo</option>
-                {universes.map((universe) => (
-                  <option key={universe.id} value={universe.id}>
-                    {universe.name}
+            <Field label="Núcleo">
+              <Select value={coreId} onChange={(event) => setCoreId(event.target.value)}>
+                <option value="none">Sem núcleo</option>
+                {cores.map((core) => (
+                  <option key={core.id} value={core.id}>
+                    {core.name}
                   </option>
                 ))}
               </Select>
@@ -3302,7 +3302,7 @@ function AssetDialog({
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{asset ? "Editar bem" : "Novo bem"}</DialogTitle>
-          <DialogDescription>Cadastre o patrimônio da casa com detalhes tipados para imóvel e veículo.</DialogDescription>
+          <DialogDescription>Cadastre o patrimônio do espaço com detalhes tipados para imóvel e veículo.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
@@ -3667,7 +3667,7 @@ function CreditCardAccountDialog({
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{card ? "Editar cartão" : "Novo cartão"}</DialogTitle>
-          <DialogDescription>Cadastre cartões da casa para registrar compras e fechar faturas no período correto.</DialogDescription>
+          <DialogDescription>Cadastre cartões do espaço para registrar compras e fechar faturas no período correto.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
@@ -3715,7 +3715,7 @@ function CreditCardTransactionDialog({
   open,
   transaction,
   categories,
-  universes,
+  cores,
   projects,
   onOpenChange,
   onSave,
@@ -3723,8 +3723,8 @@ function CreditCardTransactionDialog({
   open: boolean;
   transaction: CreditCardTransaction | null;
   categories: FinanceCategory[];
-  universes: { id: string; name: string }[];
-  projects: { id: string; name: string; universeId: string }[];
+  cores: { id: string; name: string }[];
+  projects: { id: string; name: string; coreId: string }[];
   onOpenChange: (open: boolean) => void;
   onSave: (input: CreditCardTransactionFormInput) => Promise<void>;
 }) {
@@ -3734,7 +3734,7 @@ function CreditCardTransactionDialog({
   const [purchasedOn, setPurchasedOn] = useState(transaction?.purchasedOn ?? formatDateOnlyInputValue());
   const [notes, setNotes] = useState(transaction?.notes ?? "");
   const [categoryId, setCategoryId] = useState(transaction?.categoryId ?? "none");
-  const [universeId, setUniverseId] = useState(transaction?.universeId ?? "none");
+  const [coreId, setCoreId] = useState(transaction?.coreId ?? "none");
   const [projectId, setProjectId] = useState(transaction?.projectId ?? "none");
   const [externalSource, setExternalSource] = useState(transaction?.externalSource ?? "");
   const [externalReference, setExternalReference] = useState(transaction?.externalReference ?? "");
@@ -3748,7 +3748,7 @@ function CreditCardTransactionDialog({
     setPurchasedOn(transaction?.purchasedOn ?? formatDateOnlyInputValue());
     setNotes(transaction?.notes ?? "");
     setCategoryId(transaction?.categoryId ?? "none");
-    setUniverseId(transaction?.universeId ?? "none");
+    setCoreId(transaction?.coreId ?? "none");
     setProjectId(transaction?.projectId ?? "none");
     setExternalSource(transaction?.externalSource ?? "");
     setExternalReference(transaction?.externalReference ?? "");
@@ -3757,8 +3757,8 @@ function CreditCardTransactionDialog({
   }, [open, transaction]);
 
   const scopedProjects = useMemo(
-    () => (universeId === "none" ? projects : projects.filter((project) => project.universeId === universeId)),
-    [projects, universeId],
+    () => (coreId === "none" ? projects : projects.filter((project) => project.coreId === coreId)),
+    [projects, coreId],
   );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -3784,7 +3784,7 @@ function CreditCardTransactionDialog({
         purchasedOn,
         notes: notes.trim(),
         categoryId: categoryId === "none" ? null : categoryId,
-        universeId: universeId === "none" ? null : universeId,
+        coreId: coreId === "none" ? null : coreId,
         projectId: projectId === "none" ? null : projectId,
         externalSource: externalSource.trim(),
         externalReference: externalReference.trim(),
@@ -3832,12 +3832,12 @@ function CreditCardTransactionDialog({
                 ))}
               </Select>
             </Field>
-            <Field label="Universo">
-              <Select value={universeId} onChange={(event) => setUniverseId(event.target.value)}>
-                <option value="none">Sem universo</option>
-                {universes.map((universe) => (
-                  <option key={universe.id} value={universe.id}>
-                    {universe.name}
+            <Field label="Núcleo">
+              <Select value={coreId} onChange={(event) => setCoreId(event.target.value)}>
+                <option value="none">Sem núcleo</option>
+                {cores.map((core) => (
+                  <option key={core.id} value={core.id}>
+                    {core.name}
                   </option>
                 ))}
               </Select>
@@ -3939,7 +3939,7 @@ function CreditCardTransactionImportDialog({
           <Notice tone="warning">
             Formato oficial: <code>{'{"transactions":[...]}'}</code> com os campos{" "}
             <code>title</code>, <code>merchant</code>, <code>amount</code>, <code>purchasedOn</code>, <code>notes</code>,{" "}
-            <code>categoryName</code>, <code>universeName</code>, <code>projectName</code>, <code>externalSource</code>,{" "}
+            <code>categoryName</code>, <code>coreName</code>, <code>projectName</code>, <code>externalSource</code>,{" "}
             <code>externalReference</code> e <code>importedAt</code>.
           </Notice>
           <div className="flex flex-wrap gap-2">
@@ -3980,7 +3980,7 @@ function CreditCardTransactionImportReviewDialog({
   error,
   loading,
   categories,
-  universes,
+  cores,
   projects,
   onOpenChange,
   onDraftChange,
@@ -3995,8 +3995,8 @@ function CreditCardTransactionImportReviewDialog({
   error: string | null;
   loading: boolean;
   categories: FinanceCategory[];
-  universes: { id: string; name: string }[];
-  projects: { id: string; name: string; universeId: string }[];
+  cores: { id: string; name: string }[];
+  projects: { id: string; name: string; coreId: string }[];
   onOpenChange: (open: boolean) => void;
   onDraftChange: (localId: string, field: EditableImportedTransactionField, value: string) => void;
   onAddDraft: () => void;
@@ -4072,7 +4072,7 @@ function CreditCardTransactionImportReviewDialog({
                     <TableHead className="min-w-[130px]">Valor</TableHead>
                     <TableHead className="min-w-[140px]">Data</TableHead>
                     <TableHead className="min-w-[160px]">Categoria</TableHead>
-                    <TableHead className="min-w-[160px]">Universo</TableHead>
+                    <TableHead className="min-w-[160px]">Núcleo</TableHead>
                     <TableHead className="min-w-[160px]">Projeto</TableHead>
                     <TableHead className="min-w-[180px]">Origem externa</TableHead>
                     <TableHead className="min-w-[180px]">Referência externa</TableHead>
@@ -4107,10 +4107,10 @@ function CreditCardTransactionImportReviewDialog({
                       </TableCell>
                       <TableCell>
                         <Input
-                          list="finance-import-universes"
-                          value={draft.universeName}
-                          onChange={(event) => onDraftChange(draft.localId, "universeName", event.target.value)}
-                          aria-label={`Universo da linha ${index + 1}`}
+                          list="finance-import-cores"
+                          value={draft.coreName}
+                          onChange={(event) => onDraftChange(draft.localId, "coreName", event.target.value)}
+                          aria-label={`Núcleo da linha ${index + 1}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -4163,9 +4163,9 @@ function CreditCardTransactionImportReviewDialog({
             <option key={category.id} value={category.name} />
           ))}
         </datalist>
-        <datalist id="finance-import-universes">
-          {universes.map((universe) => (
-            <option key={universe.id} value={universe.name} />
+        <datalist id="finance-import-cores">
+          {cores.map((core) => (
+            <option key={core.id} value={core.name} />
           ))}
         </datalist>
         <datalist id="finance-import-projects">
@@ -4464,7 +4464,7 @@ function RecurringTemplatesDialog({
                             }
                           />
                         </TableCell>
-                        <TableCell>{template.projectName ?? template.universeName ?? "Sem classificação"}</TableCell>
+                        <TableCell>{template.projectName ?? template.coreName ?? "Sem classificação"}</TableCell>
                         <TableCell>
                           <InlineCheckboxCell
                             checked={template.isActive}

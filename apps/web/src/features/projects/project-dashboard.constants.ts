@@ -1,4 +1,4 @@
-import type { ActivityStatus, AuthResponse, Household, Priority } from "@/lib/api";
+import type { ActivityStatus, AuthResponse, Space, Priority } from "@/lib/api";
 import type { ActivityFilterState, ActivitySortState, AppTheme, ProjectViewMode } from "./project-dashboard.types";
 
 export const activityColumns: Array<{ status: ActivityStatus; label: string; hint: string }> = [
@@ -21,7 +21,7 @@ export const priorityRank: Record<Priority, number> = {
   Baixa: 3,
 };
 
-export const roleLabels: Record<Household["role"], string> = {
+export const roleLabels: Record<Space["role"], string> = {
   Owner: "Proprietário",
   Admin: "Administrador",
   Member: "Membro",
@@ -55,19 +55,19 @@ export const modules = [
 ];
 
 export const uiStorageKeys = {
-  projectViewMode: "homepit.projects.view-mode",
-  projectActivitySort: "homepit.projects.activity-sort",
-  promptImagesHidden: "homepit.prompts.images-hidden",
-  platformSuggestionFilters: "homepit.platform.suggestion-filters",
-  sidebarCollapsed: "homepit.ui.sidebar-collapsed",
-  theme: "homepit.ui.theme",
+  projectViewMode: "organizaclub.projects.view-mode",
+  projectActivitySort: "organizaclub.projects.activity-sort",
+  promptImagesHidden: "organizaclub.prompts.images-hidden",
+  platformSuggestionFilters: "organizaclub.platform.suggestion-filters",
+  sidebarCollapsed: "organizaclub.ui.sidebar-collapsed",
+  theme: "organizaclub.ui.theme",
 };
 
-export const defaultAppTheme: AppTheme = "earthy";
+export const defaultAppTheme: AppTheme = "system";
 
 export const themeOptions: Array<{ value: AppTheme; label: string }> = [
-  { value: "cozy", label: "Claro" },
-  { value: "earthy", label: "Terroso" },
+  { value: "system", label: "Sistema" },
+  { value: "light", label: "Claro" },
   { value: "dark", label: "Escuro" },
 ];
 

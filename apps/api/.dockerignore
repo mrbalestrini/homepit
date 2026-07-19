@@ -1,7 +1,8 @@
-bin/
-obj/
+**/bin/
+**/obj/
 TestResults/
 .vs/
 .vscode/
 *.user
-*.suo
+*.seu
+.dotnet/

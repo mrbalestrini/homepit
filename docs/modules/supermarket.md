@@ -4,7 +4,7 @@ Planned after the finance foundation.
 
 ## Goals
 
-- Shopping lists shared by household.
+- Shopping lists shared by space.
 - Store and product catalog.
 - Purchase history with price tracking.
 - Receipt ingestion through QR/XML/OCR when available.

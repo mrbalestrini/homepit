@@ -1,12 +1,12 @@
 ---
 name: database
-description: Use for PostgreSQL, EF Core models, mappings, constraints, migrations, and data lifecycle changes in HomePit. Do not use for UI-only or service-only changes without schema impact.
+description: Use for PostgreSQL, EF Core models, mappings, constraints, migrations, and data lifecycle changes in OrganizaClub. Do not use for UI-only or service-only changes without schema impact.
 ---
 
 # Database
 
 ## Quando usar
-- Alterar entidades persistidas, `HomePitDbContext`, indices ou constraints.
+- Alterar entidades persistidas, `OrganizaClubDbContext`, indices ou constraints.
 - Planejar migration, compatibilidade, dados existentes ou rollback.
 
 ## Quando não usar
@@ -23,7 +23,7 @@ description: Use for PostgreSQL, EF Core models, mappings, constraints, migratio
 - A spec ativa em `.specs/changes/`, se existir.
 
 ## Responsabilidades
-- Preservar schema `homepit`, tenancy, autoria e historico.
+- Preservar schema `organiza_club`, tenancy, autoria e historico.
 - Avaliar cascata, `SetNull`, `Restrict`, unicidade e limites.
 - Planejar migration, rollout, rollback e testes de metadados.
 

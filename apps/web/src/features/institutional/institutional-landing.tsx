@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Home, Layers3, Repeat2, UsersRound } from "lucide-react";
+import type { ReactNode } from "react";
+import { ArrowRight, CheckCircle2, Layers3, Repeat2, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL, type InstitutionalPageContent } from "@/lib/api";
 
@@ -13,11 +14,8 @@ export function InstitutionalLanding({ page }: { page: InstitutionalPageContent 
       <header className="sticky top-0 z-20 border-b border-border/70 bg-surface-strong/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <Link className="flex min-w-0 items-center gap-3" href="/">
-            <span className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-primary text-primary-foreground">
-              <Home className="size-4" />
-            </span>
             <span className="min-w-0">
-              <span className="block font-display text-2xl leading-none">{page.brandName}</span>
+              <BrandWordmark className="h-9 w-auto sm:h-10" />
               <span className="mt-1 hidden truncate text-xs text-muted-foreground sm:block">{page.brandTagline}</span>
             </span>
           </Link>
@@ -33,16 +31,16 @@ export function InstitutionalLanding({ page }: { page: InstitutionalPageContent 
               <Link href="/projects">Entrar</Link>
             </Button>
             <Button asChild className="hidden sm:inline-flex">
-              <a href={page.primaryCtaUrl} target="_blank" rel="noreferrer">
+              <PrimaryCtaLink href={page.primaryCtaUrl}>
                 {page.primaryCtaLabel}
-              </a>
+              </PrimaryCtaLink>
             </Button>
           </div>
         </div>
       </header>
 
       <section className="relative px-4 pb-20 pt-14 sm:px-6 sm:pt-20 lg:px-8 lg:pb-28">
-        <div className="absolute inset-x-0 top-0 -z-0 h-[540px] bg-[radial-gradient(circle_at_15%_15%,rgba(31,143,120,0.18),transparent_42%),radial-gradient(circle_at_88%_15%,rgba(138,106,84,0.18),transparent_38%)]" />
+        <div className="absolute inset-x-0 top-0 -z-0 h-[540px] bg-[radial-gradient(circle_at_15%_15%,rgba(47,99,245,0.16),transparent_42%),radial-gradient(circle_at_88%_15%,rgba(32,178,107,0.16),transparent_38%)]" />
         <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1.02fr_0.98fr]">
           <div className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">{page.heroEyebrow}</p>
@@ -51,10 +49,10 @@ export function InstitutionalLanding({ page }: { page: InstitutionalPageContent 
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">
-                <a href={page.primaryCtaUrl} target="_blank" rel="noreferrer">
+                <PrimaryCtaLink href={page.primaryCtaUrl}>
                   {page.primaryCtaLabel}
                   <ArrowRight />
-                </a>
+                </PrimaryCtaLink>
               </Button>
               <Button asChild size="lg" variant="secondary">
                 <Link href="/projects">Entrar no sistema</Link>
@@ -62,7 +60,7 @@ export function InstitutionalLanding({ page }: { page: InstitutionalPageContent 
             </div>
 
             <div className="mt-10 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
-              {["Projetos com contexto", "Permissões por casa", "Conhecimento reutilizável"].map((label) => (
+              {["Projetos com contexto", "Permissões por espaço", "Conhecimento reutilizável"].map((label) => (
                 <div className="flex items-center gap-2" key={label}>
                   <CheckCircle2 className="size-4 text-primary" />
                   <span>{label}</span>
@@ -145,8 +143,14 @@ export function InstitutionalLanding({ page }: { page: InstitutionalPageContent 
             ) : (
               <div className="grid aspect-[4/3] place-items-center p-8 text-center">
                 <div>
-                  <Home className="mx-auto size-12 text-primary" />
-                  <p className="mt-4 font-display text-3xl">{page.brandName}</p>
+                  <Image
+                    className="mx-auto size-24"
+                    src="/brand/organiza-club-mark-navy.svg"
+                    alt=""
+                    width={96}
+                    height={96}
+                  />
+                  <p className="mt-5 text-2xl font-semibold">{page.brandName}</p>
                   <p className="mt-2 text-muted-foreground">{page.brandTagline}</p>
                 </div>
               </div>
@@ -160,10 +164,10 @@ export function InstitutionalLanding({ page }: { page: InstitutionalPageContent 
           <h2 className="font-display text-4xl leading-tight sm:text-5xl">{page.finalCtaTitle}</h2>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 opacity-85">{page.finalCtaDescription}</p>
           <Button asChild className="mt-8 bg-primary-foreground text-primary hover:bg-primary-foreground/90" size="lg">
-            <a href={page.primaryCtaUrl} target="_blank" rel="noreferrer">
+            <PrimaryCtaLink href={page.primaryCtaUrl}>
               {page.primaryCtaLabel}
               <ArrowRight />
-            </a>
+            </PrimaryCtaLink>
           </Button>
         </div>
       </section>
@@ -171,15 +175,46 @@ export function InstitutionalLanding({ page }: { page: InstitutionalPageContent 
       <footer className="border-t border-border/70 bg-surface/75 px-4 py-10 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-display text-2xl">{page.brandName}</p>
+            <BrandWordmark className="h-10 w-auto" />
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{page.footerText}</p>
           </div>
           <Button asChild variant="ghost">
-            <Link href="/projects">Acessar o HomePit</Link>
+            <Link href="/projects">Entrar no clube</Link>
           </Button>
         </div>
       </footer>
     </main>
+  );
+}
+
+function PrimaryCtaLink({ href, children }: { href: string; children: ReactNode }) {
+  if (href.startsWith("/") && !href.startsWith("//")) {
+    return <Link href={href}>{children}</Link>;
+  }
+
+  return <a href={href} target="_blank" rel="noreferrer">{children}</a>;
+}
+
+function BrandWordmark({ className }: { className?: string }) {
+  return (
+    <span className="relative block">
+      <Image
+        className={`${className ?? ""} brand-logo-navy`}
+        src="/brand/organiza-club-wordmark-navy.svg"
+        alt="Organiza Club"
+        width={288}
+        height={100}
+        priority
+      />
+      <Image
+        className={`${className ?? ""} brand-logo-cream`}
+        src="/brand/organiza-club-wordmark-cream.svg"
+        alt="Organiza Club"
+        width={288}
+        height={100}
+        priority
+      />
+    </span>
   );
 }
 
@@ -197,7 +232,7 @@ function ProductIllustration() {
     <div className="grid aspect-[4/3] gap-3 rounded-[24px] bg-surface-muted p-4 sm:grid-cols-[0.8fr_1.2fr]">
       <div className="space-y-3 rounded-[20px] bg-surface-strong p-4">
         <div className="h-8 w-2/3 rounded-full bg-primary/20" />
-        {["Casa", "Projetos", "Prompts", "Rotinas"].map((item, index) => (
+        {["Espaço", "Projetos", "Prompts", "Rotinas"].map((item, index) => (
           <div className="flex items-center gap-3 rounded-[14px] bg-surface-muted p-3" key={item}>
             <span className={`size-3 rounded-full ${index === 1 ? "bg-primary" : "bg-border"}`} />
             <span className="text-sm font-semibold">{item}</span>
@@ -206,7 +241,7 @@ function ProductIllustration() {
       </div>
       <div className="grid gap-3 sm:grid-rows-[auto_1fr]">
         <div className="rounded-[20px] bg-surface-strong p-5">
-          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Casa em movimento</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Espaço em movimento</p>
           <p className="mt-2 font-display text-3xl">12 atividades</p>
         </div>
         <div className="grid grid-cols-2 gap-3">

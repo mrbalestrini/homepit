@@ -12,10 +12,10 @@ import {
   EffortPlan,
   EffortScopeType,
   EffortWeekday,
-  Household,
-  HouseholdMember,
+  Space,
+  SpaceMember,
   Project,
-  Universe,
+  Core,
   apiFetch,
   clearSession,
   readSession,
@@ -24,11 +24,11 @@ import {
   updateStoredSession,
 } from "@/lib/api";
 import {
-  clearStoredActiveHouseholdId,
-  readStoredActiveHouseholdId,
-  resolveActiveHouseholdSelection,
-  storeActiveHouseholdId,
-} from "@/lib/household-selection";
+  clearStoredActiveSpaceId,
+  readStoredActiveSpaceId,
+  resolveActiveSpaceSelection,
+  storeActiveSpaceId,
+} from "@/lib/space-selection";
 import { activityColumns, defaultActivityFilters, defaultAppTheme, uiStorageKeys } from "./project-dashboard.constants";
 import type {
   ActiveModal,
@@ -43,11 +43,15 @@ import { activityMatchesSearch, getErrorMessage, isCompletedActivityOlderThanDay
 const COMPLETED_ACTIVITY_HIDE_DAYS = 30;
 
 function isAppTheme(value: string | null): value is AppTheme {
-  return value === "cozy" || value === "earthy" || value === "dark";
+  return value === "light" || value === "system" || value === "dark";
 }
 
 function applyDocumentTheme(theme: AppTheme) {
-  document.documentElement.dataset.theme = theme;
+  const resolved = theme === "system"
+    ? window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+    : theme;
+  document.documentElement.dataset.themePreference = theme;
+  document.documentElement.dataset.theme = resolved;
 }
 
 function isActivitySortState(value: string | null): value is ActivitySortState {
@@ -123,14 +127,14 @@ export function useProjectDashboard() {
   const pathname = usePathname();
   const router = useRouter();
   const [session, setSession] = useState<AuthResponse | null>(null);
-  const [activeHouseholdId, setActiveHouseholdId] = useState("");
-  const [universes, setUniverses] = useState<Universe[]>([]);
+  const [activeSpaceId, setActiveSpaceId] = useState("");
+  const [cores, setCores] = useState<Core[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [effortPlan, setEffortPlan] = useState<EffortPlan | null>(null);
   const [relevance, setRelevance] = useState<ActivityRelevanceResponse | null>(null);
-  const [members, setMembers] = useState<HouseholdMember[]>([]);
-  const [selectedUniverseId, setSelectedUniverseId] = useState("");
+  const [members, setMembers] = useState<SpaceMember[]>([]);
+  const [selectedCoreId, setSelectedCoreId] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [filters, setFilters] = useState<ActivityFilterState>(defaultActivityFilters);
   const [showOldCompleted, setShowOldCompleted] = useState(false);
@@ -138,8 +142,8 @@ export function useProjectDashboard() {
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
   const [theme, setThemeState] = useState<AppTheme>(defaultAppTheme);
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
-  const [editingHousehold, setEditingHousehold] = useState<Household | null>(null);
-  const [editingUniverse, setEditingUniverse] = useState<Universe | null>(null);
+  const [editingSpace, setEditingSpace] = useState<Space | null>(null);
+  const [editingCore, setEditingCore] = useState<Core | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [activityDraftProjectId, setActivityDraftProjectId] = useState("");
@@ -149,22 +153,22 @@ export function useProjectDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sessionUserIdRef = useRef<string | null>(null);
-  const activeHouseholdIdRef = useRef("");
+  const activeSpaceIdRef = useRef("");
   const activityStatusMutationVersionRef = useRef<Record<string, number>>({});
 
   const resetWorkspaceState = useCallback(() => {
-    setUniverses([]);
+    setCores([]);
     setProjects([]);
     setActivities([]);
     setEffortPlan(null);
     setRelevance(null);
     setMembers([]);
-    setSelectedUniverseId("");
+    setSelectedCoreId("");
     setSelectedProjectId("");
     setSelectedActivity(null);
     setActivityComments([]);
-    setEditingHousehold(null);
-    setEditingUniverse(null);
+    setEditingSpace(null);
+    setEditingCore(null);
     setEditingProject(null);
     setEditingActivity(null);
     setActivityDraftProjectId("");
@@ -188,23 +192,23 @@ export function useProjectDashboard() {
 
       setSession(nextSession);
       if (!nextSession) {
-        setActiveHouseholdId("");
+        setActiveSpaceId("");
         return;
       }
 
-      const storedHouseholdId = readStoredActiveHouseholdId(nextSession.user.id);
-      const { householdId, shouldClearStoredHouseholdId } = resolveActiveHouseholdSelection(
-        nextSession.households,
-        activeHouseholdIdRef.current,
-        storedHouseholdId,
+      const storedSpaceId = readStoredActiveSpaceId(nextSession.user.id);
+      const { spaceId, shouldClearStoredSpaceId } = resolveActiveSpaceSelection(
+        nextSession.spaces,
+        activeSpaceIdRef.current,
+        storedSpaceId,
       );
 
-      if (shouldClearStoredHouseholdId) {
-        clearStoredActiveHouseholdId(nextSession.user.id);
+      if (shouldClearStoredSpaceId) {
+        clearStoredActiveSpaceId(nextSession.user.id);
       }
 
-      setActiveHouseholdId(householdId);
-      setLoading(Boolean(nextSession && nextSession.households.length > 0));
+      setActiveSpaceId(spaceId);
+      setLoading(Boolean(nextSession && nextSession.spaces.length > 0));
     },
     [resetWorkspaceState],
   );
@@ -259,11 +263,11 @@ export function useProjectDashboard() {
       return;
     }
 
-    if (session.households.length > 0) {
+    if (session.spaces.length > 0) {
       return;
     }
 
-    if (pathname === "/profile" || pathname === "/household") {
+    if (pathname === "/profile" || pathname === "/spaces") {
       return;
     }
 
@@ -271,8 +275,8 @@ export function useProjectDashboard() {
   }, [pathname, router, session]);
 
   useEffect(() => {
-    activeHouseholdIdRef.current = activeHouseholdId;
-  }, [activeHouseholdId]);
+    activeSpaceIdRef.current = activeSpaceId;
+  }, [activeSpaceId]);
 
   useEffect(() => {
     const userId = session?.user.id;
@@ -281,27 +285,27 @@ export function useProjectDashboard() {
       return;
     }
 
-    if (activeHouseholdId) {
-      storeActiveHouseholdId(userId, activeHouseholdId);
+    if (activeSpaceId) {
+      storeActiveSpaceId(userId, activeSpaceId);
       return;
     }
 
-    clearStoredActiveHouseholdId(userId);
-  }, [activeHouseholdId, session?.user.id]);
+    clearStoredActiveSpaceId(userId);
+  }, [activeSpaceId, session?.user.id]);
 
-  const activeHousehold = useMemo(() => {
-    return session?.households.find((household) => household.id === activeHouseholdId) ?? null;
-  }, [activeHouseholdId, session?.households]);
+  const activeSpace = useMemo(() => {
+    return session?.spaces.find((space) => space.id === activeSpaceId) ?? null;
+  }, [activeSpaceId, session?.spaces]);
   const isAccountActive = (session?.user.accountState ?? "Active") === "Active";
 
-  const canShareHousehold = activeHousehold?.role === "Owner" || activeHousehold?.role === "Admin";
-  const canManageHousehold = activeHousehold?.role === "Owner";
+  const canShareSpace = activeSpace?.role === "Owner" || activeSpace?.role === "Admin";
+  const canManageSpace = activeSpace?.role === "Owner";
 
   const filteredProjects = useMemo(() => {
-    return selectedUniverseId
-      ? projects.filter((project) => project.universeId === selectedUniverseId)
+    return selectedCoreId
+      ? projects.filter((project) => project.coreId === selectedCoreId)
       : projects;
-  }, [projects, selectedUniverseId]);
+  }, [projects, selectedCoreId]);
 
   const activityDialogProjects = useMemo(() => {
     if (!activityDraftProjectId) {
@@ -316,10 +320,10 @@ export function useProjectDashboard() {
   const visibleActivities = useMemo(() => {
     const relevanceByActivityId = new Map((relevance?.items ?? []).map((item) => [item.activityId, item]));
     const scopedActivities = activities.filter((activity) => {
-      const matchesUniverse = !selectedUniverseId || activity.universeId === selectedUniverseId;
+      const matchesCore = !selectedCoreId || activity.coreId === selectedCoreId;
       const matchesProject = !selectedProjectId || activity.projectId === selectedProjectId;
 
-      return matchesUniverse && matchesProject;
+      return matchesCore && matchesProject;
     });
 
     const filteredActivities = scopedActivities.filter((activity) => {
@@ -346,16 +350,16 @@ export function useProjectDashboard() {
     }
 
     return sortActivities(filteredActivities, filters.sort);
-  }, [activities, filters, relevance, selectedProjectId, selectedUniverseId, showOldCompleted]);
+  }, [activities, filters, relevance, selectedProjectId, selectedCoreId, showOldCompleted]);
 
   const scopedActivities = useMemo(
     () =>
       activities.filter(
         (activity) =>
-          (!selectedUniverseId || activity.universeId === selectedUniverseId) &&
+          (!selectedCoreId || activity.coreId === selectedCoreId) &&
           (!selectedProjectId || activity.projectId === selectedProjectId),
       ),
-    [activities, selectedProjectId, selectedUniverseId],
+    [activities, selectedProjectId, selectedCoreId],
   );
 
   const hasOldCompletedActivities = useMemo(
@@ -392,22 +396,22 @@ export function useProjectDashboard() {
       return project.name;
     }
 
-    const universe = universes.find((item) => item.id === selectedUniverseId);
-    return universe?.name ?? "Todos os projetos";
-  }, [projects, selectedProjectId, selectedUniverseId, universes]);
+    const core = cores.find((item) => item.id === selectedCoreId);
+    return core?.name ?? "Todos os projetos";
+  }, [projects, selectedProjectId, selectedCoreId, cores]);
 
   const selectedActivitySnapshot = selectedActivity
     ? activities.find((activity) => activity.id === selectedActivity.id) ?? selectedActivity
     : null;
 
-  const currentHouseholdMember = useMemo(
+  const currentSpaceMember = useMemo(
     () => members.find((member) => member.isCurrentUser) ?? members.find((member) => member.userId === session?.user.id) ?? null,
     [members, session?.user.id],
   );
 
   const canAssignActivityToMe = useCallback(
-    (activity: Activity) => Boolean(currentHouseholdMember && activity.canEdit && activity.responsibleMemberId !== currentHouseholdMember.id),
-    [currentHouseholdMember],
+    (activity: Activity) => Boolean(currentSpaceMember && activity.canEdit && activity.responsibleMemberId !== currentSpaceMember.id),
+    [currentSpaceMember],
   );
 
   const groupedActivities = useMemo(() => {
@@ -467,27 +471,27 @@ export function useProjectDashboard() {
   }, []);
 
   const loadWorkspace = useCallback(
-    async (token = session?.accessToken, householdId = activeHouseholdId) => {
-      if (!token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
+    async (token = session?.accessToken, spaceId = activeSpaceId) => {
+      if (!token || !spaceId || (session?.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
       setLoading(true);
       setError(null);
       try {
-        const [nextUniverses, nextProjects, nextActivities, nextMembers] = await Promise.all([
-          apiFetch<Universe[]>("/api/universes", { token, householdId }),
-          apiFetch<Project[]>("/api/projects", { token, householdId }),
-          apiFetch<Activity[]>("/api/activities", { token, householdId }),
-          apiFetch<HouseholdMember[]>("/api/households/members", { token, householdId }),
+        const [nextCores, nextProjects, nextActivities, nextMembers] = await Promise.all([
+          apiFetch<Core[]>("/api/cores", { token, spaceId }),
+          apiFetch<Project[]>("/api/projects", { token, spaceId }),
+          apiFetch<Activity[]>("/api/activities", { token, spaceId }),
+          apiFetch<SpaceMember[]>("/api/spaces/members", { token, spaceId }),
         ]);
 
-        setUniverses(nextUniverses);
+        setCores(nextCores);
         setProjects(nextProjects);
         setActivities(nextActivities);
         setMembers(nextMembers);
         if (session?.user.systemRole !== "SuperAdmin") {
-          void apiFetch<EffortPlan>("/api/effort-plan", { token, householdId })
+          void apiFetch<EffortPlan>("/api/effort-plan", { token, spaceId })
             .then(setEffortPlan)
             .catch(() => setEffortPlan(null));
         }
@@ -497,11 +501,11 @@ export function useProjectDashboard() {
         setLoading(false);
       }
     },
-    [activeHouseholdId, session?.accessToken, session?.user],
+    [activeSpaceId, session?.accessToken, session?.user],
   );
 
   useEffect(() => {
-    if (filters.sort !== "relevance" || !session?.accessToken || !activeHouseholdId || session.user.systemRole === "SuperAdmin") {
+    if (filters.sort !== "relevance" || !session?.accessToken || !activeSpaceId || session.user.systemRole === "SuperAdmin") {
       return;
     }
 
@@ -510,15 +514,15 @@ export function useProjectDashboard() {
     const utcOffsetMinutes = -current.getTimezoneOffset();
     void apiFetch<ActivityRelevanceResponse>(`/api/activities/relevance?date=${date}&utcOffsetMinutes=${utcOffsetMinutes}`, {
       token: session.accessToken,
-      householdId: activeHouseholdId,
+      spaceId: activeSpaceId,
     })
       .then(setRelevance)
       .catch((exception) => setError(getErrorMessage(exception, "Não foi possível calcular a fila de hoje.")));
-  }, [activeHouseholdId, activities, effortPlan, filters.sort, session]);
+  }, [activeSpaceId, activities, effortPlan, filters.sort, session]);
 
   const loadComments = useCallback(
     async (activityId: string) => {
-      if (!session || !activeHouseholdId || (session.user.accountState ?? "Active") !== "Active") {
+      if (!session || !activeSpaceId || (session.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
@@ -526,7 +530,7 @@ export function useProjectDashboard() {
       try {
         const nextComments = await apiFetch<ActivityComment[]>(`/api/activities/${activityId}/comments`, {
           token: session.accessToken,
-          householdId: activeHouseholdId,
+          spaceId: activeSpaceId,
         });
         setActivityComments(nextComments);
       } catch (exception) {
@@ -535,7 +539,7 @@ export function useProjectDashboard() {
         setCommentsLoading(false);
       }
     },
-    [activeHouseholdId, session],
+    [activeSpaceId, session],
   );
 
   const replaceActivityInState = useCallback((nextActivity: Activity) => {
@@ -551,30 +555,30 @@ export function useProjectDashboard() {
   }, []);
 
   useEffect(() => {
-    if (!session || !activeHouseholdId || !isAccountActive) {
+    if (!session || !activeSpaceId || !isAccountActive) {
       return;
     }
 
     const timer = window.setTimeout(() => {
-      void loadWorkspace(session.accessToken, activeHouseholdId);
+      void loadWorkspace(session.accessToken, activeSpaceId);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [session, activeHouseholdId, isAccountActive, loadWorkspace]);
+  }, [session, activeSpaceId, isAccountActive, loadWorkspace]);
 
   const handleAuthenticated = useCallback((auth: AuthResponse) => {
     storeSession(auth);
     toast.success("Sessão iniciada com sucesso.");
   }, []);
 
-  const handleHouseholdChange = useCallback((householdId: string) => {
+  const handleSpaceChange = useCallback((spaceId: string) => {
     setLoading(true);
-    setUniverses([]);
+    setCores([]);
     setProjects([]);
     setActivities([]);
     setMembers([]);
-    setActiveHouseholdId(householdId);
-    setSelectedUniverseId("");
+    setActiveSpaceId(spaceId);
+    setSelectedCoreId("");
     setSelectedProjectId("");
     setActivityDraftProjectId("");
     setSelectedActivity(null);
@@ -588,11 +592,11 @@ export function useProjectDashboard() {
     toast.success("Sessão encerrada.");
   }, []);
 
-  const updateSessionHouseholds = useCallback(
-    (nextHouseholds: Household[], preferredHouseholdId?: string) => {
+  const updateSessionSpaces = useCallback(
+    (nextSpaces: Space[], preferredSpaceId?: string) => {
       const nextSession = updateStoredSession((currentSession) => ({
         ...currentSession,
-        households: nextHouseholds,
+        spaces: nextSpaces,
       }));
 
       if (!nextSession) {
@@ -601,19 +605,19 @@ export function useProjectDashboard() {
 
       setSession(nextSession);
 
-      const storedHouseholdId = readStoredActiveHouseholdId(nextSession.user.id);
-      const { householdId, shouldClearStoredHouseholdId } = resolveActiveHouseholdSelection(
-        nextHouseholds,
-        activeHouseholdIdRef.current,
-        storedHouseholdId,
-        preferredHouseholdId,
+      const storedSpaceId = readStoredActiveSpaceId(nextSession.user.id);
+      const { spaceId, shouldClearStoredSpaceId } = resolveActiveSpaceSelection(
+        nextSpaces,
+        activeSpaceIdRef.current,
+        storedSpaceId,
+        preferredSpaceId,
       );
 
-      if (shouldClearStoredHouseholdId) {
-        clearStoredActiveHouseholdId(nextSession.user.id);
+      if (shouldClearStoredSpaceId) {
+        clearStoredActiveSpaceId(nextSession.user.id);
       }
 
-      setActiveHouseholdId(householdId);
+      setActiveSpaceId(spaceId);
     },
     [],
   );
@@ -646,7 +650,7 @@ export function useProjectDashboard() {
     [],
   );
 
-  const refreshHouseholds = useCallback(async () => {
+  const refreshSpaces = useCallback(async () => {
     if (!session) {
       return;
     }
@@ -654,124 +658,124 @@ export function useProjectDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const nextHouseholds = await apiFetch<Household[]>("/api/households", {
+      const nextSpaces = await apiFetch<Space[]>("/api/spaces", {
         token: session.accessToken,
       });
-      updateSessionHouseholds(nextHouseholds);
-      toast.success("Casas atualizadas.");
+      updateSessionSpaces(nextSpaces);
+      toast.success("Espaços atualizados.");
     } catch (exception) {
-      setError(getErrorMessage(exception, "Falha ao carregar casas."));
-      toast.error(getErrorMessage(exception, "Falha ao carregar casas."));
+      setError(getErrorMessage(exception, "Falha ao carregar espaços."));
+      toast.error(getErrorMessage(exception, "Falha ao carregar espaços."));
     } finally {
       setLoading(false);
     }
-  }, [session, updateSessionHouseholds]);
+  }, [session, updateSessionSpaces]);
 
-  async function createHousehold(name: string) {
+  async function createSpace(name: string) {
     if (!session) {
       return;
     }
 
     try {
-      const created = await apiFetch<Household>("/api/households", {
+      const created = await apiFetch<Space>("/api/spaces", {
         method: "POST",
         token: session.accessToken,
         body: JSON.stringify({ name }),
       });
-      updateSessionHouseholds(
-        [...session.households, created].sort((a, b) => a.name.localeCompare(b.name)),
+      updateSessionSpaces(
+        [...session.spaces, created].sort((a, b) => a.name.localeCompare(b.name)),
         created.id,
       );
-      toast.success("Casa criada.");
+      toast.success("Espaço criado.");
     } catch (exception) {
-      reportError(exception, "Não foi possível criar a casa.");
+      reportError(exception, "Não foi possível criar o espaço.");
     }
   }
 
-  async function updateHousehold(householdId: string, name: string) {
+  async function updateSpace(spaceId: string, name: string) {
     if (!session) {
       return;
     }
 
     try {
-      const updated = await apiFetch<Household>(`/api/households/${householdId}`, {
+      const updated = await apiFetch<Space>(`/api/spaces/${spaceId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId,
+        spaceId,
         body: JSON.stringify({ name }),
       });
-      updateSessionHouseholds(
-        session.households
-          .map((household) => (household.id === updated.id ? updated : household))
+      updateSessionSpaces(
+        session.spaces
+          .map((space) => (space.id === updated.id ? updated : space))
           .sort((a, b) => a.name.localeCompare(b.name)),
         updated.id,
       );
-      toast.success("Casa atualizada.");
+      toast.success("Espaço atualizado.");
     } catch (exception) {
-      reportError(exception, "Não foi possível salvar a casa.");
+      reportError(exception, "Não foi possível salvar o espaço.");
     }
   }
 
-  async function deleteHousehold(household: Household) {
+  async function deleteSpace(space: Space) {
     if (!session) {
       return;
     }
 
     try {
-      await apiFetch<void>(`/api/households/${household.id}`, {
+      await apiFetch<void>(`/api/spaces/${space.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: household.id,
+        spaceId: space.id,
       });
 
-      const nextHouseholds = session.households.filter((item) => item.id !== household.id);
-      setUniverses([]);
+      const nextSpaces = session.spaces.filter((item) => item.id !== space.id);
+      setCores([]);
       setProjects([]);
       setActivities([]);
       setMembers([]);
-      setSelectedUniverseId("");
+      setSelectedCoreId("");
       setSelectedProjectId("");
       setSelectedActivity(null);
       setActivityComments([]);
-      updateSessionHouseholds(nextHouseholds);
-      toast.success("Casa excluída.");
+      updateSessionSpaces(nextSpaces);
+      toast.success("Espaço excluído.");
     } catch (exception) {
-      reportError(exception, "Não foi possível excluir a casa.");
+      reportError(exception, "Não foi possível excluir o espaço.");
     }
   }
 
-  function openCreateHousehold() {
-    setEditingHousehold(null);
-    setActiveModal("household");
+  function openCreateSpace() {
+    setEditingSpace(null);
+    setActiveModal("space");
   }
 
-  function openEditHousehold() {
-    if (!activeHousehold) {
+  function openEditSpace() {
+    if (!activeSpace) {
       return;
     }
 
-    setEditingHousehold(activeHousehold);
-    setActiveModal("household");
+    setEditingSpace(activeSpace);
+    setActiveModal("space");
   }
 
-  function openCreateUniverse() {
-    setEditingUniverse(null);
-    setActiveModal("universe");
+  function openCreateCore() {
+    setEditingCore(null);
+    setActiveModal("core");
   }
 
-  function openEditUniverse(universe: Universe) {
-    if (!universe.canEdit) {
+  function openEditCore(core: Core) {
+    if (!core.canEdit) {
       return;
     }
 
-    setEditingUniverse(universe);
-    setActiveModal("universe");
+    setEditingCore(core);
+    setActiveModal("core");
   }
 
-  function openCreateProject(universeId?: string) {
+  function openCreateProject(coreId?: string) {
     setEditingProject(null);
-    if (universeId) {
-      setSelectedUniverseId(universeId);
+    if (coreId) {
+      setSelectedCoreId(coreId);
       setSelectedProjectId("");
     }
     setActiveModal("project");
@@ -796,7 +800,7 @@ export function useProjectDashboard() {
     setActiveModal("effort");
   }
 
-  function openShareHousehold() {
+  function openShareSpace() {
     setActiveModal("share");
   }
 
@@ -812,154 +816,154 @@ export function useProjectDashboard() {
 
   function closeModal() {
     setActiveModal(null);
-    setEditingHousehold(null);
-    setEditingUniverse(null);
+    setEditingSpace(null);
+    setEditingCore(null);
     setEditingProject(null);
     setEditingActivity(null);
     setActivityDraftProjectId("");
   }
 
-  async function createUniverse(input: { name: string; imageFile?: File | null; removeImage?: boolean }) {
-    if (!session || !activeHouseholdId) {
+  async function createCore(input: { name: string; imageFile?: File | null; removeImage?: boolean }) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
     try {
-      let created = await apiFetch<Universe>("/api/universes", {
+      let created = await apiFetch<Core>("/api/cores", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({ name: input.name, imageUrl: null }),
       });
 
       if (input.imageFile) {
-        created = await uploadUniverseImage(created.id, input.imageFile);
+        created = await uploadCoreImage(created.id, input.imageFile);
       }
 
-      setUniverses((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
-      setSelectedUniverseId(created.id);
+      setCores((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedCoreId(created.id);
       setSelectedProjectId("");
-      toast.success("Universo criado.");
+      toast.success("Núcleo criado.");
     } catch (exception) {
-      reportError(exception, "Não foi possível criar o universo.");
+      reportError(exception, "Não foi possível criar o núcleo.");
     }
   }
 
-  async function updateUniverse(universeId: string, input: { name: string; imageFile?: File | null; removeImage?: boolean }) {
-    if (!session || !activeHouseholdId) {
+  async function updateCore(coreId: string, input: { name: string; imageFile?: File | null; removeImage?: boolean }) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
     try {
-      let updated = await apiFetch<Universe>(`/api/universes/${universeId}`, {
+      let updated = await apiFetch<Core>(`/api/cores/${coreId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({ name: input.name, imageUrl: null }),
       });
 
       if (input.imageFile) {
-        updated = await uploadUniverseImage(universeId, input.imageFile);
+        updated = await uploadCoreImage(coreId, input.imageFile);
       } else if (input.removeImage) {
-        updated = await deleteUniverseImage(universeId);
+        updated = await deleteCoreImage(coreId);
       }
 
-      setUniverses((current) =>
+      setCores((current) =>
         current
-          .map((universe) => (universe.id === updated.id ? updated : universe))
+          .map((core) => (core.id === updated.id ? updated : core))
           .sort((a, b) => a.name.localeCompare(b.name)),
       );
       setProjects((current) =>
         current.map((project) =>
-          project.universeId === updated.id
+          project.coreId === updated.id
             ? {
                 ...project,
-                universeName: updated.name,
-                universeImageUrl: updated.imageUrl ?? null,
-                universeHasImage: updated.hasImage,
-                universeImageUpdatedAt: updated.imageUpdatedAt ?? null,
+                coreName: updated.name,
+                coreImageUrl: updated.imageUrl ?? null,
+                coreHasImage: updated.hasImage,
+                coreImageUpdatedAt: updated.imageUpdatedAt ?? null,
               }
             : project,
         ),
       );
       setActivities((current) =>
         current.map((activity) =>
-          activity.universeId === updated.id
+          activity.coreId === updated.id
             ? {
                 ...activity,
-                universeName: updated.name,
-                universeImageUrl: updated.imageUrl ?? null,
-                universeHasImage: updated.hasImage,
-                universeImageUpdatedAt: updated.imageUpdatedAt ?? null,
+                coreName: updated.name,
+                coreImageUrl: updated.imageUrl ?? null,
+                coreHasImage: updated.hasImage,
+                coreImageUpdatedAt: updated.imageUpdatedAt ?? null,
               }
             : activity,
         ),
       );
-      toast.success("Universo atualizado.");
+      toast.success("Núcleo atualizado.");
     } catch (exception) {
-      reportError(exception, "Não foi possível salvar o universo.");
+      reportError(exception, "Não foi possível salvar o núcleo.");
     }
   }
 
-  async function deleteUniverse(universe: Universe) {
-    if (!session || !activeHouseholdId || !universe.canDelete) {
+  async function deleteCore(core: Core) {
+    if (!session || !activeSpaceId || !core.canDelete) {
       return;
     }
 
     try {
-      await apiFetch<void>(`/api/universes/${universe.id}`, {
+      await apiFetch<void>(`/api/cores/${core.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
-      setUniverses((current) => current.filter((item) => item.id !== universe.id));
-      setProjects((current) => current.filter((project) => project.universeId !== universe.id));
-      setActivities((current) => current.filter((activity) => activity.universeId !== universe.id));
-      setSelectedUniverseId((current) => (current === universe.id ? "" : current));
+      setCores((current) => current.filter((item) => item.id !== core.id));
+      setProjects((current) => current.filter((project) => project.coreId !== core.id));
+      setActivities((current) => current.filter((activity) => activity.coreId !== core.id));
+      setSelectedCoreId((current) => (current === core.id ? "" : current));
       setSelectedProjectId((current) => {
         const selectedProject = projects.find((project) => project.id === current);
-        return selectedProject?.universeId === universe.id ? "" : current;
+        return selectedProject?.coreId === core.id ? "" : current;
       });
-      if (selectedActivity?.universeId === universe.id) {
+      if (selectedActivity?.coreId === core.id) {
         setSelectedActivity(null);
         setActivityComments([]);
       }
-      toast.success("Universo excluído.");
+      toast.success("Núcleo excluído.");
     } catch (exception) {
-      reportError(exception, "Não foi possível excluir o universo.");
+      reportError(exception, "Não foi possível excluir o núcleo.");
     }
   }
 
-  async function uploadUniverseImage(universeId: string, imageFile: File) {
-    if (!session || !activeHouseholdId) {
-      throw new Error("Sessão inválida para upload da imagem do universo.");
+  async function uploadCoreImage(coreId: string, imageFile: File) {
+    if (!session || !activeSpaceId) {
+      throw new Error("Sessão inválida para upload da imagem do núcleo.");
     }
 
     const formData = new FormData();
     formData.append("file", imageFile);
 
-    return await apiFetch<Universe>(`/api/universes/${universeId}/image`, {
+    return await apiFetch<Core>(`/api/cores/${coreId}/image`, {
       method: "POST",
       token: session.accessToken,
-      householdId: activeHouseholdId,
+      spaceId: activeSpaceId,
       body: formData,
     });
   }
 
-  async function deleteUniverseImage(universeId: string) {
-    if (!session || !activeHouseholdId) {
-      throw new Error("Sessão inválida para remoção da imagem do universo.");
+  async function deleteCoreImage(coreId: string) {
+    if (!session || !activeSpaceId) {
+      throw new Error("Sessão inválida para remoção da imagem do núcleo.");
     }
 
-    return await apiFetch<Universe>(`/api/universes/${universeId}/image`, {
+    return await apiFetch<Core>(`/api/cores/${coreId}/image`, {
       method: "DELETE",
       token: session.accessToken,
-      householdId: activeHouseholdId,
+      spaceId: activeSpaceId,
     });
   }
 
-  async function createProject(universeId: string, name: string) {
-    if (!session || !activeHouseholdId) {
+  async function createProject(coreId: string, name: string) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -967,18 +971,18 @@ export function useProjectDashboard() {
       const created = await apiFetch<Project>("/api/projects", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
-        body: JSON.stringify({ universeId, name }),
+        spaceId: activeSpaceId,
+        body: JSON.stringify({ coreId, name }),
       });
       setProjects((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
-      setUniverses((current) =>
-        current.map((universe) =>
-          universe.id === created.universeId
-            ? { ...universe, projectCount: universe.projectCount + 1 }
-            : universe,
+      setCores((current) =>
+        current.map((core) =>
+          core.id === created.coreId
+            ? { ...core, projectCount: core.projectCount + 1 }
+            : core,
         ),
       );
-      setSelectedUniverseId(created.universeId);
+      setSelectedCoreId(created.coreId);
       setSelectedProjectId(created.id);
       toast.success("Projeto criado.");
     } catch (exception) {
@@ -986,8 +990,8 @@ export function useProjectDashboard() {
     }
   }
 
-  async function updateProject(projectId: string, universeId: string, name: string) {
-    if (!session || !activeHouseholdId) {
+  async function updateProject(projectId: string, coreId: string, name: string) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -996,8 +1000,8 @@ export function useProjectDashboard() {
       const updated = await apiFetch<Project>(`/api/projects/${projectId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
-        body: JSON.stringify({ universeId, name }),
+        spaceId: activeSpaceId,
+        body: JSON.stringify({ coreId, name }),
       });
 
       setProjects((current) =>
@@ -1005,21 +1009,21 @@ export function useProjectDashboard() {
           .map((project) => (project.id === updated.id ? updated : project))
           .sort((a, b) => a.name.localeCompare(b.name)),
       );
-      setUniverses((current) =>
-        current.map((universe) => {
-          if (!previousProject || previousProject.universeId === updated.universeId) {
-            return universe;
+      setCores((current) =>
+        current.map((core) => {
+          if (!previousProject || previousProject.coreId === updated.coreId) {
+            return core;
           }
 
-          if (universe.id === previousProject.universeId) {
-            return { ...universe, projectCount: Math.max(0, universe.projectCount - 1) };
+          if (core.id === previousProject.coreId) {
+            return { ...core, projectCount: Math.max(0, core.projectCount - 1) };
           }
 
-          if (universe.id === updated.universeId) {
-            return { ...universe, projectCount: universe.projectCount + 1 };
+          if (core.id === updated.coreId) {
+            return { ...core, projectCount: core.projectCount + 1 };
           }
 
-          return universe;
+          return core;
         }),
       );
       setActivities((current) =>
@@ -1028,13 +1032,13 @@ export function useProjectDashboard() {
             ? {
                 ...activity,
                 projectName: updated.name,
-                universeId: updated.universeId,
-                universeName: updated.universeName,
+                coreId: updated.coreId,
+                coreName: updated.coreName,
               }
             : activity,
         ),
       );
-      setSelectedUniverseId(updated.universeId);
+      setSelectedCoreId(updated.coreId);
       setSelectedProjectId(updated.id);
       toast.success("Projeto atualizado.");
     } catch (exception) {
@@ -1043,7 +1047,7 @@ export function useProjectDashboard() {
   }
 
   async function deleteProject(project: Project) {
-    if (!session || !activeHouseholdId || !project.canDelete) {
+    if (!session || !activeSpaceId || !project.canDelete) {
       return;
     }
 
@@ -1051,14 +1055,14 @@ export function useProjectDashboard() {
       await apiFetch<void>(`/api/projects/${project.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       setProjects((current) => current.filter((item) => item.id !== project.id));
-      setUniverses((current) =>
-        current.map((universe) =>
-          universe.id === project.universeId
-            ? { ...universe, projectCount: Math.max(0, universe.projectCount - 1) }
-            : universe,
+      setCores((current) =>
+        current.map((core) =>
+          core.id === project.coreId
+            ? { ...core, projectCount: Math.max(0, core.projectCount - 1) }
+            : core,
         ),
       );
       setActivities((current) => current.filter((activity) => activity.projectId !== project.id));
@@ -1074,7 +1078,7 @@ export function useProjectDashboard() {
   }
 
   async function createActivity(input: ActivityFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1083,7 +1087,7 @@ export function useProjectDashboard() {
       const created = await apiFetch<Activity>("/api/activities", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({
           ...payload,
           description: input.description || null,
@@ -1094,7 +1098,7 @@ export function useProjectDashboard() {
       });
       setActivities((current) => [...current, created]);
       setProjects((current) => updateProjectActivityCounts(current, null, created));
-      setSelectedUniverseId(created.universeId);
+      setSelectedCoreId(created.coreId);
       setSelectedProjectId(created.projectId);
 
       if (imageFile) {
@@ -1117,7 +1121,7 @@ export function useProjectDashboard() {
       successMessage?: string;
     },
   ) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1127,7 +1131,7 @@ export function useProjectDashboard() {
       const updated = await apiFetch<Activity>(`/api/activities/${activityId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({
           ...payload,
           description: input.description || null,
@@ -1139,7 +1143,7 @@ export function useProjectDashboard() {
 
       setActivities((current) => current.map((activity) => (activity.id === updated.id ? updated : activity)));
       setProjects((current) => updateProjectActivityCounts(current, previousActivity, updated));
-      setSelectedUniverseId(updated.universeId);
+      setSelectedCoreId(updated.coreId);
       setSelectedProjectId(updated.projectId);
       setSelectedActivity((current) => (current?.id === updated.id ? updated : current));
 
@@ -1156,16 +1160,16 @@ export function useProjectDashboard() {
   }
 
   async function assignActivityToMe(activity: Activity) {
-    if (!session || !activeHouseholdId || !activity.canEdit) {
+    if (!session || !activeSpaceId || !activity.canEdit) {
       return;
     }
 
-    if (!currentHouseholdMember) {
-      reportError(new Error("Seu vínculo com a casa não foi encontrado."), "Não foi possível atribuir a atividade.");
+    if (!currentSpaceMember) {
+      reportError(new Error("Seu vínculo com o espaço não foi encontrado."), "Não foi possível atribuir a atividade.");
       return;
     }
 
-    if (activity.responsibleMemberId === currentHouseholdMember.id) {
+    if (activity.responsibleMemberId === currentSpaceMember.id) {
       return;
     }
 
@@ -1179,7 +1183,7 @@ export function useProjectDashboard() {
         status: activity.status,
         priority: activity.priority,
         size: activity.size ?? undefined,
-        responsibleMemberId: currentHouseholdMember.id,
+        responsibleMemberId: currentSpaceMember.id,
       },
       {
         successMessage: "Atividade atribuída a você.",
@@ -1190,7 +1194,7 @@ export function useProjectDashboard() {
   async function deleteActivity(activity: Activity) {
     if (
       !session ||
-      !activeHouseholdId ||
+      !activeSpaceId ||
       !activity.canDelete ||
       !window.confirm(`Excluir a atividade "${activity.title}"?`)
     ) {
@@ -1201,7 +1205,7 @@ export function useProjectDashboard() {
       await apiFetch<void>(`/api/activities/${activity.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       setActivities((current) => current.filter((item) => item.id !== activity.id));
       setProjects((current) => updateProjectActivityCounts(current, activity, null));
@@ -1216,7 +1220,7 @@ export function useProjectDashboard() {
   }
 
   async function uploadActivityImage(activityId: string, imageFile: File) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       throw new Error("Sessão inválida para upload da imagem da atividade.");
     }
 
@@ -1226,7 +1230,7 @@ export function useProjectDashboard() {
     const updated = await apiFetch<Activity>(`/api/activities/${activityId}/image`, {
       method: "POST",
       token: session.accessToken,
-      householdId: activeHouseholdId,
+      spaceId: activeSpaceId,
       body: formData,
     });
 
@@ -1235,49 +1239,49 @@ export function useProjectDashboard() {
   }
 
   async function deleteActivityImage(activityId: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       throw new Error("Sessão inválida para remoção da imagem da atividade.");
     }
 
     const updated = await apiFetch<Activity>(`/api/activities/${activityId}/image`, {
       method: "DELETE",
       token: session.accessToken,
-      householdId: activeHouseholdId,
+      spaceId: activeSpaceId,
     });
 
     replaceActivityInState(updated);
     return updated;
   }
 
-  async function shareHousehold(input: { email: string; role: "Admin" | "Member" }) {
-    if (!session || !activeHouseholdId) {
+  async function shareSpace(input: { email: string; role: "Admin" | "Member" }) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
     try {
-      const created = await apiFetch<HouseholdMember>("/api/households/share", {
+      const created = await apiFetch<SpaceMember>("/api/spaces/share", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       setMembers((current) => [...current, created].sort((a, b) => a.displayName.localeCompare(b.displayName)));
-      toast.success("Pessoa adicionada à casa.");
+      toast.success("Pessoa adicionada ao espaço.");
     } catch (exception) {
-      reportError(exception, "Não foi possível compartilhar a casa.");
+      reportError(exception, "Não foi possível compartilhar o espaço.");
     }
   }
 
-  async function updateHouseholdMember(memberId: string, role: HouseholdMember["role"]) {
-    if (!session || !activeHouseholdId) {
+  async function updateSpaceMember(memberId: string, role: SpaceMember["role"]) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
     try {
-      const updated = await apiFetch<HouseholdMember>(`/api/households/members/${memberId}`, {
+      const updated = await apiFetch<SpaceMember>(`/api/spaces/members/${memberId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({ role }),
       });
       setMembers((current) =>
@@ -1287,11 +1291,11 @@ export function useProjectDashboard() {
       );
 
       if (updated.isCurrentUser) {
-        updateSessionHouseholds(
-          session.households.map((household) =>
-            household.id === activeHouseholdId ? { ...household, role: updated.role } : household,
+        updateSessionSpaces(
+          session.spaces.map((space) =>
+            space.id === activeSpaceId ? { ...space, role: updated.role } : space,
           ),
-          activeHouseholdId,
+          activeSpaceId,
         );
       }
 
@@ -1301,30 +1305,30 @@ export function useProjectDashboard() {
     }
   }
 
-  async function removeHouseholdMember(member: HouseholdMember) {
+  async function removeSpaceMember(member: SpaceMember) {
     if (
       !session ||
-      !activeHouseholdId ||
+      !activeSpaceId ||
       !window.confirm(
-        `Remover ${member.displayName} da casa? O histórico de ações e comentários será preservado.`,
+        `Remover ${member.displayName} do espaço? O histórico de ações e comentários será preservado.`,
       )
     ) {
       return;
     }
 
     try {
-      await apiFetch<void>(`/api/households/members/${member.id}`, {
+      await apiFetch<void>(`/api/spaces/members/${member.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       setMembers((current) => current.filter((item) => item.id !== member.id));
 
       if (member.isCurrentUser) {
-        updateSessionHouseholds(session.households.filter((household) => household.id !== activeHouseholdId));
+        updateSessionSpaces(session.spaces.filter((space) => space.id !== activeSpaceId));
       }
 
-      toast.success("Pessoa removida da casa.");
+      toast.success("Pessoa removida do espaço.");
     } catch (exception) {
       reportError(exception, "Não foi possível remover a pessoa.");
     }
@@ -1372,7 +1376,7 @@ export function useProjectDashboard() {
   }
 
   async function updateActivityStatus(activity: Activity, nextStatus: Activity["status"]) {
-    if (!session || !activeHouseholdId || !activity.canEdit || activity.status === nextStatus) {
+    if (!session || !activeSpaceId || !activity.canEdit || activity.status === nextStatus) {
       return;
     }
 
@@ -1380,7 +1384,7 @@ export function useProjectDashboard() {
       const updated = await apiFetch<Activity>(`/api/activities/${activity.id}/status`, {
         method: "PATCH",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({ status: nextStatus }),
       });
       setActivities((current) => current.map((item) => (item.id === updated.id ? updated : item)));
@@ -1393,7 +1397,7 @@ export function useProjectDashboard() {
   }
 
   async function updateActivityStatusOptimistic(activity: Activity, nextStatus: Activity["status"]) {
-    if (!session || !activeHouseholdId || !activity.canEdit || activity.status === nextStatus) {
+    if (!session || !activeSpaceId || !activity.canEdit || activity.status === nextStatus) {
       return;
     }
 
@@ -1414,7 +1418,7 @@ export function useProjectDashboard() {
       const updated = await apiFetch<Activity>(`/api/activities/${activity.id}/status`, {
         method: "PATCH",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({ status: nextStatus }),
       });
 
@@ -1445,7 +1449,7 @@ export function useProjectDashboard() {
   }
 
   async function createComment(activityId: string, body: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1453,7 +1457,7 @@ export function useProjectDashboard() {
       const created = await apiFetch<ActivityComment>(`/api/activities/${activityId}/comments`, {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({ body }),
       });
       setActivityComments((current) => [...current, created]);
@@ -1464,14 +1468,14 @@ export function useProjectDashboard() {
             : activity,
         ),
       );
-      toast.success("Comentário publicado.");
+      toast.success("Comentário publicada.");
     } catch (exception) {
       reportError(exception, "Não foi possível comentar.");
     }
   }
 
   async function updateComment(activityId: string, commentId: string, body: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1479,7 +1483,7 @@ export function useProjectDashboard() {
       const updated = await apiFetch<ActivityComment>(`/api/activities/${activityId}/comments/${commentId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({ body }),
       });
       setActivityComments((current) => current.map((comment) => (comment.id === updated.id ? updated : comment)));
@@ -1492,7 +1496,7 @@ export function useProjectDashboard() {
   async function deleteComment(activityId: string, comment: ActivityComment) {
     if (
       !session ||
-      !activeHouseholdId ||
+      !activeSpaceId ||
       !comment.canDelete ||
       !window.confirm("Excluir este comentário?")
     ) {
@@ -1503,7 +1507,7 @@ export function useProjectDashboard() {
       await apiFetch<void>(`/api/activities/${activityId}/comments/${comment.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       setActivityComments((current) => current.filter((item) => item.id !== comment.id));
       setActivities((current) =>
@@ -1531,32 +1535,32 @@ export function useProjectDashboard() {
   }
 
   function selectAllScopes() {
-    setSelectedUniverseId("");
+    setSelectedCoreId("");
     setSelectedProjectId("");
   }
 
-  function selectUniverseScope(universeId: string) {
-    setSelectedUniverseId(universeId);
+  function selectCoreScope(coreId: string) {
+    setSelectedCoreId(coreId);
     setSelectedProjectId("");
   }
 
   function selectProjectScope(project: Project) {
-    setSelectedUniverseId(project.universeId);
+    setSelectedCoreId(project.coreId);
     setSelectedProjectId(project.id);
   }
 
   async function saveEffortPlan(
     allocations: Array<{ scopeType: EffortScopeType; scopeId?: string | null; weekday: EffortWeekday; points: number }>,
   ) {
-    if (!session || !activeHouseholdId) {
-      throw new Error("Selecione uma casa antes de salvar o esforço.");
+    if (!session || !activeSpaceId) {
+      throw new Error("Selecione um espaço antes de salvar o esforço.");
     }
 
     try {
       const nextPlan = await apiFetch<EffortPlan>("/api/effort-plan", {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify({ allocations }),
       });
       setEffortPlan(nextPlan);
@@ -1568,23 +1572,23 @@ export function useProjectDashboard() {
 
   return {
     session,
-    activeHouseholdId,
-    activeHousehold,
-    universes,
+    activeSpaceId,
+    activeSpace,
+    cores,
     projects,
     activities,
     effortPlan,
     relevance,
     members,
-    selectedUniverseId,
+    selectedCoreId,
     selectedProjectId,
     filters,
     viewMode,
     sidebarCollapsed,
     theme,
     activeModal,
-    editingHousehold,
-    editingUniverse,
+    editingSpace,
+    editingCore,
     editingProject,
     editingActivity,
     activityDraftProjectId,
@@ -1594,8 +1598,8 @@ export function useProjectDashboard() {
     commentsLoading,
     loading,
     error,
-    canShareHousehold,
-    canManageHousehold,
+    canShareSpace,
+    canManageSpace,
     filteredProjects,
     activityDialogProjects,
     visibleActivities,
@@ -1612,27 +1616,27 @@ export function useProjectDashboard() {
     updateFilter,
     resetFilters,
     handleAuthenticated,
-    handleHouseholdChange,
+    handleSpaceChange,
     handleLogout,
     loadWorkspace,
-    refreshHouseholds,
-    createHousehold,
-    updateHousehold,
-    deleteHousehold,
-    openCreateHousehold,
-    openEditHousehold,
-    openCreateUniverse,
-    openEditUniverse,
+    refreshSpaces,
+    createSpace,
+    updateSpace,
+    deleteSpace,
+    openCreateSpace,
+    openEditSpace,
+    openCreateCore,
+    openEditCore,
     openCreateProject,
     openEditProject,
     openCreateActivity,
     openEffortPlan,
-    openShareHousehold,
+    openShareSpace,
     openEditActivity,
     closeModal,
-    createUniverse,
-    updateUniverse,
-    deleteUniverse,
+    createCore,
+    updateCore,
+    deleteCore,
     createProject,
     updateProject,
     deleteProject,
@@ -1640,9 +1644,9 @@ export function useProjectDashboard() {
     updateActivity,
     assignActivityToMe,
     deleteActivity,
-    shareHousehold,
-    updateHouseholdMember,
-    removeHouseholdMember,
+    shareSpace,
+    updateSpaceMember,
+    removeSpaceMember,
     updateProfile,
     updateActivityStatus,
     updateActivityStatusOptimistic,
@@ -1653,7 +1657,7 @@ export function useProjectDashboard() {
     openActivity,
     closeActivity,
     selectAllScopes,
-    selectUniverseScope,
+    selectCoreScope,
     selectProjectScope,
     saveEffortPlan,
   };

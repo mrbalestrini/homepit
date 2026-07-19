@@ -1,13 +1,13 @@
 ---
 name: backend
-description: Use for backend ASP.NET Core Minimal APIs, application services, domain behavior, integrations, and API contracts in HomePit. Do not use for changes primarily about authentication or database schema.
+description: Use for backend ASP.NET Core Minimal APIs, application services, domain behavior, integrations, and API contracts in OrganizaClub. Do not use for changes primarily about authentication or database schema.
 ---
 
 # Backend
 
 ## Quando usar
 - Alterar endpoints, DTOs, servicos de Application ou integracoes da API.
-- Implementar comportamento de projetos, prompts, casas ou notificacoes.
+- Implementar comportamento de projetos, prompts, espaços ou notificacoes.
 
 ## Quando não usar
 - Mudanca centrada em JWT, papeis ou sessao; use `auth`.
@@ -29,7 +29,7 @@ description: Use for backend ASP.NET Core Minimal APIs, application services, do
 ## Limites
 - Nao adicionar tecnologia fora da stack observada.
 - Nao alterar schema incidentalmente.
-- Nao usar comandos backend marcados como `NÃO IDENTIFICADO` sem validacao.
+- Nao usar comandos backend marcadas como `NÃO IDENTIFICADO` sem validacao.
 
 ## Procedimento padrão
 1. Entender a tarefa.

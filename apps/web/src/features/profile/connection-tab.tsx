@@ -19,7 +19,7 @@ import { Select } from "@/components/ui/select";
 import {
   type CreateIntegrationConnectionRequest,
   type CreateIntegrationConnectionResult,
-  type Household,
+  type Space,
   type IntegrationConnection,
   apiFetch,
 } from "@/lib/api";
@@ -33,7 +33,7 @@ type RevealedConnection = Pick<CreateIntegrationConnectionResult, "token" | "res
   name: string;
 };
 
-export function ConnectionTab({ token, households }: { token: string; households: Household[] }) {
+export function ConnectionTab({ token, spaces }: { token: string; spaces: Space[] }) {
   const [connections, setConnections] = useState<IntegrationConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -92,13 +92,13 @@ export function ConnectionTab({ token, households }: { token: string; households
           <CardDescription>Use chaves manuais no REST e autorize clientes MCP pela tela de conexão deles.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
-          <p>A Casa já está vinculada à conexão. Não envie o cabeçalho <code>X-Household-Id</code>.</p>
+          <p>O Espaço já está vinculado à conexão. Não envie o cabeçalho <code>X-Space-Id</code>.</p>
           <pre className="overflow-x-auto rounded-[14px] border border-border/70 bg-surface-muted p-3 text-xs text-foreground">
-            Authorization: Bearer $HOMEPIT_INTEGRATION_TOKEN
+            Authorization: Bearer $ORGANIZA_INTEGRATION_TOKEN
           </pre>
           <p>
             Consulte <code>GET /api/integrations/v1/space</code> antes de automatizar. O MCP remoto usa OAuth e pede sua
-            confirmação antes de acessar uma casa.
+            confirmação antes de acessar um espaço.
           </p>
         </CardContent>
       </Card>
@@ -108,7 +108,7 @@ export function ConnectionTab({ token, households }: { token: string; households
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle>Conexões</CardTitle>
-              <CardDescription>Crie chaves para conectar suas ferramentas e automações a uma casa.</CardDescription>
+              <CardDescription>Crie chaves para conectar suas ferramentas e automações a um espaço.</CardDescription>
             </div>
             <Button type="button" onClick={() => setCreateDialogOpen(true)}>
               <Plus />
@@ -131,7 +131,7 @@ export function ConnectionTab({ token, households }: { token: string; households
               <KeyRound className="mx-auto size-7 text-muted-foreground" />
               <p className="mt-3 text-sm font-semibold text-foreground">Nenhuma conexão criada</p>
               <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-muted-foreground">
-                Crie uma conexão para permitir que outra ferramenta trabalhe somente na casa escolhida.
+                Crie uma conexão para permitir que outra ferramenta trabalhe somente no espaço escolhida.
               </p>
             </div>
           ) : (
@@ -147,7 +147,7 @@ export function ConnectionTab({ token, households }: { token: string; households
       <CreateConnectionDialog
         key={createDialogOpen ? "connection-create-open" : "connection-create-closed"}
         open={createDialogOpen}
-        households={households}
+        spaces={spaces}
         token={token}
         onOpenChange={setCreateDialogOpen}
         onCreated={(result) => {
@@ -175,7 +175,7 @@ export function ConnectionTab({ token, households }: { token: string; households
           <DialogHeader>
             <DialogTitle>Revogar conexão</DialogTitle>
             <DialogDescription>
-              Revogar “{connectionToRevoke?.name ?? ""}” interrompe imediatamente o acesso dessa conexão à casa vinculada.
+              Revogar “{connectionToRevoke?.name ?? ""}” interrompe imediatamente o acesso dessa conexão ao espaço vinculado.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-[18px] border border-danger/20 bg-status-danger-soft p-4 text-sm leading-6 text-foreground">
@@ -212,7 +212,7 @@ function ConnectionCard({ connection, onRevoke }: { connection: IntegrationConne
             <Badge variant="outline">{connection.credentialKind === "OAuthGrant" ? "OAuth / MCP" : "Chave REST"}</Badge>
             <Badge variant="outline">{connection.accessMode === "ReadOnly" ? "Somente leitura" : "Leitura e escrita"}</Badge>
           </div>
-          <p className="text-sm text-muted-foreground">Casa: {connection.householdName}</p>
+          <p className="text-sm text-muted-foreground">Espaço: {connection.spaceName}</p>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs leading-5 text-muted-foreground">
             {connection.tokenPrefix ? <span>Chave: {connection.tokenPrefix}••••</span> : null}
             <span>{expirationLabel}</span>
@@ -244,13 +244,13 @@ function visibleConnections(connections: IntegrationConnection[]) {
 
 function CreateConnectionDialog({
   open,
-  households,
+  spaces,
   token,
   onOpenChange,
   onCreated,
 }: {
   open: boolean;
-  households: Household[];
+  spaces: Space[];
   token: string;
   onOpenChange: (open: boolean) => void;
   onCreated: (result: CreateIntegrationConnectionResult) => void;
@@ -258,7 +258,7 @@ function CreateConnectionDialog({
   const [defaultExpiresAt] = useState(() => toDateInputValue(addDays(new Date(), DEFAULT_EXPIRATION_DAYS)));
   const [maxExpiresAt] = useState(() => toDateInputValue(addDays(new Date(), MAX_EXPIRATION_DAYS)));
   const [name, setName] = useState("");
-  const [householdId, setHouseholdId] = useState(households[0]?.id ?? "");
+  const [spaceId, setSpaceId] = useState(spaces[0]?.id ?? "");
   const [accessMode, setAccessMode] = useState<CreateIntegrationConnectionRequest["accessMode"]>("ReadOnly");
   const [expiresAt, setExpiresAt] = useState(defaultExpiresAt);
   const [creating, setCreating] = useState(false);
@@ -266,8 +266,8 @@ function CreateConnectionDialog({
   async function createConnection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!householdId) {
-      toast.error("Escolha a casa que esta conexão poderá acessar.");
+    if (!spaceId) {
+      toast.error("Escolha o espaço que esta conexão poderá acessar.");
       return;
     }
 
@@ -284,7 +284,7 @@ function CreateConnectionDialog({
         token,
         body: JSON.stringify({
           name: name.trim(),
-          householdId,
+          spaceId,
           accessMode,
           expiresAt: toEndOfDayIso(expiresAt),
         } satisfies CreateIntegrationConnectionRequest),
@@ -304,7 +304,7 @@ function CreateConnectionDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Nova conexão</DialogTitle>
-          <DialogDescription>Defina a casa, o nível de acesso e a validade da nova chave.</DialogDescription>
+          <DialogDescription>Defina o espaço, o nível de acesso e a validade da nova chave.</DialogDescription>
         </DialogHeader>
         <form className="grid gap-5" onSubmit={createConnection}>
           <label className="grid gap-2">
@@ -313,11 +313,11 @@ function CreateConnectionDialog({
             <span className="text-xs leading-5 text-muted-foreground">Use um nome que ajude a reconhecer a ferramenta depois.</span>
           </label>
           <label className="grid gap-2">
-            <span className="text-sm font-semibold text-foreground">Casa</span>
-            <Select value={householdId} onChange={(event) => setHouseholdId(event.target.value)} required>
-              {households.map((household) => (
-                <option key={household.id} value={household.id}>
-                  {household.name}
+            <span className="text-sm font-semibold text-foreground">Espaço</span>
+            <Select value={spaceId} onChange={(event) => setSpaceId(event.target.value)} required>
+              {spaces.map((space) => (
+                <option key={space.id} value={space.id}>
+                  {space.name}
                 </option>
               ))}
             </Select>
@@ -339,7 +339,7 @@ function CreateConnectionDialog({
             <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={creating}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={creating || households.length === 0}>
+            <Button type="submit" disabled={creating || spaces.length === 0}>
               {creating ? <Loader2 className="animate-spin" /> : <KeyRound />}
               Criar conexão
             </Button>

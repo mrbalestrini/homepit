@@ -1,13 +1,13 @@
 ---
 name: auth
-description: Use for authentication, JWT, refresh tokens, password hashing, session handling, household roles, SuperAdmin, and authorization in HomePit. Do not use for unrelated API or UI work.
+description: Use for authentication, JWT, refresh tokens, password hashing, session handling, space roles, SuperAdmin, and authorization in OrganizaClub. Do not use for unrelated API or UI work.
 ---
 
 # Auth
 
 ## Quando usar
 - Alterar cadastro, login, refresh, perfil, claims ou sessao frontend.
-- Alterar `SystemRole`, `HouseholdRole`, SuperAdmin ou regras de permissao.
+- Alterar `SystemRole`, `SpaceRole`, SuperAdmin ou regras de permissao.
 
 ## Quando não usar
 - Endpoint ou tela sem impacto de identidade ou acesso.
@@ -23,7 +23,7 @@ description: Use for authentication, JWT, refresh tokens, password hashing, sess
 - A spec ativa em `.specs/changes/`, se existir.
 
 ## Responsabilidades
-- Preservar isolamento por casa e acesso somente leitura do SuperAdmin.
+- Preservar isolamento por espaço e acesso somente leitura do SuperAdmin.
 - Avaliar backend, claims, frontend, OpenAPI e testes em conjunto.
 - Tratar credenciais e tokens sem expor valores.
 

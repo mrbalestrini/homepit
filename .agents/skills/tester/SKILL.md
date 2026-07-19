@@ -1,6 +1,6 @@
 ---
 name: tester
-description: Use for test planning, acceptance criteria, edge cases, and coverage design in HomePit. Do not use for executing full validation or implementing features.
+description: Use for test planning, acceptance criteria, edge cases, and coverage design in OrganizaClub. Do not use for executing full validation or implementing features.
 ---
 
 # Tester

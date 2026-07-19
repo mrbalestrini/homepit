@@ -1,8 +1,8 @@
 import type { ActivityStatus, Priority } from "@/lib/api";
 
-export type ActiveModal = "household" | "universe" | "project" | "activity" | "share" | "effort" | null;
+export type ActiveModal = "space" | "core" | "project" | "activity" | "share" | "effort" | null;
 
-export type AppTheme = "cozy" | "earthy" | "dark";
+export type AppTheme = "light" | "system" | "dark";
 
 export type ProjectViewMode = "list" | "kanban";
 

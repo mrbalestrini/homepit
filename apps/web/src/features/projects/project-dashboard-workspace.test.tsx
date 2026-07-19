@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Activity, HouseholdMember, Project, Universe } from "@/lib/api";
+import type { Activity, SpaceMember, Project, Core } from "@/lib/api";
 import * as api from "@/lib/api";
 import { ActivityImageViewerDialog, clampActivityImageZoom, stepActivityImageZoom } from "./activity-image-viewer";
 import {
@@ -24,17 +24,17 @@ vi.mock("@/lib/api", async () => {
   };
 });
 
-vi.mock("@/features/workspace/protected-universe-avatar", () => ({
-  ProtectedUniverseAvatar: ({ name, className }: { name: string; className?: string }) => (
-    <div data-testid="universe-avatar" className={className}>
+vi.mock("@/features/workspace/protected-core-avatar", () => ({
+  ProtectedCoreAvatar: ({ name, className }: { name: string; className?: string }) => (
+    <div data-testid="core-avatar" className={className}>
       {name}
     </div>
   ),
-  useProtectedUniverseImage: () => null,
+  useProtectedCoreImage: () => null,
 }));
 
-vi.mock("@/features/workspace/homepit-workspace-shell", () => ({
-  HomePitWorkspaceShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+vi.mock("@/features/workspace/organiza-club-workspace-shell", () => ({
+  OrganizaClubWorkspaceShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   EmptyState: ({ title }: { title: string }) => <div>{title}</div>,
   Field: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   LoadingState: ({ title }: { title: string }) => <div>{title}</div>,
@@ -46,11 +46,11 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
     id: overrides.id,
     projectId: "project-1",
     projectName: "Projeto Alfa",
-    universeId: "universe-1",
-    universeName: "Universo Alfa",
-    universeImageUrl: null,
-    universeHasImage: false,
-    universeImageUpdatedAt: null,
+    coreId: "core-1",
+    coreName: "Núcleo Alfa",
+    coreImageUrl: null,
+    coreHasImage: false,
+    coreImageUpdatedAt: null,
     createdByMemberId: null,
     createdAt: "2026-06-20T12:00:00.000Z",
     title: overrides.title,
@@ -72,12 +72,12 @@ function buildActivity(overrides: Partial<Activity> & Pick<Activity, "id" | "tit
   };
 }
 
-function buildMember(overrides: Partial<HouseholdMember> & Pick<HouseholdMember, "id" | "userId" | "displayName">): HouseholdMember {
+function buildMember(overrides: Partial<SpaceMember> & Pick<SpaceMember, "id" | "userId" | "displayName">): SpaceMember {
   return {
     id: overrides.id,
     userId: overrides.userId,
     displayName: overrides.displayName,
-    email: "member@homepit.dev",
+    email: "member@organiza.club",
     phoneNumber: null,
     hasProfilePhoto: false,
     profilePhotoUpdatedAt: null,
@@ -87,7 +87,7 @@ function buildMember(overrides: Partial<HouseholdMember> & Pick<HouseholdMember,
   };
 }
 
-function buildUniverse(overrides: Partial<Universe> & Pick<Universe, "id" | "name">): Universe {
+function buildCore(overrides: Partial<Core> & Pick<Core, "id" | "name">): Core {
   return {
     id: overrides.id,
     name: overrides.name,
@@ -106,11 +106,11 @@ function buildUniverse(overrides: Partial<Universe> & Pick<Universe, "id" | "nam
 function buildProject(overrides: Partial<Project> & Pick<Project, "id" | "name">): Project {
   return {
     id: overrides.id,
-    universeId: "universe-1",
-    universeName: "Universo Alfa",
-    universeImageUrl: null,
-    universeHasImage: false,
-    universeImageUpdatedAt: null,
+    coreId: "core-1",
+    coreName: "Núcleo Alfa",
+    coreImageUrl: null,
+    coreHasImage: false,
+    coreImageUpdatedAt: null,
     name: overrides.name,
     createdByMemberId: null,
     activityCount: 1,
@@ -122,59 +122,59 @@ function buildProject(overrides: Partial<Project> & Pick<Project, "id" | "name">
 }
 
 function buildDashboard(overrides?: {
-  universes?: Universe[];
+  cores?: Core[];
   projects?: Project[];
 }) {
-  const universes = overrides?.universes ?? [];
+  const cores = overrides?.cores ?? [];
   const projects = overrides?.projects ?? [];
 
   return {
     session: { accessToken: "token", user: { id: "user-1", accountState: "Active" } },
-    activeHouseholdId: "household-1",
-    activeHousehold: null,
+    activeSpaceId: "space-1",
+    activeSpace: null,
     members: [],
     theme: "dark",
     sidebarCollapsed: false,
     loading: false,
     error: null,
-    canShareHousehold: false,
-    canManageHousehold: false,
+    canShareSpace: false,
+    canManageSpace: false,
     canAssignActivityToMe: () => false,
-    editingHousehold: null,
-    editingUniverse: null,
+    editingSpace: null,
+    editingCore: null,
     editingProject: null,
     editingActivity: null,
     activeModal: null,
     setError: () => undefined,
     setSidebarCollapsed: () => undefined,
     setTheme: () => undefined,
-    handleHouseholdChange: () => undefined,
+    handleSpaceChange: () => undefined,
     handleLogout: () => undefined,
-    refreshHouseholds: async () => undefined,
+    refreshSpaces: async () => undefined,
     loadWorkspace: async () => undefined,
-    openCreateHousehold: () => undefined,
-    openEditHousehold: () => undefined,
-    openShareHousehold: () => undefined,
+    openCreateSpace: () => undefined,
+    openEditSpace: () => undefined,
+    openShareSpace: () => undefined,
     closeModal: () => undefined,
-    createHousehold: async () => undefined,
-    updateHousehold: async () => undefined,
-    deleteHousehold: async () => undefined,
-    shareHousehold: async () => undefined,
+    createSpace: async () => undefined,
+    updateSpace: async () => undefined,
+    deleteSpace: async () => undefined,
+    shareSpace: async () => undefined,
     selectedScopeLabel: "Todos os projetos",
     visibleActivities: [],
-    universes,
+    cores,
     projects,
     activities: [],
-    selectedUniverseId: "",
+    selectedCoreId: "",
     selectedProjectId: "",
     selectAllScopes: () => undefined,
-    selectUniverseScope: () => undefined,
+    selectCoreScope: () => undefined,
     selectProjectScope: () => undefined,
-    openCreateUniverse: () => undefined,
+    openCreateCore: () => undefined,
     openCreateProject: () => undefined,
-    openEditUniverse: () => undefined,
+    openEditCore: () => undefined,
     openEditProject: () => undefined,
-    deleteUniverse: async () => undefined,
+    deleteCore: async () => undefined,
     deleteProject: async () => undefined,
     filters: defaultActivityFilters,
     updateFilter: () => undefined,
@@ -187,8 +187,8 @@ function buildDashboard(overrides?: {
     openEditActivity: () => undefined,
     deleteActivity: async () => undefined,
     updateActivityStatusOptimistic: async () => undefined,
-    createUniverse: async () => undefined,
-    updateUniverse: async () => undefined,
+    createCore: async () => undefined,
+    updateCore: async () => undefined,
     createProject: async () => undefined,
     updateProject: async () => undefined,
     activityDialogProjects: [],
@@ -231,7 +231,7 @@ describe("project dashboard kanban drag states", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders a compact drag preview with universe avatar and minimal metadata", () => {
+  it("renders a compact drag preview with core avatar and minimal metadata", () => {
     const activity = buildActivity({ id: "activity-1", title: "Comprar tinta" });
 
     const { container } = render(<ActivityDragPreview activity={activity} />);
@@ -239,9 +239,9 @@ describe("project dashboard kanban drag states", () => {
 
     expect(root).toHaveAttribute("data-drag-preview", "true");
     expect(root).toHaveClass("rounded-full");
-    expect(screen.getByTestId("universe-avatar")).toHaveTextContent("Universo Alfa");
+    expect(screen.getByTestId("core-avatar")).toHaveTextContent("Núcleo Alfa");
     expect(screen.getByText("Comprar tinta")).toBeInTheDocument();
-    expect(screen.getByText("Universo Alfa / Projeto Alfa")).toBeInTheDocument();
+    expect(screen.getByText("Núcleo Alfa / Projeto Alfa")).toBeInTheDocument();
     expect(screen.getByText("Média")).toBeInTheDocument();
     expect(screen.queryByText("Prazo 30/06/2026")).not.toBeInTheDocument();
   });
@@ -257,7 +257,7 @@ describe("project dashboard kanban drag states", () => {
         onOpen={() => undefined}
         dragging
         token="token"
-        householdId="household-1"
+        spaceId="space-1"
       />,
     );
     const draggedRoot = draggedContainer.firstElementChild as HTMLElement;
@@ -271,7 +271,7 @@ describe("project dashboard kanban drag states", () => {
         members={[]}
         onOpen={() => undefined}
         token="token"
-        householdId="household-1"
+        spaceId="space-1"
         isDropTarget
       />,
     );
@@ -300,7 +300,7 @@ describe("project dashboard kanban drag states", () => {
             ],
             members: [],
             session: { accessToken: "token" },
-            activeHouseholdId: "household-1",
+            activeSpaceId: "space-1",
             openActivity: () => undefined,
             canAssignActivityToMe: () => false,
             assignActivityToMe: async () => undefined,
@@ -317,7 +317,7 @@ describe("project dashboard kanban drag states", () => {
       <ActivityDetailsSheet
         activity={activity}
         token="token"
-        householdId="household-1"
+        spaceId="space-1"
         comments={[]}
         commentsLoading={false}
         onClose={() => undefined}
@@ -354,7 +354,7 @@ describe("project dashboard kanban drag states", () => {
         onOpen={() => undefined}
         onOpenImage={() => undefined}
         token="token"
-        householdId="household-1"
+        spaceId="space-1"
       />,
     );
 
@@ -372,7 +372,7 @@ describe("project dashboard kanban drag states", () => {
         activity={activity}
         members={[]}
         token="token"
-        householdId="household-1"
+        spaceId="space-1"
         comments={[
           {
             id: "comment-1",
@@ -421,11 +421,11 @@ describe("project dashboard kanban drag states", () => {
         projects={[
           {
             id: "project-1",
-            universeId: "universe-1",
-            universeName: "Universo Alfa",
-            universeImageUrl: null,
-            universeHasImage: false,
-            universeImageUpdatedAt: null,
+            coreId: "core-1",
+            coreName: "Núcleo Alfa",
+            coreImageUrl: null,
+            coreHasImage: false,
+            coreImageUpdatedAt: null,
             name: "Projeto Alfa",
             createdByMemberId: null,
             activityCount: 1,
@@ -449,7 +449,7 @@ describe("project dashboard kanban drag states", () => {
         ]}
         defaultProjectId="project-1"
         token="token"
-        householdId="household-1"
+        spaceId="space-1"
         onOpenImage={() => undefined}
         onOpenChange={() => undefined}
         onSave={async () => undefined}
@@ -470,11 +470,11 @@ describe("project dashboard kanban drag states", () => {
         projects={[
           {
             id: "project-1",
-            universeId: "universe-1",
-            universeName: "Universo Alfa",
-            universeImageUrl: null,
-            universeHasImage: false,
-            universeImageUpdatedAt: null,
+            coreId: "core-1",
+            coreName: "Núcleo Alfa",
+            coreImageUrl: null,
+            coreHasImage: false,
+            coreImageUpdatedAt: null,
             name: "Projeto Alfa",
             createdByMemberId: null,
             activityCount: 1,
@@ -486,7 +486,7 @@ describe("project dashboard kanban drag states", () => {
         members={[]}
         defaultProjectId="project-1"
         token="token"
-        householdId="household-1"
+        spaceId="space-1"
         onOpenImage={() => undefined}
         onOpenChange={() => undefined}
         onSave={async () => undefined}
@@ -515,7 +515,7 @@ describe("project dashboard kanban drag states", () => {
         onOpen={() => undefined}
         onOpenImage={openImage}
         token="token"
-        householdId="household-1"
+        spaceId="space-1"
       />,
     );
 
@@ -529,7 +529,7 @@ describe("project dashboard kanban drag states", () => {
         activity={activity}
         members={[]}
         token="token"
-        householdId="household-1"
+        spaceId="space-1"
         comments={[]}
         commentsLoading={false}
         onClose={() => undefined}
@@ -613,7 +613,7 @@ describe("project dashboard kanban drag states", () => {
             ],
             members: [member],
             session: { accessToken: "token" },
-            activeHouseholdId: "household-1",
+            activeSpaceId: "space-1",
             openActivity: () => undefined,
             canAssignActivityToMe: () => false,
             assignActivityToMe: async () => undefined,
@@ -650,7 +650,7 @@ describe("project dashboard kanban drag states", () => {
         members={[member]}
         onOpen={() => undefined}
         token="token"
-        householdId="household-1"
+        spaceId="space-1"
       />,
     );
 
@@ -685,12 +685,12 @@ describe("project dashboard kanban drag states", () => {
     const { rerender } = render(
       <ProjectDashboardWorkspace
         dashboard={buildDashboard({
-          universes: [buildUniverse({ id: "universe-1", name: "Universo Alfa", isOutOfPlan: true, canEdit: false })],
+          cores: [buildCore({ id: "core-1", name: "Núcleo Alfa", isOutOfPlan: true, canEdit: false })],
           projects: [
             buildProject({
               id: "project-1",
               name: "Projeto Alfa",
-              universeId: "universe-1",
+              coreId: "core-1",
               isOutOfPlan: true,
               canEdit: false,
             }),
@@ -704,12 +704,12 @@ describe("project dashboard kanban drag states", () => {
     rerender(
       <ProjectDashboardWorkspace
         dashboard={buildDashboard({
-          universes: [buildUniverse({ id: "universe-2", name: "Universo Beta", isOutOfPlan: true, canEdit: true })],
+          cores: [buildCore({ id: "core-2", name: "Núcleo Beta", isOutOfPlan: true, canEdit: true })],
           projects: [
             buildProject({
               id: "project-2",
               name: "Projeto Beta",
-              universeId: "universe-2",
+              coreId: "core-2",
               isOutOfPlan: true,
               canEdit: true,
             }),

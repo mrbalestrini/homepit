@@ -7,21 +7,21 @@
 Envie a chave de integração somente no cabeçalho `Authorization`:
 
 ```bash
-curl "$HOMEPIT_BASE_URL/api/integrations/v1/space" \
-  -H "Authorization: Bearer $HOMEPIT_INTEGRATION_TOKEN"
+curl "$ORGANIZA_BASE_URL/api/integrations/v1/space" \
+  -H "Authorization: Bearer $ORGANIZA_INTEGRATION_TOKEN"
 ```
 
-Defina `HOMEPIT_BASE_URL` e `HOMEPIT_INTEGRATION_TOKEN` no ambiente ou no cofre de segredos da ferramenta. Nunca coloque a chave em URL, commit, argumento de linha de comando ou log.
+Defina `ORGANIZA_BASE_URL` e `ORGANIZA_INTEGRATION_TOKEN` no ambiente ou no cofre de segredos da ferramenta. Nunca coloque a chave em URL, commit, argumento de linha de comando ou log.
 
 ## Convenções
 
 - Base: `/api/integrations/v1`.
-- `GET /space` descreve a Casa vinculada, papel efetivo, modo de acesso, expiração e versão.
+- `GET /space` descreve o Espaço vinculado, papel efetivo, modo de acesso, expiração e versão.
 - Todas as listagens respondem com `{ "items": [...], "nextCursor": "..." }`. Informe `limit` (padrão 50, máximo 200) e passe o `nextCursor` recebido como `cursor` para buscar a página seguinte. O cursor é opaco e só vale para a mesma rota e os mesmos filtros.
 - Cada item mutável vem como `{ "data": { ... }, "etag": "\"...\"" }`. Criações e atualizações também enviam a mesma versão no cabeçalho `ETag`.
 - Atualizar, alterar status ou excluir exige `If-Match` com a ETag recebida, evitando sobrescrever uma edição concorrente. A falta do cabeçalho retorna `428`; uma ETag malformada retorna `400`; uma versão antiga retorna `412`.
 - Mutações aceitam `Idempotency-Key`. A mesma chave e mesmo payload retornam o resultado original por 90 dias; o mesmo valor com payload diferente retorna conflito.
-- A conexão define a Casa. Não envie `X-Household-Id`.
+- A conexão define o Espaço. Não envie `X-Space-Id`.
 
 ## Permissões e superfície
 
@@ -32,8 +32,8 @@ Consulte o OpenAPI para os `operationId`, schemas e exemplos válidos antes de g
 ## Paginar com segurança
 
 ```bash
-curl "$HOMEPIT_BASE_URL/api/integrations/v1/finance/entries?year=2026&month=7&limit=50" \
-  -H "Authorization: Bearer $HOMEPIT_INTEGRATION_TOKEN"
+curl "$ORGANIZA_BASE_URL/api/integrations/v1/finance/entries?year=2026&month=7&limit=50" \
+  -H "Authorization: Bearer $ORGANIZA_INTEGRATION_TOKEN"
 ```
 
 Use somente o valor de `nextCursor` devolvido pela API; não tente montá-lo ou reutilizá-lo em outra consulta.
@@ -42,11 +42,11 @@ Use somente o valor de `nextCursor` devolvido pela API; não tente montá-lo ou 
 
 ```powershell
 $headers = @{
-  Authorization = "Bearer $env:HOMEPIT_INTEGRATION_TOKEN"
+  Authorization = "Bearer $env:ORGANIZA_INTEGRATION_TOKEN"
   'If-Match' = '"ETAG_RECEBIDA_DA_LISTAGEM"'
 }
 
-Invoke-RestMethod "$env:HOMEPIT_BASE_URL/api/integrations/v1/finance/categories/SEU_ID" `
+Invoke-RestMethod "$env:ORGANIZA_BASE_URL/api/integrations/v1/finance/categories/SEU_ID" `
   -Method Put -Headers $headers -ContentType 'application/json' `
   -Body '{"name":"Moradia"}'
 ```

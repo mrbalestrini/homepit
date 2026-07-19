@@ -16,8 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { AccountStateGate } from "@/features/workspace/account-state-gate";
-import { HomePitAuth } from "@/features/workspace/homepit-auth";
-import { HomePitWorkspaceShell, Notice } from "@/features/workspace/homepit-workspace-shell";
+import { OrganizaClubAuth } from "@/features/workspace/organiza-club-auth";
+import { OrganizaClubWorkspaceShell, Notice } from "@/features/workspace/organiza-club-workspace-shell";
 import { ProtectedUserAvatar } from "@/features/workspace/protected-user-avatar";
 import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmation-dialog";
 import {
@@ -45,7 +45,7 @@ export function ProfilePage() {
   const dashboard = useProjectDashboard();
 
   if (!dashboard.session) {
-    return <HomePitAuth onAuthenticated={dashboard.handleAuthenticated} />;
+    return <OrganizaClubAuth onAuthenticated={dashboard.handleAuthenticated} />;
   }
 
   return (
@@ -62,49 +62,49 @@ function ProfileWorkspace({ dashboard }: { dashboard: ReturnType<typeof useProje
   }
 
   return (
-    <HomePitWorkspaceShell
+    <OrganizaClubWorkspaceShell
       controller={{
         session,
-        activeHouseholdId: dashboard.activeHouseholdId,
-        activeHousehold: dashboard.activeHousehold,
+        activeSpaceId: dashboard.activeSpaceId,
+        activeSpace: dashboard.activeSpace,
         members: dashboard.members,
         theme: dashboard.theme,
         sidebarCollapsed: dashboard.sidebarCollapsed,
         loading: dashboard.loading,
         error: dashboard.error,
-        canShareHousehold: dashboard.canShareHousehold,
-        canManageHousehold: dashboard.canManageHousehold,
-        editingHousehold: dashboard.editingHousehold,
-        isHouseholdDialogOpen: dashboard.activeModal === "household",
+        canShareSpace: dashboard.canShareSpace,
+        canManageSpace: dashboard.canManageSpace,
+        editingSpace: dashboard.editingSpace,
+        isSpaceDialogOpen: dashboard.activeModal === "space",
         isShareDialogOpen: dashboard.activeModal === "share",
         setError: dashboard.setError,
         setSidebarCollapsed: dashboard.setSidebarCollapsed,
         setTheme: dashboard.setTheme,
-        handleHouseholdChange: dashboard.handleHouseholdChange,
+        handleSpaceChange: dashboard.handleSpaceChange,
         handleLogout: dashboard.handleLogout,
-        refreshHouseholds: dashboard.refreshHouseholds,
+        refreshSpaces: dashboard.refreshSpaces,
         refreshWorkspace: async () => dashboard.loadWorkspace(),
-        openCreateHousehold: dashboard.openCreateHousehold,
-        openEditHousehold: dashboard.openEditHousehold,
-        openShareHousehold: dashboard.openShareHousehold,
+        openCreateSpace: dashboard.openCreateSpace,
+        openEditSpace: dashboard.openEditSpace,
+        openShareSpace: dashboard.openShareSpace,
         closeCommonModal: dashboard.closeModal,
-        createHousehold: dashboard.createHousehold,
-        updateHousehold: dashboard.updateHousehold,
-        deleteHousehold: dashboard.deleteHousehold,
-        shareHousehold: dashboard.shareHousehold,
+        createSpace: dashboard.createSpace,
+        updateSpace: dashboard.updateSpace,
+        deleteSpace: dashboard.deleteSpace,
+        shareSpace: dashboard.shareSpace,
       }}
       activeModule="profile"
       subtitle="Atualize sua foto, seus dados e acompanhe os limites da conta"
-      visibleCount={session.households.length}
-      visibleLabel="casas"
+      visibleCount={session.spaces.length}
+      visibleLabel="espaços"
       headerStats={[
-        { label: "casas", value: session.households.length },
-        { label: "próprias", value: session.households.filter((household) => household.isOwnedByCurrentUser).length },
+        { label: "espaços", value: session.spaces.length },
+        { label: "próprias", value: session.spaces.filter((space) => space.isOwnedByCurrentUser).length },
       ]}
-      requireHousehold={false}
+      requireSpace={false}
     >
       <ProfilePanel key={session.user.id} dashboard={dashboard} />
-    </HomePitWorkspaceShell>
+    </OrganizaClubWorkspaceShell>
   );
 }
 
@@ -112,7 +112,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   const session = dashboard.session!;
   const user = session.user;
   const token = session.accessToken;
-  const ownedHouseholdCount = session.households.filter((household) => household.isOwnedByCurrentUser).length;
+  const ownedSpaceCount = session.spaces.filter((space) => space.isOwnedByCurrentUser).length;
   const profilePhotoInputRef = useRef<HTMLInputElement | null>(null);
 
   const [displayName, setDisplayName] = useState(user.displayName);
@@ -267,12 +267,12 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   }
 
   const pendingCopy = useMemo(() => {
-    if (ownedHouseholdCount === 0) {
+    if (ownedSpaceCount === 0) {
       return "Se você excluir a conta agora, o acesso será encerrado imediatamente. Para voltar ao sistema no futuro, será necessário criar uma nova conta.";
     }
 
-    return `Você é proprietário de ${ownedHouseholdCount} casa(s). Ao continuar, sua conta será desativada agora e apagada automaticamente em 30 dias com essas casa(s) e todos os vínculos delas, caso o cancelamento não seja desfeito.`;
-  }, [ownedHouseholdCount]);
+    return `Você é proprietário de ${ownedSpaceCount} espaço(s). Ao continuar, sua conta será desativada agora e apagada automaticamente em 30 dias com essas espaço(s) e todos os vínculos delas, caso o cancelamento não seja desfeito.`;
+  }, [ownedSpaceCount]);
 
   useEffect(() => {
     return () => {
@@ -320,29 +320,29 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
     }
 
     try {
-      if (creationScope === "households") {
-        await apiFetch<void>(`/api/households/${deletingCreation.id}`, {
+      if (creationScope === "spaces") {
+        await apiFetch<void>(`/api/spaces/${deletingCreation.id}`, {
           method: "DELETE",
           token,
-          householdId: deletingCreation.householdId,
+          spaceId: deletingCreation.spaceId,
         });
-        await dashboard.refreshHouseholds();
-      } else if (creationScope === "universes") {
-        await apiFetch<void>(`/api/universes/${deletingCreation.id}`, {
+        await dashboard.refreshSpaces();
+      } else if (creationScope === "cores") {
+        await apiFetch<void>(`/api/cores/${deletingCreation.id}`, {
           method: "DELETE",
           token,
-          householdId: deletingCreation.householdId,
+          spaceId: deletingCreation.spaceId,
         });
-        if (dashboard.activeHouseholdId === deletingCreation.householdId) {
+        if (dashboard.activeSpaceId === deletingCreation.spaceId) {
           await dashboard.loadWorkspace();
         }
       } else if (creationScope === "projects") {
         await apiFetch<void>(`/api/projects/${deletingCreation.id}`, {
           method: "DELETE",
           token,
-          householdId: deletingCreation.householdId,
+          spaceId: deletingCreation.spaceId,
         });
-        if (dashboard.activeHouseholdId === deletingCreation.householdId) {
+        if (dashboard.activeSpaceId === deletingCreation.spaceId) {
           await dashboard.loadWorkspace();
         }
       }
@@ -350,7 +350,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
       setCreationItems((current) => current.filter((item) => item.id !== deletingCreation.id));
       await loadPlanSummary();
       toast.success(
-        `${capitalize(getCreationScopeLabel(creationScope ?? "households", true))} ${getCreationPastParticiple(creationScope ?? "households")}.`,
+        `${capitalize(getCreationScopeLabel(creationScope ?? "spaces", true))} ${getCreationPastParticiple(creationScope ?? "spaces")}.`,
       );
       setDeletingCreation(null);
     } catch (exception) {
@@ -450,16 +450,16 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
   const quotaCards = planSummary
     ? [
         {
-          label: "Casas",
-          current: planSummary.usage.ownedHouseholdCount,
-          limit: planSummary.plan.maxOwnedHouseholds,
-          scope: "households" as const,
+          label: "Espaços",
+          current: planSummary.usage.ownedSpaceCount,
+          limit: planSummary.plan.maxOwnedSpaces,
+          scope: "spaces" as const,
         },
         {
-          label: "Universos",
-          current: planSummary.usage.universeCount,
-          limit: planSummary.plan.maxUniverses,
-          scope: "universes" as const,
+          label: "Núcleos",
+          current: planSummary.usage.coreCount,
+          limit: planSummary.plan.maxCores,
+          scope: "cores" as const,
         },
         {
           label: "Projetos",
@@ -494,7 +494,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
             <div className="max-w-2xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Gestão pessoal</p>
               <h1 className="mt-2 text-3xl font-semibold text-foreground sm:text-4xl">
-                {activeTab === "profile" ? "Sua identidade no HomePit" : "Conecte suas ferramentas"}
+                {activeTab === "profile" ? "Sua identidade no Organiza Club" : "Conecte suas ferramentas"}
               </h1>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 {activeTab === "profile"
@@ -504,7 +504,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline">{user.systemRole}</Badge>
-              <Badge variant="neutral">{session.households.length} casa(s) vinculada(s)</Badge>
+              <Badge variant="neutral">{session.spaces.length} espaço(s) vinculada(s)</Badge>
             </div>
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
@@ -576,12 +576,12 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Resumo rápido</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Sua foto aparece nas interações da casa, nos comentários e nos módulos compartilhados.
+                  Sua foto aparece nas interações do espaço, nos comentários e nos módulos compartilhados.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                <Metric label="Casas" value={session.households.length} />
-                <Metric label="Próprias" value={ownedHouseholdCount} />
+                <Metric label="Espaços" value={session.spaces.length} />
+                <Metric label="Próprias" value={ownedSpaceCount} />
               </div>
             </div>
           </CardContent>
@@ -599,7 +599,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                   <Field label="Nome" description="Como você quer aparecer para as outras pessoas.">
                     <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
                   </Field>
-                  <Field label="WhatsApp" description="O contato que acompanha sua conta no HomePit.">
+                  <Field label="WhatsApp" description="O contato que acompanha sua conta no Organiza Club.">
                     <Input value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} autoComplete="tel" />
                   </Field>
                 </div>
@@ -715,13 +715,13 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{ownedHouseholdCount === 0 ? "Excluir conta" : "Cancelar conta"}</DialogTitle>
+            <DialogTitle>{ownedSpaceCount === 0 ? "Excluir conta" : "Cancelar conta"}</DialogTitle>
             <DialogDescription>{pendingCopy}</DialogDescription>
           </DialogHeader>
           <div className="rounded-[18px] border border-danger/20 bg-status-danger-soft p-4 text-sm leading-6 text-foreground">
-            {ownedHouseholdCount === 0
-              ? "Sem casas próprias, a exclusão acontece na hora. Seus vínculos atuais serão removidos e um novo acesso no futuro exigirá nova conta."
-              : "Com casas próprias, o acesso é bloqueado imediatamente. A exclusão final apaga as casas que você criou e todos os vínculos delas após 30 dias."}
+            {ownedSpaceCount === 0
+              ? "Sem espaços próprios, a exclusão acontece na hora. Seus vínculos atuais serão removidos e um novo acesso no futuro exigirá nova conta."
+              : "Com espaços próprios, o acesso é bloqueado imediatamente. A exclusão final apaga os espaços que você criou e todos os vínculos delas após 30 dias."}
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={closeCancelAccountDialog}>
@@ -735,7 +735,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
               }}
             >
               <AlertTriangle />
-              {ownedHouseholdCount === 0 ? "Excluir conta" : "Desativar conta"}
+              {ownedSpaceCount === 0 ? "Excluir conta" : "Desativar conta"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -781,11 +781,11 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{ownedHouseholdCount === 0 ? "Excluir conta" : "Desativar conta"}</DialogTitle>
+            <DialogTitle>{ownedSpaceCount === 0 ? "Excluir conta" : "Desativar conta"}</DialogTitle>
             <DialogDescription>{pendingCopy}</DialogDescription>
           </DialogHeader>
           <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4 text-sm leading-6 text-muted-foreground">
-            {ownedHouseholdCount === 0
+            {ownedSpaceCount === 0
               ? "Ao confirmar, sua sessão será encerrada e o acesso não poderá ser recuperado por este mesmo cadastro."
               : "Ao confirmar, o próximo login mostrará o aviso de conta desativada com a data exata da exclusão programada."}
           </div>
@@ -838,7 +838,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-1">
                       <p className="text-sm font-semibold text-foreground">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">{buildCreationContext(item, creationScope ?? "households")}</p>
+                      <p className="text-xs text-muted-foreground">{buildCreationContext(item, creationScope ?? "spaces")}</p>
                       <p className="text-xs text-muted-foreground">Criado em {formatDateTime(item.createdAt)}</p>
                     </div>
                     <Button
@@ -853,7 +853,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
                   </div>
                   {!item.canDelete ? (
                     <p className="mt-3 text-xs text-muted-foreground">
-                      Esta criação continua no seu histórico, mas a exclusão depende de acesso ativo a essa casa.
+                      Esta criação continua no seu histórico, mas a exclusão depende de acesso ativo a esso espaço.
                     </p>
                   ) : null}
                 </div>
@@ -865,16 +865,16 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
 
       <DeleteConfirmationDialog
         open={Boolean(deletingCreation)}
-        title={deletingCreation ? `Excluir ${getCreationDeleteLabel(creationScope ?? "households")}` : "Excluir criação"}
+        title={deletingCreation ? `Excluir ${getCreationDeleteLabel(creationScope ?? "spaces")}` : "Excluir criação"}
         description={
           deletingCreation
-            ? `Essa ação remove ${getCreationDeleteLabel(creationScope ?? "households")} ${deletingCreation.name} e ajuda a liberar cota da sua conta.`
+            ? `Essa ação remove ${getCreationDeleteLabel(creationScope ?? "spaces")} ${deletingCreation.name} e ajuda a liberar cota da sua conta.`
             : "Essa ação remove a criação selecionada."
         }
         confirmationTarget={deletingCreation?.name}
         confirmationLabel={`Digite o nome ${deletingCreation?.name ?? ""} para confirmar`}
-        confirmLabel={`Excluir ${getCreationDeleteLabel(creationScope ?? "households")}`}
-        impactItems={buildCreationImpactItems(creationScope ?? "households")}
+        confirmLabel={`Excluir ${getCreationDeleteLabel(creationScope ?? "spaces")}`}
+        impactItems={buildCreationImpactItems(creationScope ?? "spaces")}
         onOpenChange={(open) => {
           if (!open) {
             setDeletingCreation(null);
@@ -884,7 +884,7 @@ function ProfilePanel({ dashboard }: { dashboard: ReturnType<typeof useProjectDa
       />
         </>
       ) : (
-        <ConnectionTab token={token} households={session.households} />
+        <ConnectionTab token={token} spaces={session.spaces} />
       )}
     </div>
   );
@@ -1134,10 +1134,10 @@ function PlanRequestCard({
 
 function getCreationScopeLabel(scope: PlanCreationScope, singular = false) {
   switch (scope) {
-    case "households":
-      return singular ? "casa" : "casas";
-    case "universes":
-      return singular ? "universo" : "universos";
+    case "spaces":
+      return singular ? "espaço" : "espaços";
+    case "cores":
+      return singular ? "núcleo" : "núcleos";
     case "projects":
       return singular ? "projeto" : "projetos";
     default:
@@ -1150,7 +1150,7 @@ function getCreationDeleteLabel(scope: PlanCreationScope) {
 }
 
 function getCreationPastParticiple(scope: PlanCreationScope, plural = false) {
-  if (scope === "households") {
+  if (scope === "spaces") {
     return plural ? "criadas" : "excluída";
   }
 
@@ -1159,34 +1159,34 @@ function getCreationPastParticiple(scope: PlanCreationScope, plural = false) {
 
 function buildCreationContext(item: PlanCreationItem, scope: PlanCreationScope) {
   if (scope === "projects") {
-    return `Casa: ${item.householdName} • Universo: ${item.universeName ?? "Sem universo"}`;
+    return `Espaço: ${item.spaceName} • Núcleo: ${item.coreName ?? "Sem núcleo"}`;
   }
 
-  if (scope === "universes") {
-    return `Casa: ${item.householdName}`;
+  if (scope === "cores") {
+    return `Espaço: ${item.spaceName}`;
   }
 
-  return `Casa: ${item.householdName}`;
+  return `Espaço: ${item.spaceName}`;
 }
 
 function buildCreationImpactItems(scope: PlanCreationScope) {
   switch (scope) {
-    case "households":
+    case "spaces":
       return [
-        "A casa, seus universos, projetos, atividades, prompts e membros vinculados.",
-        "Comentários, preferências e histórico operacional ligados a essa casa.",
+        "O espaço, seus núcleos, projetos, atividades, prompts e membros vinculados.",
+        "Comentários, preferências e histórico operacional ligados a esso espaço.",
         "Parte da cota total usada por essa criação.",
       ];
-    case "universes":
+    case "cores":
       return [
-        "O universo e os projetos, atividades e pendências vinculados a ele.",
-        "Associações do banco de prompts com esse universo.",
+        "O núcleo e os projetos, atividades e pendências vinculados a ele.",
+        "Associações do banco de prompts com esse núcleo.",
         "Parte da cota total usada por essa criação.",
       ];
     case "projects":
       return [
         "O projeto e as atividades, comentários e pendências vinculados a ele.",
-        "Referências desse projeto em áreas relacionadas da casa.",
+        "Referências desse projeto em áreas relacionadas do espaço.",
         "Parte da cota total usada por essa criação.",
       ];
     default:
@@ -1279,20 +1279,20 @@ function buildSubscriptionRequestLink(
     return `https://wa.me/${contact.destination}?text=${encodeURIComponent(message)}`;
   }
 
-  return `mailto:${contact.destination}?subject=${encodeURIComponent(`Interesse no plano ${plan.name} - HomePit`)}&body=${encodeURIComponent(message)}`;
+  return `mailto:${contact.destination}?subject=${encodeURIComponent(`Interesse no plano ${plan.name} - Organiza Club`)}&body=${encodeURIComponent(message)}`;
 }
 
 function buildSubscriptionRequestMessage(plan: PlanDefinition) {
   return [
-    `Olá! Tenho interesse no plano ${plan.name} do HomePit.`,
+    `Olá! Tenho interesse no plano ${plan.name} do Organiza Club.`,
     "",
     "Valores:",
     `- Mensal: ${formatCurrency(plan.monthlyPrice, plan.currencyCode)}`,
     `- Anual: ${formatCurrency(plan.annualPrice, plan.currencyCode)}`,
     "",
     "Limites:",
-    `- Casas: ${plan.maxOwnedHouseholds}`,
-    `- Universos: ${plan.maxUniverses}`,
+    `- Espaços: ${plan.maxOwnedSpaces}`,
+    `- Núcleos: ${plan.maxCores}`,
     `- Projetos: ${plan.maxProjects}`,
     `- Membros convidados: ${plan.maxInvitedMembers ?? "ilimitados"}`,
     `- Imagens originais: ${plan.maxOriginalImages}`,
@@ -1304,12 +1304,12 @@ function buildSubscriptionRequestMessage(plan: PlanDefinition) {
 function buildPlanFeatureHighlights(plan: PlanDefinition) {
   return [
     {
-      text: formatPlanQuotaCount(plan.maxOwnedHouseholds, "Casa", "Casas"),
-      enabled: plan.maxOwnedHouseholds > 0,
+      text: formatPlanQuotaCount(plan.maxOwnedSpaces, "Espaço", "Espaços"),
+      enabled: plan.maxOwnedSpaces > 0,
     },
     {
-      text: formatPlanQuotaCount(plan.maxUniverses, "Universo", "Universos"),
-      enabled: plan.maxUniverses > 0,
+      text: formatPlanQuotaCount(plan.maxCores, "Núcleo", "Núcleos"),
+      enabled: plan.maxCores > 0,
     },
     {
       text: formatPlanQuotaCount(plan.maxProjects, "Projeto", "Projetos"),

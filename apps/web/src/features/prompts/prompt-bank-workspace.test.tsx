@@ -50,11 +50,11 @@ beforeEach(() => {
 function createPromptListItem(overrides: Partial<PromptListItem> = {}): PromptListItem {
   return {
     id: "prompt-1",
-    universeId: null,
-    universeName: null,
-    universeImageUrl: null,
-    universeHasImage: false,
-    universeImageUpdatedAt: null,
+    coreId: null,
+    coreName: null,
+    coreImageUrl: null,
+    coreHasImage: false,
+    coreImageUpdatedAt: null,
     title: "Prompt visual",
     description: null,
     promptText: "Texto do prompt.",
@@ -126,7 +126,7 @@ describe("PromptCard", () => {
     expect(container.querySelector('[class*="aspect-[4/5]"]')).not.toBeNull();
   });
 
-  it("loads the prompt image with the active household", async () => {
+  it("loads the prompt image with the active space", async () => {
     vi.mocked(apiFetchBlob).mockRejectedValueOnce(new ApiError("Arquivo não encontrado.", 404));
 
     render(
@@ -136,7 +136,7 @@ describe("PromptCard", () => {
           imageUpdatedAt: "2026-06-03T12:00:00Z",
         })}
         token="token-1"
-        householdId="household-1"
+        spaceId="space-1"
         onOpen={() => undefined}
         onEdit={() => undefined}
         onToggleArchive={() => undefined}
@@ -147,19 +147,19 @@ describe("PromptCard", () => {
     await waitFor(() => {
       expect(apiFetchBlob).toHaveBeenCalledWith("/api/prompts/prompt-1/image", {
         token: "token-1",
-        householdId: "household-1",
+        spaceId: "space-1",
       });
     });
   });
 
-  it("renders the universe chip with avatar when the universe has an image", () => {
+  it("renders the core chip with avatar when the core has an image", () => {
     render(
       <PromptCard
         prompt={createPromptListItem({
           id: "prompt-2",
-          universeId: "uni-1",
-          universeName: "Universo Visual",
-          universeImageUrl: "https://cdn.homepit.dev/universo-visual.png",
+          coreId: "uni-1",
+          coreName: "Núcleo Visual",
+          coreImageUrl: "https://cdn.organiza.club/núcleo-visual.png",
         })}
         token=""
         onOpen={() => undefined}
@@ -169,7 +169,7 @@ describe("PromptCard", () => {
       />,
     );
 
-    expect(screen.getByAltText("Universo Visual")).toHaveAttribute("src", "https://cdn.homepit.dev/universo-visual.png");
+    expect(screen.getByAltText("Núcleo Visual")).toHaveAttribute("src", "https://cdn.organiza.club/núcleo-visual.png");
   });
 
   it("exposes archive actions in the card menu", async () => {
@@ -201,7 +201,7 @@ describe("PromptCard", () => {
         })}
         showImages={false}
         token="token-1"
-        householdId="household-1"
+        spaceId="space-1"
         onOpen={() => undefined}
         onEdit={() => undefined}
         onToggleArchive={() => undefined}
@@ -304,14 +304,14 @@ describe("PromptDetailDialog", () => {
         open
         prompt={createPromptDetail({
           id: "prompt-1",
-          universeId: "uni-1",
-          universeName: "Universo",
-          universeImageUrl: "https://cdn.homepit.dev/universo.png",
+          coreId: "uni-1",
+          coreName: "Núcleo",
+          coreImageUrl: "https://cdn.organiza.club/núcleo.png",
           title: "Prompt detalhado",
           description: "Descrição completa",
           promptText: "Texto integral do prompt sem truncamento.",
           categories: [{ id: "cat-1", name: "Categoria" }],
-          linkUrl: "https://homepit.dev",
+          linkUrl: "https://organiza.club",
           linkTitle: "Referência oficial",
         })}
         loading={false}
@@ -325,9 +325,9 @@ describe("PromptDetailDialog", () => {
 
     expect(screen.getByRole("heading", { name: "Prompt detalhado" })).toBeInTheDocument();
     expect(screen.getByText("Texto integral do prompt sem truncamento.")).toBeInTheDocument();
-    expect(screen.getByAltText("Universo")).toHaveAttribute("src", "https://cdn.homepit.dev/universo.png");
+    expect(screen.getByAltText("Núcleo")).toHaveAttribute("src", "https://cdn.organiza.club/núcleo.png");
     expect(screen.getByRole("button", { name: "Copiar prompt" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Referência oficial" })).toHaveAttribute("href", "https://homepit.dev");
+    expect(screen.getByRole("link", { name: "Referência oficial" })).toHaveAttribute("href", "https://organiza.club");
   });
 
   it("copies the full prompt text from the detail modal", async () => {
@@ -342,8 +342,8 @@ describe("PromptDetailDialog", () => {
         open
         prompt={createPromptDetail({
           id: "prompt-1",
-          universeId: "uni-1",
-          universeName: "Universo",
+          coreId: "uni-1",
+          coreName: "Núcleo",
           title: "Prompt detalhado",
           description: "Descrição completa",
           promptText: "Texto integral do prompt sem truncamento.",
@@ -366,7 +366,7 @@ describe("PromptDetailDialog", () => {
     expect(toast.success).toHaveBeenCalledWith("Prompt copiado.");
   });
 
-  it("loads the detail image with the active household", async () => {
+  it("loads the detail image with the active space", async () => {
     vi.mocked(apiFetchBlob).mockRejectedValueOnce(new ApiError("Arquivo não encontrado.", 404));
 
     render(
@@ -374,8 +374,8 @@ describe("PromptDetailDialog", () => {
         open
         prompt={createPromptDetail({
           id: "prompt-1",
-          universeId: "uni-1",
-          universeName: "Universo",
+          coreId: "uni-1",
+          coreName: "Núcleo",
           title: "Prompt detalhado",
           description: "Descrição completa",
           promptText: "Texto integral do prompt sem truncamento.",
@@ -385,7 +385,7 @@ describe("PromptDetailDialog", () => {
         })}
         loading={false}
         token="token-1"
-        householdId="household-1"
+        spaceId="space-1"
         onOpenChange={() => undefined}
         onEdit={() => undefined}
         onToggleArchive={() => undefined}
@@ -396,7 +396,7 @@ describe("PromptDetailDialog", () => {
     await waitFor(() => {
       expect(apiFetchBlob).toHaveBeenCalledWith("/api/prompts/prompt-1/image", {
         token: "token-1",
-        householdId: "household-1",
+        spaceId: "space-1",
       });
     });
   });
@@ -407,8 +407,8 @@ describe("PromptDetailDialog", () => {
         open
         prompt={createPromptDetail({
           id: "prompt-1",
-          universeId: "uni-1",
-          universeName: "Universo",
+          coreId: "uni-1",
+          coreName: "Núcleo",
           title: "Prompt detalhado",
           description: "Descrição completa",
           promptText: "Texto integral do prompt sem truncamento.",
@@ -419,7 +419,7 @@ describe("PromptDetailDialog", () => {
         showImages={false}
         loading={false}
         token="token-1"
-        householdId="household-1"
+        spaceId="space-1"
         onOpenChange={() => undefined}
         onEdit={() => undefined}
         onToggleArchive={() => undefined}
@@ -442,8 +442,8 @@ describe("PromptDetailDialog", () => {
         open
         prompt={createPromptDetail({
           id: "prompt-1",
-          universeId: "uni-1",
-          universeName: "Universo",
+          coreId: "uni-1",
+          coreName: "Núcleo",
           title: "Prompt arquivado",
           categories: [{ id: "cat-1", name: "Categoria" }],
           isArchived: true,

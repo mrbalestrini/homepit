@@ -8,27 +8,27 @@
   Domain; Infrastructure depende de Application e Domain; Api depende de Application e
   Infrastructure.
 - Pontos de entrada: `Program.cs`, paginas Next.js em `src/app` e
-  `infra/setup/homepit-local.ps1`.
+  `infra/setup/organiza-club-local.ps1`.
 - `Program.cs` registra DI, JWT, CORS, middleware de erros, migrations, storage e Minimal APIs.
-- A regra de negocio fica principalmente em `AuthService`, `HouseholdService`,
+- A regra de negocio fica principalmente em `AuthService`, `SpaceService`,
   `ProjectService`, `PromptService`, `GsmNumberService` e `DailyDigestService`.
 - `EffortPlanningService` concentra a capacidade semanal pessoal e o cálculo diário de relevância das atividades.
 - `GsmNumberService` tambem concentra o historico de recargas do modulo GSM, mantendo o
   resumo `LastRechargeOn` derivado do lancamento mais recente.
-- PostgreSQL e acessado por EF Core/Npgsql; o schema padrao e `homepit`.
+- PostgreSQL e acessado por EF Core/Npgsql; o schema padrao e `organiza_club`.
 - O frontend usa App Router, paginas finas, hooks-controladores por feature e cliente HTTP
   centralizado em `src/lib/api.ts`.
-- O workspace interno agora possui um modulo dedicado `/finance`, com hook-controlador
+- O workspace interno agora possui um modulo dedicada `/finance`, com hook-controlador
   proprio e navegacao local entre caixa, cartoes e patrimonio.
-- O workspace interno agora possui um modulo dedicado `/gsm`, com hook-controlador proprio
-  e navegacao lateral compartilhada com os demais modulos da casa.
+- O workspace interno agora possui um modulo dedicada `/gsm`, com hook-controlador proprio
+  e navegacao lateral compartilhada com os demais modulos do espaço.
 - A rota `/` renderiza uma pagina institucional publica a partir da API, enquanto
   `/admin/institutional` oferece um CMS separado para SuperAdmin.
 - O conteudo institucional e global, usa o slug unico `home`, listas filhas ordenadas e
   imagens publicas armazenadas no mesmo object storage.
-- O frontend persiste a casa ativa por usuario em `src/lib/household-selection.ts`,
+- O frontend persiste o espaço ativo por usuario em `src/lib/space-selection.ts`,
   validando a selecao salva contra a sessao atual e limpando entradas obsoletas.
-- O contrato de casas expõe `CreatedAt`, permitindo que o frontend escolha a casa mais
+- O contrato de espaços expõe `CreatedAt`, permitindo que o frontend escolha o espaço mais
   recente quando a selecao salva nao for mais valida.
 - O banco de prompts oferece alternancia entre grade e lista e usa as categorias da
   lateral como atalho para aplicar ou remover o filtro de categoria.
@@ -36,10 +36,10 @@
   refresh rotacionado e sessao persistida pelo frontend. `/api/auth` e `/api/system/info`
   ficam fora desse grupo protegido; leitura da pagina e das imagens institucionais tambem
   e publica.
-- Fluxo de tenancy: `X-Household-Id` seleciona a casa; uma unica casa pode ser inferida.
+- Fluxo de tenancy: `X-Space-Id` seleciona o espaço; uma unico espaço pode ser inferida.
 - Integracoes: Supabase Postgres, MinIO, Evolution API, Redis, Coolify e OpenAPI versionado.
 - O worker de resumo consulta atividades abertas atribuidas ao membro e registra envios para
-  evitar duplicidade por casa, membro, tipo e data.
+  evitar duplicidade por espaço, membro, tipo e data.
 
 ## INFERÊNCIA
 

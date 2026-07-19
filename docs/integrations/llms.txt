@@ -1,11 +1,11 @@
-# HomePit Integrations v1
+# Organiza Club Integrations v1
 
 Status: especificação; confirme feature flags antes de usar.
 
 - `README.md`: início rápido e limites da conexão.
-- `rest-api.md`: Bearer token, Casa fixada, cursor, ETag e idempotência.
+- `rest-api.md`: Bearer token, Espaço fixada, cursor, ETag e idempotência.
 - `mcp.md`: MCP Streamable HTTP, OAuth PKCE, discovery, DCR, tools e resources.
 - `security.md`: expiração, revogação, rate limit, auditoria e erros.
 - `recipes.md`: fluxos seguros para Financeiro e Projetos.
 
-Regras para agentes: REST usa chave manual por variável de ambiente; MCP remoto usa OAuth e nunca aceita `hpit_*`. `openid` é aceito somente para compatibilidade OIDC e não autoriza acesso; `homepit.read` é obrigatório, `homepit.write` controla escrita e `offline_access` permite refresh token. Não enviar `X-Household-Id`; confirmar modo e expiração com `GET /space`; ler o OpenAPI externo antes de formar payloads; usar idempotência em escrita; usar ETag/If-Match em update/delete. Listagens retornam `{items,nextCursor}` e cada item mutável contém `data` e `etag`; `428` indica If-Match ausente e `412` conflito de versão. A conexão não amplia permissões do criador.
+Regras para agentes: REST usa chave manual por variável de ambiente; MCP remoto usa OAuth e nunca aceita `orgc_*`. `openid` é aceito somente para compatibilidade OIDC e não autoriza acesso; `organiza.read` é obrigatório, `organiza.write` controla escrita e `offline_access` permite refresh token. Não enviar `X-Space-Id`; confirmar modo e expiração com `GET /space`; ler o OpenAPI externo antes de formar payloads; usar idempotência em escrita; usar ETag/If-Match em update/delete. Listagens retornam `{items,nextCursor}` e cada item mutável contém `data` e `etag`; `428` indica If-Match ausente e `412` conflito de versão. A conexão não amplia permissões do criador.

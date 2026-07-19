@@ -110,9 +110,9 @@ $requiredPaths = @(
   "apps\web\package.json",
   "apps\web\package-lock.json",
   "CHANGELOG.md",
-  "contracts\openapi\homepit.v1.yaml",
-  "apps\api\src\HomePit.Api\Program.cs",
-  "infra\setup\homepit-local.ps1",
+  "contracts\openapi\organiza-club.v1.yaml",
+  "apps\api\src\OrganizaClub.Api\Program.cs",
+  "infra\setup\organiza-club-local.ps1",
   "apps\api\docker-compose.yml"
 )
 
@@ -174,8 +174,8 @@ else {
   Assert-Match -Left $packageJson.version -Right $latestChangelogVersion -Label "Versao do produto entre package.json e CHANGELOG.md"
 }
 
-$openApiVersionMatch = Select-String -Path "contracts\openapi\homepit.v1.yaml" -Pattern '^\s*version:\s*(.+?)\s*$' | Select-Object -First 1
-$systemInfoVersionMatch = Select-String -Path "apps\api\src\HomePit.Api\Program.cs" -Pattern 'version\s*=\s*"(.+?)"' | Select-Object -First 1
+$openApiVersionMatch = Select-String -Path "contracts\openapi\organiza-club.v1.yaml" -Pattern '^\s*version:\s*(.+?)\s*$' | Select-Object -First 1
+$systemInfoVersionMatch = Select-String -Path "apps\api\src\OrganizaClub.Api\Program.cs" -Pattern 'version\s*=\s*"(.+?)"' | Select-Object -First 1
 
 if ($null -eq $openApiVersionMatch) {
   Add-Failure "Nao foi possivel ler `info.version` no OpenAPI."
@@ -191,10 +191,10 @@ if ($null -ne $openApiVersionMatch -and $null -ne $systemInfoVersionMatch) {
   Assert-Match -Left $openApiVersion -Right $systemInfoVersion -Label "Versao do contrato/API entre OpenAPI e /api/system/info"
 }
 
-$setupApiBaseUrlMatch = Select-String -Path "infra\setup\homepit-local.ps1" -Pattern 'NEXT_PUBLIC_API_BASE_URL=http://localhost:(\d+)' | Select-Object -First 1
-$setupHealthcheckMatch = Select-String -Path "infra\setup\homepit-local.ps1" -Pattern 'http://localhost:(\d+)/health' | Select-Object -First 1
+$setupApiBaseUrlMatch = Select-String -Path "infra\setup\organiza-club-local.ps1" -Pattern 'NEXT_PUBLIC_API_BASE_URL=http://localhost:(\d+)' | Select-Object -First 1
+$setupHealthcheckMatch = Select-String -Path "infra\setup\organiza-club-local.ps1" -Pattern 'http://localhost:(\d+)/health' | Select-Object -First 1
 $composeApiPortMatch = Select-String -Path "apps\api\docker-compose.yml" -Pattern '\$\{API_PORT:-(\d+)\}:8080' | Select-Object -First 1
-$setupWritesApiPort = Select-String -Path "infra\setup\homepit-local.ps1" -Pattern 'API_PORT=' | Select-Object -First 1
+$setupWritesApiPort = Select-String -Path "infra\setup\organiza-club-local.ps1" -Pattern 'API_PORT=' | Select-Object -First 1
 
 if ($null -ne $setupApiBaseUrlMatch -and $null -ne $setupHealthcheckMatch) {
   $setupBasePort = $setupApiBaseUrlMatch.Matches[0].Groups[1].Value

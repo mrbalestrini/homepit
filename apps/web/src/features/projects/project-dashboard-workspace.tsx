@@ -45,10 +45,10 @@ import type {
   EffortPlan,
   EffortScopeType,
   EffortWeekday,
-  HouseholdMember,
+  SpaceMember,
   Priority,
   Project,
-  Universe,
+  Core,
 } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,12 +86,12 @@ import { ActivityImageViewerDialog } from "./activity-image-viewer";
 import {
   EmptyState,
   Field,
-  HomePitWorkspaceShell,
+  OrganizaClubWorkspaceShell,
   LoadingState,
   Notice,
-} from "@/features/workspace/homepit-workspace-shell";
-import { ProtectedUniverseAvatar, useProtectedUniverseImage } from "@/features/workspace/protected-universe-avatar";
-import { AvatarCircle, HouseholdMemberAvatar, useProtectedUserPhotoById } from "@/features/workspace/protected-user-avatar";
+} from "@/features/workspace/organiza-club-workspace-shell";
+import { ProtectedCoreAvatar, useProtectedCoreImage } from "@/features/workspace/protected-core-avatar";
+import { AvatarCircle, SpaceMemberAvatar, useProtectedUserPhotoById } from "@/features/workspace/protected-user-avatar";
 import { ProtectedActivityImageFrame } from "./protected-activity-image";
 import {
   activityColumns,
@@ -189,7 +189,7 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
   const openActivities = dashboard.activities.filter((activity) => activity.status !== "Concluido").length;
   const urgentActivities = dashboard.activities.filter((activity) => activity.priority === "Urgente").length;
   const headerStats = [
-    { label: "Universos", value: dashboard.universes.length },
+    { label: "Núcleos", value: dashboard.cores.length },
     { label: "Projetos", value: dashboard.projects.length },
     { label: "Abertas", value: openActivities },
     { label: "Urgentes", value: urgentActivities },
@@ -202,36 +202,36 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
 
   return (
     <>
-      <HomePitWorkspaceShell
+      <OrganizaClubWorkspaceShell
         controller={{
           session: dashboard.session,
-          activeHouseholdId: dashboard.activeHouseholdId,
-          activeHousehold: dashboard.activeHousehold,
+          activeSpaceId: dashboard.activeSpaceId,
+          activeSpace: dashboard.activeSpace,
           members: dashboard.members,
           theme: dashboard.theme,
           sidebarCollapsed: dashboard.sidebarCollapsed,
           loading: dashboard.loading,
           error: dashboard.error,
-          canShareHousehold: dashboard.canShareHousehold,
-          canManageHousehold: dashboard.canManageHousehold,
-          editingHousehold: dashboard.editingHousehold,
-          isHouseholdDialogOpen: dashboard.activeModal === "household",
+          canShareSpace: dashboard.canShareSpace,
+          canManageSpace: dashboard.canManageSpace,
+          editingSpace: dashboard.editingSpace,
+          isSpaceDialogOpen: dashboard.activeModal === "space",
           isShareDialogOpen: dashboard.activeModal === "share",
           setError: dashboard.setError,
           setSidebarCollapsed: dashboard.setSidebarCollapsed,
           setTheme: dashboard.setTheme,
-          handleHouseholdChange: dashboard.handleHouseholdChange,
+          handleSpaceChange: dashboard.handleSpaceChange,
           handleLogout: dashboard.handleLogout,
-          refreshHouseholds: dashboard.refreshHouseholds,
+          refreshSpaces: dashboard.refreshSpaces,
           refreshWorkspace: async () => dashboard.loadWorkspace(),
-          openCreateHousehold: dashboard.openCreateHousehold,
-          openEditHousehold: dashboard.openEditHousehold,
-          openShareHousehold: dashboard.openShareHousehold,
+          openCreateSpace: dashboard.openCreateSpace,
+          openEditSpace: dashboard.openEditSpace,
+          openShareSpace: dashboard.openShareSpace,
           closeCommonModal: dashboard.closeModal,
-          createHousehold: dashboard.createHousehold,
-          updateHousehold: dashboard.updateHousehold,
-          deleteHousehold: dashboard.deleteHousehold,
-          shareHousehold: dashboard.shareHousehold,
+          createSpace: dashboard.createSpace,
+          updateSpace: dashboard.updateSpace,
+          deleteSpace: dashboard.deleteSpace,
+          shareSpace: dashboard.shareSpace,
         }}
         activeModule="projects"
         subtitle={dashboard.selectedScopeLabel}
@@ -242,7 +242,7 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
           <ProjectExplorer dashboard={dashboard} />
           <WorkspaceBoard dashboard={dashboard} onOpenImage={openActivityImage} />
         </div>
-      </HomePitWorkspaceShell>
+      </OrganizaClubWorkspaceShell>
 
       <ActivityImageViewerDialog
         open={Boolean(selectedActivityImage)}
@@ -255,17 +255,17 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
         }}
       />
 
-      <UniverseDialog
-        key={`universe-${dashboard.editingUniverse?.id ?? "new"}-${dashboard.activeModal === "universe" ? "open" : "closed"}`}
-        open={dashboard.activeModal === "universe"}
-        universe={dashboard.editingUniverse}
+      <CoreDialog
+        key={`core-${dashboard.editingCore?.id ?? "new"}-${dashboard.activeModal === "core" ? "open" : "closed"}`}
+        open={dashboard.activeModal === "core"}
+        core={dashboard.editingCore}
         onOpenChange={(open) => !open && dashboard.closeModal()}
         token={dashboard.session?.accessToken}
-        householdId={dashboard.activeHouseholdId}
+        spaceId={dashboard.activeSpaceId}
         onSave={(input) =>
-          dashboard.editingUniverse
-            ? dashboard.updateUniverse(dashboard.editingUniverse.id, input)
-            : dashboard.createUniverse(input)
+          dashboard.editingCore
+            ? dashboard.updateCore(dashboard.editingCore.id, input)
+            : dashboard.createCore(input)
         }
       />
 
@@ -273,13 +273,13 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
         key={`project-${dashboard.editingProject?.id ?? "new"}-${dashboard.activeModal === "project" ? "open" : "closed"}`}
         open={dashboard.activeModal === "project"}
         project={dashboard.editingProject}
-        universes={dashboard.universes}
-        defaultUniverseId={dashboard.selectedUniverseId}
+        cores={dashboard.cores}
+        defaultCoreId={dashboard.selectedCoreId}
         onOpenChange={(open) => !open && dashboard.closeModal()}
-        onSave={(universeId, name) =>
+        onSave={(coreId, name) =>
           dashboard.editingProject
-            ? dashboard.updateProject(dashboard.editingProject.id, universeId, name)
-            : dashboard.createProject(universeId, name)
+            ? dashboard.updateProject(dashboard.editingProject.id, coreId, name)
+            : dashboard.createProject(coreId, name)
         }
       />
 
@@ -291,7 +291,7 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
         members={dashboard.members}
         defaultProjectId={dashboard.activityDraftProjectId || dashboard.selectedProjectId}
         token={dashboard.session?.accessToken}
-        householdId={dashboard.activeHouseholdId}
+        spaceId={dashboard.activeSpaceId}
         onOpenImage={openActivityImage}
         onOpenChange={(open) => !open && dashboard.closeModal()}
         onSave={(input) =>
@@ -303,7 +303,7 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
 
       {dashboard.effortPlan ? (
         <EffortPlanDialog
-          key={`${dashboard.effortPlan.householdId}-${dashboard.activeModal}`}
+          key={`${dashboard.effortPlan.spaceId}-${dashboard.activeModal}`}
           open={dashboard.activeModal === "effort"}
           plan={dashboard.effortPlan}
           onOpenChange={(open) => !open && dashboard.closeModal()}
@@ -315,7 +315,7 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
         <ActivityDetailsSheet
           activity={dashboard.selectedActivity}
           token={dashboard.session?.accessToken}
-          householdId={dashboard.activeHouseholdId}
+          spaceId={dashboard.activeSpaceId}
           members={dashboard.members}
           comments={dashboard.activityComments}
           commentsLoading={dashboard.commentsLoading}
@@ -333,56 +333,56 @@ export function ProjectDashboardWorkspace({ dashboard }: { dashboard: ProjectDas
   );
 }
 
-function UniverseAvatar({
-  universeId,
+function CoreAvatar({
+  coreId,
   name,
   imageUrl,
   hasImage,
   imageUpdatedAt,
   token,
-  householdId,
+  spaceId,
   className,
 }: {
-  universeId?: string | null;
+  coreId?: string | null;
   name: string;
   imageUrl?: string | null;
   hasImage?: boolean;
   imageUpdatedAt?: string | null;
   token?: string;
-  householdId?: string;
+  spaceId?: string;
   className?: string;
 }) {
   return (
-    <ProtectedUniverseAvatar
-      universeId={universeId}
+    <ProtectedCoreAvatar
+      coreId={coreId}
       name={name}
       imageUrl={imageUrl}
       hasImage={hasImage}
       imageUpdatedAt={imageUpdatedAt}
       token={token}
-      householdId={householdId}
+      spaceId={spaceId}
       className={className}
     />
   );
 }
 
 function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController }) {
-  const [collapsedUniverses, setCollapsedUniverses] = useState<Record<string, boolean>>({});
-  const [deletingUniverse, setDeletingUniverse] = useState<Universe | null>(null);
+  const [collapsedCores, setCollapsedCores] = useState<Record<string, boolean>>({});
+  const [deletingCore, setDeletingCore] = useState<Core | null>(null);
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
   const openActivityCount = dashboard.projects.reduce((total, project) => total + project.activityCount, 0);
 
-  function toggleUniverse(universeId: string) {
-    setCollapsedUniverses((current) => ({ ...current, [universeId]: !current[universeId] }));
+  function toggleCore(coreId: string) {
+    setCollapsedCores((current) => ({ ...current, [coreId]: !current[coreId] }));
   }
 
-  function selectUniverse(universeId: string) {
-    setCollapsedUniverses((current) => ({ ...current, [universeId]: false }));
-    dashboard.selectUniverseScope(universeId);
+  function selectCore(coreId: string) {
+    setCollapsedCores((current) => ({ ...current, [coreId]: false }));
+    dashboard.selectCoreScope(coreId);
   }
 
   function selectProject(project: Project) {
-    setCollapsedUniverses((current) => ({ ...current, [project.universeId]: false }));
+    setCollapsedCores((current) => ({ ...current, [project.coreId]: false }));
     dashboard.selectProjectScope(project);
   }
 
@@ -390,7 +390,7 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
     <Card>
       <CardHeader className="border-b border-border/60 pb-4">
         <div className="flex items-start justify-between gap-3">
-          <h2 className="text-lg font-semibold text-foreground">Universos e projetos</h2>
+          <h2 className="text-lg font-semibold text-foreground">Núcleos e projetos</h2>
           <ExplorerCreateMenu dashboard={dashboard} />
         </div>
       </CardHeader>
@@ -399,7 +399,7 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
         <button
           className={cn(
             "flex w-full items-center justify-between rounded-[18px] border px-3 py-3 text-left transition",
-            !dashboard.selectedUniverseId && !dashboard.selectedProjectId
+            !dashboard.selectedCoreId && !dashboard.selectedProjectId
               ? "border-primary/20 bg-highlight text-accent-foreground"
               : "border-border/70 bg-surface-strong hover:bg-surface-muted",
           )}
@@ -408,43 +408,43 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
         >
           <div>
             <p className="text-sm font-semibold">Todos os projetos</p>
-            <p className="mt-1 text-xs text-muted-foreground">Casa inteira</p>
+            <p className="mt-1 text-xs text-muted-foreground">Espaço inteira</p>
           </div>
           <Badge variant="neutral">{openActivityCount}</Badge>
         </button>
 
         <div className="space-y-2">
-          {dashboard.loading && dashboard.universes.length === 0 && dashboard.projects.length === 0 ? (
+          {dashboard.loading && dashboard.cores.length === 0 && dashboard.projects.length === 0 ? (
             <LoadingState
-              title="Buscando universos e projetos"
-              description="Carregando a estrutura da casa antes de exibir a navegação lateral."
+              title="Buscando núcleos e projetos"
+              description="Carregando a estrutura do espaço antes de exibir a navegação lateral."
             />
-          ) : dashboard.universes.length === 0 ? (
+          ) : dashboard.cores.length === 0 ? (
             <EmptyState
               icon={<Layers className="size-5" />}
-              title="Nenhum universo criado"
-              description="Crie o primeiro agrupador para começar a estruturar projetos da casa."
+              title="Nenhum núcleo criado"
+              description="Crie o primeiro agrupador para começar a estruturar projetos do espaço."
               action={
-                <Button variant="secondary" onClick={dashboard.openCreateUniverse}>
+                <Button variant="secondary" onClick={dashboard.openCreateCore}>
                   <Plus />
-                  Criar universo
+                  Criar núcleo
                 </Button>
               }
             />
           ) : (
-            dashboard.universes.map((universe) => {
-              const universeProjects = dashboard.projects.filter((project) => project.universeId === universe.id);
-              const universeActivityCount = universeProjects.reduce((total, project) => total + project.activityCount, 0);
-              const activeUniverse = dashboard.selectedUniverseId === universe.id && !dashboard.selectedProjectId;
-              const hasActiveProject = universeProjects.some((project) => project.id === dashboard.selectedProjectId);
-              const isCollapsed = activeUniverse || hasActiveProject ? false : (collapsedUniverses[universe.id] ?? false);
+            dashboard.cores.map((core) => {
+              const coreProjects = dashboard.projects.filter((project) => project.coreId === core.id);
+              const coreActivityCount = coreProjects.reduce((total, project) => total + project.activityCount, 0);
+              const activeCore = dashboard.selectedCoreId === core.id && !dashboard.selectedProjectId;
+              const hasActiveProject = coreProjects.some((project) => project.id === dashboard.selectedProjectId);
+              const isCollapsed = activeCore || hasActiveProject ? false : (collapsedCores[core.id] ?? false);
 
               return (
                 <div
-                  key={universe.id}
+                  key={core.id}
                   className={cn(
                     "rounded-[18px] border border-border/60 bg-surface p-2.5",
-                    (activeUniverse || hasActiveProject) && "border-primary/20",
+                    (activeCore || hasActiveProject) && "border-primary/20",
                   )}
                 >
                   <div className="flex items-start gap-1.5">
@@ -452,56 +452,56 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
                       variant="ghost"
                       size="icon"
                       className="mt-0.5 shrink-0"
-                      onClick={() => toggleUniverse(universe.id)}
-                      aria-label={isCollapsed ? `Expandir ${universe.name}` : `Recolher ${universe.name}`}
+                      onClick={() => toggleCore(core.id)}
+                      aria-label={isCollapsed ? `Expandir ${core.name}` : `Recolher ${core.name}`}
                     >
                       {isCollapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
                     </Button>
                     <button
                       className={cn(
                         "flex min-w-0 flex-1 items-center justify-between rounded-[14px] px-2.5 py-2.5 text-left transition",
-                        activeUniverse ? "bg-highlight text-accent-foreground" : "hover:bg-surface-muted",
+                        activeCore ? "bg-highlight text-accent-foreground" : "hover:bg-surface-muted",
                       )}
                       type="button"
-                      onClick={() => selectUniverse(universe.id)}
+                      onClick={() => selectCore(core.id)}
                     >
                       <div className="flex min-w-0 items-center gap-2.5">
-                        <UniverseAvatar
-                          universeId={universe.id}
-                          name={universe.name}
-                          imageUrl={universe.imageUrl}
-                          hasImage={universe.hasImage}
-                          imageUpdatedAt={universe.imageUpdatedAt}
+                        <CoreAvatar
+                          coreId={core.id}
+                          name={core.name}
+                          imageUrl={core.imageUrl}
+                          hasImage={core.hasImage}
+                          imageUpdatedAt={core.imageUpdatedAt}
                           token={dashboard.session?.accessToken}
-                          householdId={dashboard.activeHouseholdId}
+                          spaceId={dashboard.activeSpaceId}
                           className="size-8"
                         />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{universe.name}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">{universeProjects.length} projetos</p>
+                          <p className="truncate text-sm font-semibold">{core.name}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{coreProjects.length} projetos</p>
                         </div>
                       </div>
-                      <Badge variant="neutral">{universeActivityCount}</Badge>
+                      <Badge variant="neutral">{coreActivityCount}</Badge>
                     </button>
                     <EntityActionMenu
-                      title={universe.name}
-                      onCreate={() => dashboard.openCreateProject(universe.id)}
-                      onEdit={universe.canEdit ? () => dashboard.openEditUniverse(universe) : undefined}
-                      editLocked={!universe.canEdit}
-                      onDelete={universe.canDelete ? () => setDeletingUniverse(universe) : undefined}
+                      title={core.name}
+                      onCreate={() => dashboard.openCreateProject(core.id)}
+                      onEdit={core.canEdit ? () => dashboard.openEditCore(core) : undefined}
+                      editLocked={!core.canEdit}
+                      onDelete={core.canDelete ? () => setDeletingCore(core) : undefined}
                       createLabel="Novo projeto"
-                      editLabel="Editar universo"
-                      deleteLabel="Excluir universo"
+                      editLabel="Editar núcleo"
+                      deleteLabel="Excluir núcleo"
                     />
-                    {universe.isOutOfPlan && universe.canEdit ? <Badge variant="danger">Fora do plano</Badge> : null}
+                    {core.isOutOfPlan && core.canEdit ? <Badge variant="danger">Fora do plano</Badge> : null}
                   </div>
 
                   {!isCollapsed ? (
                     <div className="mt-2 space-y-1 border-l border-border/60 pl-3">
-                      {universeProjects.length === 0 ? (
+                      {coreProjects.length === 0 ? (
                         <p className="rounded-[14px] bg-surface-muted px-3 py-2 text-sm text-muted-foreground">Sem projetos.</p>
                       ) : (
-                        universeProjects.map((project) => (
+                        coreProjects.map((project) => (
                           <div key={project.id} className="flex items-start gap-1.5">
                             <button
                               className={cn(
@@ -514,14 +514,14 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
                               onClick={() => selectProject(project)}
                             >
                               <div className="flex min-w-0 items-center gap-2.5">
-                                <UniverseAvatar
-                                  universeId={project.universeId}
-                                  name={project.universeName}
-                                  imageUrl={project.universeImageUrl}
-                                  hasImage={project.universeHasImage}
-                                  imageUpdatedAt={project.universeImageUpdatedAt}
+                                <CoreAvatar
+                                  coreId={project.coreId}
+                                  name={project.coreName}
+                                  imageUrl={project.coreImageUrl}
+                                  hasImage={project.coreHasImage}
+                                  imageUpdatedAt={project.coreImageUpdatedAt}
                                   token={dashboard.session?.accessToken}
-                                  householdId={dashboard.activeHouseholdId}
+                                  spaceId={dashboard.activeSpaceId}
                                   className="size-7"
                                 />
                                 <div className="min-w-0">
@@ -554,23 +554,23 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
         </div>
       </CardContent>
 
-      {deletingUniverse ? (
+      {deletingCore ? (
         <DeleteConfirmationDialog
-          key={`universe-delete-${deletingUniverse.id}`}
-          open={Boolean(deletingUniverse)}
-          title="Excluir universo"
-          description="Essa ação é permanente e remove este universo junto com a estrutura que depende dele."
-          confirmationTarget={deletingUniverse.name}
-          confirmationLabel={`Digite o nome do universo, ${deletingUniverse.name}, para confirmar`}
-          confirmLabel="Excluir universo"
+          key={`core-delete-${deletingCore.id}`}
+          open={Boolean(deletingCore)}
+          title="Excluir núcleo"
+          description="Essa ação é permanente e remove este núcleo junto com a estrutura que depende dele."
+          confirmationTarget={deletingCore.name}
+          confirmationLabel={`Digite o nome do núcleo, ${deletingCore.name}, para confirmar`}
+          confirmLabel="Excluir núcleo"
           impactItems={[
-            "Todos os projetos deste universo, junto com suas atividades, comentários e pendências.",
-            "Os prompts que usam este universo continuarão existindo, mas ficarão sem universo.",
-            "A imagem vinculada ao universo será removida.",
+            "Todos os projetos deste núcleo, junto com suas atividades, comentários e pendências.",
+            "Os prompts que usam este núcleo continuarão existindo, mas ficarão sem núcleo.",
+            "A imagem vinculada ao núcleo será removida.",
           ]}
-          onOpenChange={(open) => !open && setDeletingUniverse(null)}
+          onOpenChange={(open) => !open && setDeletingCore(null)}
           onConfirm={async () => {
-            await dashboard.deleteUniverse(deletingUniverse);
+            await dashboard.deleteCore(deletingCore);
           }}
         />
       ) : null}
@@ -585,7 +585,7 @@ function ProjectExplorer({ dashboard }: { dashboard: ProjectDashboardController 
           impactItems={[
             "Todas as atividades deste projeto.",
             "Comentários e pendências vinculados a essas atividades.",
-            "O universo ao redor do projeto permanecerá intacto.",
+            "O núcleo ao redor do projeto permanecerá intacto.",
           ]}
           onOpenChange={(open) => !open && setDeletingProject(null)}
           onConfirm={async () => {
@@ -601,19 +601,19 @@ function ExplorerCreateMenu({ dashboard }: { dashboard: ProjectDashboardControll
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" aria-label="Adicionar universo ou projeto" title="Adicionar">
+        <Button variant="secondary" size="icon" aria-label="Adicionar núcleo ou projeto" title="Adicionar">
           <Plus />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Criar</DropdownMenuLabel>
-        <DropdownMenuItem onClick={dashboard.openCreateUniverse}>
+        <DropdownMenuItem onClick={dashboard.openCreateCore}>
           <FolderPlus className="size-4" />
-          Novo universo
+          Novo núcleo
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => dashboard.openCreateProject(dashboard.selectedUniverseId || undefined)}
-          disabled={dashboard.universes.length === 0}
+          onClick={() => dashboard.openCreateProject(dashboard.selectedCoreId || undefined)}
+          disabled={dashboard.cores.length === 0}
         >
           <Folder className="size-4" />
           Novo projeto
@@ -667,7 +667,7 @@ function WorkspaceBoard({
                 className="pl-9"
                 value={dashboard.filters.search}
                 onChange={(event) => dashboard.updateFilter("search", event.target.value)}
-                placeholder="Buscar por atividade, projeto ou universo"
+                placeholder="Buscar por atividade, projeto ou núcleo"
                 aria-label="Buscar atividades"
               />
             </div>
@@ -763,7 +763,7 @@ function WorkspaceBoard({
         {dashboard.loading && dashboard.activities.length === 0 ? (
           <LoadingState
             title="Buscando atividades"
-            description="Carregando as atividades da casa para montar o quadro e aplicar os filtros."
+            description="Carregando as atividades do espaço para montar o quadro e aplicar os filtros."
           />
         ) : dashboard.visibleActivities.length === 0 ? (
           <EmptyState
@@ -880,19 +880,19 @@ export function ActivityListView({ dashboard }: { dashboard: ProjectDashboardCon
                         </TableCell>
                         <TableCell className="min-w-[160px]">
                           <div className="flex items-center gap-2">
-                            <UniverseAvatar
-                              universeId={activity.universeId}
-                              name={activity.universeName}
-                              imageUrl={activity.universeImageUrl}
-                              hasImage={activity.universeHasImage}
-                              imageUpdatedAt={activity.universeImageUpdatedAt}
+                            <CoreAvatar
+                              coreId={activity.coreId}
+                              name={activity.coreName}
+                              imageUrl={activity.coreImageUrl}
+                              hasImage={activity.coreHasImage}
+                              imageUpdatedAt={activity.coreImageUpdatedAt}
                               token={dashboard.session?.accessToken}
-                              householdId={dashboard.activeHouseholdId}
+                              spaceId={dashboard.activeSpaceId}
                               className="size-6"
                             />
                             <div className="min-w-0">
                               <div className="truncate text-sm font-medium text-foreground">{activity.projectName}</div>
-                              <div className="mt-0.5 truncate text-xs text-muted-foreground">{activity.universeName}</div>
+                              <div className="mt-0.5 truncate text-xs text-muted-foreground">{activity.coreName}</div>
                             </div>
                           </div>
                         </TableCell>
@@ -902,7 +902,7 @@ export function ActivityListView({ dashboard }: { dashboard: ProjectDashboardCon
                               activity={activity}
                               members={dashboard.members}
                               token={dashboard.session?.accessToken}
-                              householdId={dashboard.activeHouseholdId}
+                              spaceId={dashboard.activeSpaceId}
                             />
                           ) : (
                             <span className="text-[13px] text-muted-foreground">Sem responsável</span>
@@ -1001,7 +1001,7 @@ function RelevanceQueue({ dashboard }: { dashboard: ProjectDashboardController }
                         </div>
                       </button>
                     </TableCell>
-                    <TableCell>{activity.universeName} / {activity.projectName}</TableCell>
+                    <TableCell>{activity.coreName} / {activity.projectName}</TableCell>
                     <TableCell>{activity.size && activity.size > 0 ? `${activity.size} pts` : "Informar pontos"}</TableCell>
                     <TableCell>
                       <span className="font-semibold text-foreground">{item?.score ?? "—"}</span>
@@ -1108,7 +1108,7 @@ function ActivityKanbanView({
           <ActivityDragPreview
             activity={activeActivity}
             token={dashboard.session?.accessToken}
-            householdId={dashboard.activeHouseholdId}
+            spaceId={dashboard.activeSpaceId}
           />
         ) : null}
       </DragOverlay>
@@ -1156,7 +1156,7 @@ function KanbanColumn({
                 activity={activity}
                 members={dashboard.members}
                 token={dashboard.session?.accessToken}
-                householdId={dashboard.activeHouseholdId}
+                spaceId={dashboard.activeSpaceId}
                 onOpenImage={onOpenImage}
                 onOpen={() => dashboard.openActivity(activity)}
                 onAssignToMe={
@@ -1230,7 +1230,7 @@ function SortableActivityCard({
   activity,
   members,
   token,
-  householdId,
+  spaceId,
   onOpenImage,
   onOpen,
   onAssignToMe,
@@ -1239,9 +1239,9 @@ function SortableActivityCard({
   isDropTarget,
 }: {
   activity: Activity;
-  members: HouseholdMember[];
+  members: SpaceMember[];
   token?: string;
-  householdId?: string;
+  spaceId?: string;
   onOpenImage: (title: string, imageUrl: string) => void;
   onOpen: () => void;
   onAssignToMe?: () => void;
@@ -1265,7 +1265,7 @@ function SortableActivityCard({
         activity={activity}
         members={members}
         token={token}
-        householdId={householdId}
+        spaceId={spaceId}
         onOpenImage={onOpenImage}
         onOpen={onOpen}
         onAssignToMe={onAssignToMe}
@@ -1283,7 +1283,7 @@ export function ActivityCard({
   activity,
   members,
   token,
-  householdId,
+  spaceId,
   onOpenImage,
   onOpen,
   onAssignToMe,
@@ -1294,9 +1294,9 @@ export function ActivityCard({
   dragHandleProps,
 }: {
   activity: Activity;
-  members: HouseholdMember[];
+  members: SpaceMember[];
   token?: string;
-  householdId?: string;
+  spaceId?: string;
   onOpenImage?: (title: string, imageUrl: string) => void;
   onOpen: () => void;
   onAssignToMe?: () => void;
@@ -1324,7 +1324,7 @@ export function ActivityCard({
             hasImage={activity.hasImage}
             imageUpdatedAt={activity.imageUpdatedAt}
             token={token}
-            householdId={householdId}
+            spaceId={spaceId}
             onOpenImage={(imageUrl) => onOpenImage?.(activity.title, imageUrl)}
             className="rounded-[18px]"
           />
@@ -1334,18 +1334,18 @@ export function ActivityCard({
           <button className="min-w-0 flex-1 text-left" type="button" onClick={onOpen}>
             <h4 className="truncate text-sm font-semibold text-foreground">{activity.title}</h4>
             <div className="mt-1 flex min-w-0 items-center gap-2">
-              <UniverseAvatar
-                universeId={activity.universeId}
-                name={activity.universeName}
-                imageUrl={activity.universeImageUrl}
-                hasImage={activity.universeHasImage}
-                imageUpdatedAt={activity.universeImageUpdatedAt}
+              <CoreAvatar
+                coreId={activity.coreId}
+                name={activity.coreName}
+                imageUrl={activity.coreImageUrl}
+                hasImage={activity.coreHasImage}
+                imageUpdatedAt={activity.coreImageUpdatedAt}
                 token={token}
-                householdId={householdId}
+                spaceId={spaceId}
                 className="size-6"
               />
               <p className="truncate text-xs text-muted-foreground">
-                {activity.universeName} / {activity.projectName}
+                {activity.coreName} / {activity.projectName}
               </p>
             </div>
             {activity.description ? (
@@ -1391,7 +1391,7 @@ export function ActivityCard({
               activity={activity}
               members={members}
               token={token}
-              householdId={householdId}
+              spaceId={spaceId}
             />
             <span>{activity.pendingCount} pendências</span>
           </div>
@@ -1405,22 +1405,22 @@ function ResponsibleMemberChip({
   activity,
   members,
   token,
-  householdId,
+  spaceId,
 }: {
   activity: Activity;
-  members: HouseholdMember[];
+  members: SpaceMember[];
   token?: string;
-  householdId?: string;
+  spaceId?: string;
 }) {
   const responsibleMember = resolveResponsibleMember(activity, members);
 
   return (
     <div className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-surface-strong px-2 py-1">
       {responsibleMember ? (
-        <HouseholdMemberAvatar
+        <SpaceMemberAvatar
           member={responsibleMember}
           token={token}
-          householdId={householdId}
+          spaceId={spaceId}
           className="size-6 border border-border/60 text-[10px]"
         />
       ) : (
@@ -1438,12 +1438,12 @@ function ResponsibleMemberMarker({
   activity,
   members,
   token,
-  householdId,
+  spaceId,
 }: {
   activity: Activity;
-  members: HouseholdMember[];
+  members: SpaceMember[];
   token?: string;
-  householdId?: string;
+  spaceId?: string;
 }) {
   if (!activity.responsibleName) {
     return null;
@@ -1455,10 +1455,10 @@ function ResponsibleMemberMarker({
   return (
     <span aria-label={label} title={activity.responsibleName}>
       {responsibleMember ? (
-        <HouseholdMemberAvatar
+        <SpaceMemberAvatar
           member={responsibleMember}
           token={token}
-          householdId={householdId}
+          spaceId={spaceId}
           className="size-7 border border-border/70 bg-surface text-[10px] opacity-85 shadow-xs"
         />
       ) : (
@@ -1471,7 +1471,7 @@ function ResponsibleMemberMarker({
   );
 }
 
-function resolveResponsibleMember(activity: Activity, members: HouseholdMember[]) {
+function resolveResponsibleMember(activity: Activity, members: SpaceMember[]) {
   if (!activity.responsibleMemberId) {
     return null;
   }
@@ -1482,11 +1482,11 @@ function resolveResponsibleMember(activity: Activity, members: HouseholdMember[]
 export function ActivityDragPreview({
   activity,
   token,
-  householdId,
+  spaceId,
 }: {
   activity: Activity;
   token?: string;
-  householdId?: string;
+  spaceId?: string;
 }) {
   return (
     <Card
@@ -1496,20 +1496,20 @@ export function ActivityDragPreview({
       data-drag-preview="true"
     >
       <CardContent className="flex items-center gap-3 p-2.5">
-        <UniverseAvatar
-          universeId={activity.universeId}
-          name={activity.universeName}
-          imageUrl={activity.universeImageUrl}
-          hasImage={activity.universeHasImage}
-          imageUpdatedAt={activity.universeImageUpdatedAt}
+        <CoreAvatar
+          coreId={activity.coreId}
+          name={activity.coreName}
+          imageUrl={activity.coreImageUrl}
+          hasImage={activity.coreHasImage}
+          imageUpdatedAt={activity.coreImageUpdatedAt}
           token={token}
-          householdId={householdId}
+          spaceId={spaceId}
           className="size-9 shrink-0"
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">{activity.title}</p>
           <p className="truncate text-[12px] text-muted-foreground">
-            {activity.universeName} / {activity.projectName}
+            {activity.coreName} / {activity.projectName}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -1611,36 +1611,36 @@ function EntityActionMenu({
   );
 }
 
-function UniverseDialog({
-  universe,
+function CoreDialog({
+  core,
   open,
   onOpenChange,
   token,
-  householdId,
+  spaceId,
   onSave,
 }: {
-  universe: Universe | null;
+  core: Core | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   token?: string;
-  householdId?: string;
+  spaceId?: string;
   onSave: (input: { name: string; imageFile?: File | null; removeImage?: boolean }) => Promise<void>;
 }) {
-  const [name, setName] = useState(universe?.name ?? "");
+  const [name, setName] = useState(core?.name ?? "");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [removeImage, setRemoveImage] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const isEditing = Boolean(universe);
+  const isEditing = Boolean(core);
   const previewUrl = useObjectUrl(imageFile);
-  const currentImageUrl = useProtectedUniverseImage({
-    universeId: universe?.id,
-    imageUrl: universe?.imageUrl,
-    hasImage: universe?.hasImage,
-    imageUpdatedAt: universe?.imageUpdatedAt,
+  const currentImageUrl = useProtectedCoreImage({
+    coreId: core?.id,
+    imageUrl: core?.imageUrl,
+    hasImage: core?.hasImage,
+    imageUpdatedAt: core?.imageUpdatedAt,
     token,
-    householdId,
+    spaceId,
   });
   const displayImageUrl = removeImage ? null : previewUrl ?? currentImageUrl;
 
@@ -1657,7 +1657,7 @@ function UniverseDialog({
     }
 
     if (file.size > COMMON_IMAGE_MAX_BYTES) {
-      setError("A imagem do universo deve ter no máximo 5 MB.");
+      setError("A imagem do núcleo deve ter no máximo 5 MB.");
       event.target.value = "";
       return;
     }
@@ -1694,7 +1694,7 @@ function UniverseDialog({
       await onSave({ name, imageFile, removeImage });
       onOpenChange(false);
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Não foi possível salvar o universo.");
+      setError(exception instanceof Error ? exception.message : "Não foi possível salvar o núcleo.");
     } finally {
       setSaving(false);
     }
@@ -1704,15 +1704,15 @@ function UniverseDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Editar universo" : "Novo universo"}</DialogTitle>
-          <DialogDescription>Universos ajudam a separar grandes frentes, como reforma, jardim ou digital.</DialogDescription>
+          <DialogTitle>{isEditing ? "Editar núcleo" : "Novo núcleo"}</DialogTitle>
+          <DialogDescription>Núcleos ajudam a separar grandes frentes, como reforma, jardim ou digital.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
-          <Field label="Nome do universo">
+          <Field label="Nome do núcleo">
             <Input value={name} onChange={(event) => setName(event.target.value)} autoFocus required />
           </Field>
-          <Field label="Imagem do universo">
+          <Field label="Imagem do núcleo">
             <Input
               key={fileInputKey}
               type="file"
@@ -1723,25 +1723,25 @@ function UniverseDialog({
           </Field>
           {displayImageUrl || removeImage ? (
             <div className="flex items-center gap-3 rounded-[16px] border border-border/60 bg-surface-muted p-3">
-              <ProtectedUniverseAvatar
-                universeId={universe?.id}
-                name={name || "Universo"}
-                imageUrl={universe?.imageUrl}
-                hasImage={universe?.hasImage}
-                imageUpdatedAt={universe?.imageUpdatedAt}
+              <ProtectedCoreAvatar
+                coreId={core?.id}
+                name={name || "Núcleo"}
+                imageUrl={core?.imageUrl}
+                hasImage={core?.hasImage}
+                imageUpdatedAt={core?.imageUpdatedAt}
                 token={token}
-                householdId={householdId}
+                spaceId={spaceId}
                 previewUrl={displayImageUrl}
                 className="size-12"
               />
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">{name || "Prévia do universo"}</p>
+                <p className="text-sm font-semibold text-foreground">{name || "Prévia do núcleo"}</p>
                 <p className="truncate text-xs text-muted-foreground">
                   {imageFile
                     ? imageFile.name
                     : removeImage
                       ? "A imagem será removida ao salvar."
-                      : "Imagem atual do universo."}
+                      : "Imagem atual do núcleo."}
                 </p>
               </div>
             </div>
@@ -1752,12 +1752,12 @@ function UniverseDialog({
                 Descartar nova imagem
               </Button>
             ) : null}
-            {!imageFile && universe && !removeImage && (universe.hasImage || universe.imageUrl) ? (
+            {!imageFile && core && !removeImage && (core.hasImage || core.imageUrl) ? (
               <Button variant="ghost" type="button" onClick={removeCurrentImage}>
                 Remover imagem atual
               </Button>
             ) : null}
-            {!imageFile && universe && removeImage ? (
+            {!imageFile && core && removeImage ? (
               <Button variant="ghost" type="button" onClick={restoreCurrentImage}>
                 Manter imagem atual
               </Button>
@@ -1768,7 +1768,7 @@ function UniverseDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={saving}>
-              {isEditing ? "Salvar universo" : "Criar universo"}
+              {isEditing ? "Salvar núcleo" : "Criar núcleo"}
             </Button>
           </DialogFooter>
         </form>
@@ -1779,20 +1779,20 @@ function UniverseDialog({
 
 function ProjectDialog({
   project,
-  universes,
-  defaultUniverseId,
+  cores,
+  defaultCoreId,
   open,
   onOpenChange,
   onSave,
 }: {
   project: Project | null;
-  universes: Universe[];
-  defaultUniverseId: string;
+  cores: Core[];
+  defaultCoreId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (universeId: string, name: string) => Promise<void>;
+  onSave: (coreId: string, name: string) => Promise<void>;
 }) {
-  const [universeId, setUniverseId] = useState(project?.universeId || defaultUniverseId || universes[0]?.id || "");
+  const [coreId, setCoreId] = useState(project?.coreId || defaultCoreId || cores[0]?.id || "");
   const [name, setName] = useState(project?.name ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1804,7 +1804,7 @@ function ProjectDialog({
     setSaving(true);
 
     try {
-      await onSave(universeId, name);
+      await onSave(coreId, name);
       onOpenChange(false);
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Não foi possível salvar o projeto.");
@@ -1818,16 +1818,16 @@ function ProjectDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar projeto" : "Novo projeto"}</DialogTitle>
-          <DialogDescription>Cada projeto concentra um fluxo de atividades dentro de um universo.</DialogDescription>
+          <DialogDescription>Cada projeto concentra um fluxo de atividades dentro de um núcleo.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>
           {error ? <Notice tone="danger">{error}</Notice> : null}
-          <Field label="Universo">
-            <Select value={universeId} onChange={(event) => setUniverseId(event.target.value)} required>
+          <Field label="Núcleo">
+            <Select value={coreId} onChange={(event) => setCoreId(event.target.value)} required>
               <option value="">Selecione</option>
-              {universes.map((universe) => (
-                <option key={universe.id} value={universe.id}>
-                  {universe.name}
+              {cores.map((core) => (
+                <option key={core.id} value={core.id}>
+                  {core.name}
                 </option>
               ))}
             </Select>
@@ -1839,7 +1839,7 @@ function ProjectDialog({
             <Button variant="secondary" type="button" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving || universes.length === 0}>
+            <Button type="submit" disabled={saving || cores.length === 0}>
               {isEditing ? "Salvar projeto" : "Criar projeto"}
             </Button>
           </DialogFooter>
@@ -1855,7 +1855,7 @@ export function ActivityDialog({
   members,
   defaultProjectId,
   token,
-  householdId,
+  spaceId,
   open,
   onOpenChange,
   onOpenImage,
@@ -1863,10 +1863,10 @@ export function ActivityDialog({
 }: {
   activity: Activity | null;
   projects: Project[];
-  members: HouseholdMember[];
+  members: SpaceMember[];
   defaultProjectId: string;
   token?: string;
-  householdId?: string;
+  spaceId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenImage?: (title: string, imageUrl: string) => void;
@@ -1984,7 +1984,7 @@ export function ActivityDialog({
               <option value="">Selecione</option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
-                  {project.universeName} / {project.name}
+                  {project.coreName} / {project.name}
                 </option>
               ))}
             </Select>
@@ -2005,7 +2005,7 @@ export function ActivityDialog({
                     hasImage={hasCurrentImage}
                     imageUpdatedAt={activity?.imageUpdatedAt}
                     token={token}
-                    householdId={householdId}
+                    spaceId={spaceId}
                     previewUrl={previewUrl}
                     onOpenImage={onOpenImage && activity?.hasImage && !imageFile ? (imageUrl) => onOpenImage(activityImageLabel, imageUrl) : undefined}
                     className="rounded-[20px]"
@@ -2120,7 +2120,7 @@ const effortWeekdayLabels: Record<EffortWeekday, string> = {
 };
 
 function effortDraftKey(scopeType: EffortScopeType, scopeId: string | null | undefined, weekday: EffortWeekday) {
-  return `${scopeType}:${scopeId ?? "household"}:${weekday}`;
+  return `${scopeType}:${scopeId ?? "space"}:${weekday}`;
 }
 
 function EffortPlanDialog({
@@ -2200,12 +2200,12 @@ function EffortPlanDialog({
               </TableHeader>
               <TableBody>
                 {plan.scopes.map((scope) => (
-                  <TableRow key={`${scope.scopeType}:${scope.scopeId ?? "household"}`}>
+                  <TableRow key={`${scope.scopeType}:${scope.scopeId ?? "space"}`}>
                     <TableCell>
-                      <div className={cn(scope.scopeType !== "Household" && "pl-4", scope.scopeType === "Project" && "pl-8")}>
+                      <div className={cn(scope.scopeType !== "Space" && "pl-4", scope.scopeType === "Project" && "pl-8")}>
                         <div className="font-medium text-foreground">{scope.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {scope.scopeType === "Household" ? "Capacidade total" : scope.scopeType === "Universe" ? "Reserva do universo" : "Reserva do projeto"}
+                          {scope.scopeType === "Space" ? "Capacidade total" : scope.scopeType === "Core" ? "Reserva do núcleo" : "Reserva do projeto"}
                         </div>
                       </div>
                     </TableCell>
@@ -2246,7 +2246,7 @@ function EffortPlanDialog({
 export function ActivityDetailsSheet({
   activity,
   token,
-  householdId,
+  spaceId,
   members,
   comments,
   commentsLoading,
@@ -2260,9 +2260,9 @@ export function ActivityDetailsSheet({
   onOpenImage,
 }: {
   activity: Activity;
-  members: HouseholdMember[];
+  members: SpaceMember[];
   token?: string;
-  householdId?: string;
+  spaceId?: string;
   comments: ActivityComment[];
   commentsLoading: boolean;
   onClose: () => void;
@@ -2283,17 +2283,17 @@ export function ActivityDetailsSheet({
           <div className="space-y-4 pr-10">
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface-strong px-2.5 py-1">
-                <UniverseAvatar
-                  universeId={activity.universeId}
-                  name={activity.universeName}
-                  imageUrl={activity.universeImageUrl}
-                  hasImage={activity.universeHasImage}
-                  imageUpdatedAt={activity.universeImageUpdatedAt}
+                <CoreAvatar
+                  coreId={activity.coreId}
+                  name={activity.coreName}
+                  imageUrl={activity.coreImageUrl}
+                  hasImage={activity.coreHasImage}
+                  imageUpdatedAt={activity.coreImageUpdatedAt}
                   token={token}
-                  householdId={householdId}
+                  spaceId={spaceId}
                   className="size-6"
                 />
-                <span className="text-xs font-semibold text-foreground">{activity.universeName}</span>
+                <span className="text-xs font-semibold text-foreground">{activity.coreName}</span>
               </div>
               <Badge variant="neutral">{activity.projectName}</Badge>
             </div>
@@ -2328,7 +2328,7 @@ export function ActivityDetailsSheet({
                 hasImage={activity.hasImage}
                 imageUpdatedAt={activity.imageUpdatedAt}
                 token={token}
-                householdId={householdId}
+                spaceId={spaceId}
                 onOpenImage={onOpenImage ? (imageUrl) => onOpenImage(activity.title, imageUrl) : undefined}
                 className="rounded-[24px]"
               />
@@ -2348,7 +2348,7 @@ export function ActivityDetailsSheet({
                     activity={activity}
                     members={members}
                     token={token}
-                    householdId={householdId}
+                    spaceId={spaceId}
                   />
                 ) : (
                   "Sem responsável"
@@ -2387,7 +2387,7 @@ export function ActivityDetailsSheet({
                     <EditableComment
                       key={comment.id}
                       activityId={activity.id}
-                      householdId={householdId}
+                      spaceId={spaceId}
                       token={token}
                       comment={comment}
                       onUpdateComment={onUpdateComment}
@@ -2455,14 +2455,14 @@ function CommentComposer({
 
 function EditableComment({
   activityId,
-  householdId,
+  spaceId,
   token,
   comment,
   onUpdateComment,
   onDeleteComment,
 }: {
   activityId: string;
-  householdId?: string;
+  spaceId?: string;
   token?: string;
   comment: ActivityComment;
   onUpdateComment: (activityId: string, commentId: string, body: string) => Promise<void>;
@@ -2492,7 +2492,7 @@ function EditableComment({
     <div className="rounded-[18px] border border-border/60 bg-surface-elevated px-4 py-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <CommentAuthorAvatar comment={comment} token={token} householdId={householdId} />
+          <CommentAuthorAvatar comment={comment} token={token} spaceId={spaceId} />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-semibold text-foreground">{comment.authorName}</p>
@@ -2555,18 +2555,18 @@ function EditableComment({
 function CommentAuthorAvatar({
   comment,
   token,
-  householdId,
+  spaceId,
 }: {
   comment: ActivityComment;
   token?: string;
-  householdId?: string;
+  spaceId?: string;
 }) {
   const imageUrl = useProtectedUserPhotoById(
     comment.authorUserId,
     comment.authorHasProfilePhoto,
     comment.authorProfilePhotoUpdatedAt,
     token ?? "",
-    householdId,
+    spaceId,
   );
 
   return <AvatarCircle name={comment.authorName} imageUrl={imageUrl} className="size-10" />;

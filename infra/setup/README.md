@@ -1,13 +1,13 @@
-# Setup local do HomePit
+# Setup local do Organiza Club
 
-Esta pasta centraliza o fluxo para executar o HomePit localmente com Docker ou Podman.
+Esta pasta centraliza o fluxo para executar o Organiza Club localmente com Docker ou Podman.
 
 ## Uso rapido
 
 No PowerShell, a partir da raiz do projeto:
 
 ```powershell
-.\infra\setup\homepit-local.ps1
+.\infra\setup\organiza-club-local.ps1
 ```
 
 O script abre um menu com tres opcoes:
@@ -19,27 +19,27 @@ O script abre um menu com tres opcoes:
 Tambem e possivel executar sem menu:
 
 ```powershell
-.\infra\setup\homepit-local.ps1 -Action start
-.\infra\setup\homepit-local.ps1 -Action stop
-.\infra\setup\homepit-local.ps1 -Action destroy
+.\infra\setup\organiza-club-local.ps1 -Action start
+.\infra\setup\organiza-club-local.ps1 -Action stop
+.\infra\setup\organiza-club-local.ps1 -Action destroy
 ```
 
 Para confirmar a remocao de volumes sem prompt interativo:
 
 ```powershell
-.\infra\setup\homepit-local.ps1 -Action destroy -Yes
+.\infra\setup\organiza-club-local.ps1 -Action destroy -Yes
 ```
 
 Se a politica de execucao do Windows bloquear scripts locais, use:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\infra\setup\homepit-local.ps1 -Action start
+powershell -ExecutionPolicy Bypass -File .\infra\setup\organiza-club-local.ps1 -Action start
 ```
 
 Em Linux/macOS com PowerShell instalado:
 
 ```bash
-pwsh ./infra/setup/homepit-local.ps1 -Action start
+pwsh ./infra/setup/organiza-club-local.ps1 -Action start
 ```
 
 ## Pre-requisitos
@@ -52,8 +52,8 @@ Instale e deixe em execucao uma das opcoes:
 O script detecta automaticamente Docker ou Podman. Se ambos estiverem disponiveis, Docker e usado por padrao. Para forcar uma engine:
 
 ```powershell
-.\infra\setup\homepit-local.ps1 -Engine docker -Action start
-.\infra\setup\homepit-local.ps1 -Engine podman -Action start
+.\infra\setup\organiza-club-local.ps1 -Engine docker -Action start
+.\infra\setup\organiza-club-local.ps1 -Engine podman -Action start
 ```
 
 Use `-NoBuild` com `start` quando quiser apenas subir containers ja construidos.
@@ -72,7 +72,7 @@ Depois do `start`, os principais endpoints ficam em:
 
 ## O que o script prepara
 
-- Cria a rede externa `homepit_net`, exigida pelos `docker-compose.yml` do projeto.
+- Cria a rede externa `organiza_club_net`, exigida pelos `docker-compose.yml` do projeto.
 - Cria `.env` locais quando eles ainda nao existem em:
   - `infra/supabase/.env`
   - `infra/evolution/.env`
@@ -83,8 +83,8 @@ Depois do `start`, os principais endpoints ficam em:
   - Supabase/Postgres
   - Evolution API
   - MinIO
-  - API HomePit
-  - Web HomePit
+  - API Organiza Club
+  - Web Organiza Club
 
 Os arquivos `.env` gerados sao locais e estao ignorados pelo Git. Se voce ja tiver arquivos `.env`, o script mantem os valores existentes.
 
@@ -92,7 +92,7 @@ Os arquivos `.env` gerados sao locais e estao ignorados pelo Git. Se voce ja tiv
 
 `stop` remove containers, mas preserva volumes e dados.
 
-`destroy` remove containers e volumes. Isso apaga o banco local do HomePit, o banco da Evolution, o Redis local da Evolution e os objetos locais do MinIO. Use apenas quando quiser recomecar do zero.
+`destroy` remove containers e volumes. Isso apaga o banco local do Organiza Club, o banco da Evolution, o Redis local da Evolution e os objetos locais do MinIO. Use apenas quando quiser recomecar do zero.
 
 Se voce migrou de `quay.io/minio/aistor/minio` para `minio/minio` e o MinIO local passou a falhar com `Unable to initialize OpenID: found invalid keys`, execute `destroy` e depois `start` para recriar o volume local sem a configuracao antiga.
 

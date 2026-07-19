@@ -4,7 +4,7 @@ export type UserSubscriptionStatus = "Scheduled" | "Active" | "Expired" | "Cance
 export type ToolImprovementSuggestionStatus = "NaoLido" | "EmExecucao" | "Postergado" | "Feito";
 export type ToolImprovementSuggestionPriority = "Baixa" | "Media" | "Alta" | "Urgente";
 
-export type Household = {
+export type Space = {
   id: string;
   name: string;
   role: "Owner" | "Admin" | "Member";
@@ -12,7 +12,7 @@ export type Household = {
   isOwnedByCurrentUser: boolean;
 };
 
-export type HouseholdMember = {
+export type SpaceMember = {
   id: string;
   userId: string;
   displayName: string;
@@ -24,17 +24,17 @@ export type HouseholdMember = {
   isCurrentUser: boolean;
 };
 
-export type HouseholdInvitationStatus = "Pending" | "Accepted" | "Declined";
+export type SpaceInvitationStatus = "Pending" | "Accepted" | "Declined";
 
-export type HouseholdInvitation = {
+export type SpaceInvitation = {
   id: string;
-  householdId: string;
-  householdName: string;
+  spaceId: string;
+  spaceName: string;
   inviteeEmail: string;
   inviterUserId: string;
   inviterDisplayName: string;
   role: "Owner" | "Admin" | "Member";
-  status: HouseholdInvitationStatus;
+  status: SpaceInvitationStatus;
   invitedAt: string;
   respondedAt?: string | null;
   isIncoming: boolean;
@@ -65,8 +65,8 @@ export type IntegrationConnection = {
   name: string;
   credentialKind: string;
   accessMode: IntegrationConnectionAccessMode;
-  householdId: string;
-  householdName: string;
+  spaceId: string;
+  spaceName: string;
   tokenPrefix?: string | null;
   expiresAt: string;
   revokedAt?: string | null;
@@ -77,7 +77,7 @@ export type IntegrationConnection = {
 
 export type CreateIntegrationConnectionRequest = {
   name: string;
-  householdId: string;
+  spaceId: string;
   accessMode: IntegrationConnectionAccessMode;
   expiresAt: string;
 };
@@ -108,7 +108,7 @@ export type AdminUserListItem = {
   accountState: AccountState;
   scheduledDeletionAt?: string | null;
   deactivatedAt?: string | null;
-  ownedHouseholdCount: number;
+  ownedSpaceCount: number;
   membershipCount: number;
   isProtected: boolean;
   effectivePlanSlug: string;
@@ -128,8 +128,8 @@ export type PlanDefinition = {
   currencyCode: string;
   monthlyPrice: number;
   annualPrice: number;
-  maxOwnedHouseholds: number;
-  maxUniverses: number;
+  maxOwnedSpaces: number;
+  maxCores: number;
   maxProjects: number;
   maxInvitedMembers?: number | null;
   maxOriginalImages: number;
@@ -226,8 +226,8 @@ export type UpdatePlatformSettingsRequest = {
 };
 
 export type PlanUsageSummary = {
-  ownedHouseholdCount: number;
-  universeCount: number;
+  ownedSpaceCount: number;
+  coreCount: number;
   projectCount: number;
   invitedMemberCount: number;
   managedOriginalImageCount: number;
@@ -239,17 +239,17 @@ export type CurrentUserPlanSummary = {
   usage: PlanUsageSummary;
 };
 
-export type PlanCreationScope = "households" | "universes" | "projects";
+export type PlanCreationScope = "spaces" | "cores" | "projects";
 
 export type PlanCreationItem = {
   id: string;
   name: string;
   createdAt: string;
-  householdId: string;
-  householdName: string;
+  spaceId: string;
+  spaceName: string;
   canDelete: boolean;
-  universeId?: string | null;
-  universeName?: string | null;
+  coreId?: string | null;
+  coreName?: string | null;
 };
 
 export type AuthResponse = {
@@ -257,10 +257,10 @@ export type AuthResponse = {
   refreshToken: string;
   expiresAt: string;
   user: User;
-  households: Household[];
+  spaces: Space[];
 };
 
-export type Universe = {
+export type Core = {
   id: string;
   name: string;
   imageUrl?: string | null;
@@ -275,11 +275,11 @@ export type Universe = {
 
 export type Project = {
   id: string;
-  universeId: string;
-  universeName: string;
-  universeImageUrl?: string | null;
-  universeHasImage: boolean;
-  universeImageUpdatedAt?: string | null;
+  coreId: string;
+  coreName: string;
+  coreImageUrl?: string | null;
+  coreHasImage: boolean;
+  coreImageUpdatedAt?: string | null;
   name: string;
   createdByMemberId?: string | null;
   activityCount: number;
@@ -290,7 +290,7 @@ export type Project = {
 
 export type ActivityStatus = "NaoIniciada" | "EmAndamento" | "Concluido";
 export type Priority = "Baixa" | "Media" | "Alta" | "Urgente";
-export type EffortScopeType = "Household" | "Universe" | "Project";
+export type EffortScopeType = "Space" | "Core" | "Project";
 export type EffortWeekday = "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
 export type ActivityRelevanceQueueState = "Scheduled" | "Overflow" | "MissingEstimate";
 
@@ -310,8 +310,8 @@ export type EffortPlanScope = {
 };
 
 export type EffortPlan = {
-  householdId: string;
-  householdMemberId: string;
+  spaceId: string;
+  spaceMemberId: string;
   scopes: EffortPlanScope[];
 };
 
@@ -338,11 +338,11 @@ export type Activity = {
   id: string;
   projectId: string;
   projectName: string;
-  universeId: string;
-  universeName: string;
-  universeImageUrl?: string | null;
-  universeHasImage: boolean;
-  universeImageUpdatedAt?: string | null;
+  coreId: string;
+  coreName: string;
+  coreImageUrl?: string | null;
+  coreHasImage: boolean;
+  coreImageUpdatedAt?: string | null;
   createdByMemberId?: string | null;
   createdAt: string;
   title: string;
@@ -394,11 +394,11 @@ export type PromptCategory = {
 
 export type PromptListItem = {
   id: string;
-  universeId?: string | null;
-  universeName?: string | null;
-  universeImageUrl?: string | null;
-  universeHasImage: boolean;
-  universeImageUpdatedAt?: string | null;
+  coreId?: string | null;
+  coreName?: string | null;
+  coreImageUrl?: string | null;
+  coreHasImage: boolean;
+  coreImageUpdatedAt?: string | null;
   title: string;
   description?: string | null;
   promptText: string;
@@ -423,11 +423,11 @@ export type PromptListResponse = {
 
 export type PromptDetail = {
   id: string;
-  universeId?: string | null;
-  universeName?: string | null;
-  universeImageUrl?: string | null;
-  universeHasImage: boolean;
-  universeImageUpdatedAt?: string | null;
+  coreId?: string | null;
+  coreName?: string | null;
+  coreImageUrl?: string | null;
+  coreHasImage: boolean;
+  coreImageUpdatedAt?: string | null;
   title: string;
   description?: string | null;
   promptText: string;
@@ -530,8 +530,8 @@ export type FinanceEntry = {
   creditCardStatementId?: string | null;
   categoryId?: string | null;
   categoryName?: string | null;
-  universeId?: string | null;
-  universeName?: string | null;
+  coreId?: string | null;
+  coreName?: string | null;
   projectId?: string | null;
   projectName?: string | null;
   createdByMemberId?: string | null;
@@ -553,8 +553,8 @@ export type CreditCardTransaction = {
   notes?: string | null;
   categoryId?: string | null;
   categoryName?: string | null;
-  universeId?: string | null;
-  universeName?: string | null;
+  coreId?: string | null;
+  coreName?: string | null;
   projectId?: string | null;
   projectName?: string | null;
   externalSource?: string | null;
@@ -574,7 +574,7 @@ export type ImportCreditCardTransactionItem = {
   purchasedOn: string;
   notes?: string | null;
   categoryName?: string | null;
-  universeName?: string | null;
+  coreName?: string | null;
   projectName?: string | null;
   externalSource?: string | null;
   externalReference?: string | null;
@@ -631,8 +631,8 @@ export type FinanceRecurringTemplate = {
   isActive: boolean;
   categoryId?: string | null;
   categoryName?: string | null;
-  universeId?: string | null;
-  universeName?: string | null;
+  coreId?: string | null;
+  coreName?: string | null;
   projectId?: string | null;
   projectName?: string | null;
   createdByMemberId?: string | null;
@@ -745,11 +745,11 @@ export type InstitutionalPageContent = {
 };
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-const SESSION_STORAGE_KEY = "homepit.session";
-const SESSION_EVENT_NAME = "homepit:session-changed";
+const SESSION_STORAGE_KEY = "organizaclub.session";
+const SESSION_EVENT_NAME = "organizaclub:session-changed";
 const ACCESS_TOKEN_REFRESH_LEEWAY_MS = 2 * 60 * 1000;
 
-type ApiRequestOptions = RequestInit & { token?: string; householdId?: string };
+type ApiRequestOptions = RequestInit & { token?: string; spaceId?: string };
 type SessionListener = (session: AuthResponse | null) => void;
 
 let refreshSessionPromise: Promise<AuthResponse | null> | null = null;
@@ -932,8 +932,8 @@ async function executeRequest(path: string, options: ApiRequestOptions, token?: 
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  if (options.householdId) {
-    headers.set("X-Household-Id", options.householdId);
+  if (options.spaceId) {
+    headers.set("X-Space-Id", options.spaceId);
   }
 
   return await fetch(`${API_BASE_URL}${path}`, {

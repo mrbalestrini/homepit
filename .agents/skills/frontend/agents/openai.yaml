@@ -1,4 +1,4 @@
 interface:
-  display_name: "HomePit Frontend"
-  short_description: "Implementar frontend Next.js do HomePit"
-  default_prompt: "Use a skill frontend para trabalhar na interface Next.js do HomePit."
+  display_name: "OrganizaClub Frontend"
+  short_description: "Implementar frontend Next.js do Organiza Club"
+  default_prompt: "Use a skill frontend para trabalhar na interface Next.js do Organiza Club."

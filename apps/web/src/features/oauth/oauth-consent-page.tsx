@@ -20,20 +20,20 @@ export function OAuthConsentPage({ interaction }: { interaction?: string }) {
   const interactionId = interaction ?? "";
   const [details, setDetails] = useState<OAuthConsentInteraction | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [householdId, setHouseholdId] = useState("");
+  const [spaceId, setSpaceId] = useState("");
   const [accessMode, setAccessMode] = useState<AccessMode>("ReadOnly");
   const [expiresAt, setExpiresAt] = useState(() => dateInputValue(90));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const session = useMemo(() => readSession(), []);
-  const canWrite = details?.requestedScopes.includes("homepit.write") ?? false;
+  const canWrite = details?.requestedScopes.includes("organiza.write") ?? false;
 
   useEffect(() => {
     if (!interactionId || !session?.accessToken) {
       return;
     }
     setToken(session.accessToken);
-    setHouseholdId(session.households[0]?.id ?? "");
+    setSpaceId(session.spaces[0]?.id ?? "");
     void apiFetch<OAuthConsentInteraction>(`/api/oauth/consent/${encodeURIComponent(interactionId)}`, { token: session.accessToken })
       .then(setDetails)
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Não foi possível abrir a autorização."));
@@ -45,8 +45,8 @@ export function OAuthConsentPage({ interaction }: { interaction?: string }) {
 
   if (!session) {
     return (
-      <ConsentShell title="Entre para continuar" description="Faça login no HomePit e volte a esta página para escolher o acesso da conexão.">
-        <Button asChild><a href={`/?returnTo=${encodeURIComponent(`/oauth/consent?interaction=${interactionId}`)}`}>Entrar no HomePit</a></Button>
+      <ConsentShell title="Entre para continuar" description="Faça login no Organiza Club e volte a esta página para escolher o acesso da conexão.">
+        <Button asChild><a href={`/?returnTo=${encodeURIComponent(`/oauth/consent?interaction=${interactionId}`)}`}>Entrar no Organiza Club</a></Button>
       </ConsentShell>
     );
   }
@@ -68,7 +68,7 @@ export function OAuthConsentPage({ interaction }: { interaction?: string }) {
         ? await apiFetch<{ continueUrl: string }>(path, {
             method: "POST",
             token: token ?? undefined,
-            body: JSON.stringify({ householdId, accessMode, expiresAt: new Date(`${expiresAt}T23:59:59`).toISOString() }),
+            body: JSON.stringify({ spaceId, accessMode, expiresAt: new Date(`${expiresAt}T23:59:59`).toISOString() }),
           })
         : await apiFetch<{ continueUrl: string }>(path, { method: "POST", token: token ?? undefined });
       window.location.assign(result.continueUrl);
@@ -84,16 +84,16 @@ export function OAuthConsentPage({ interaction }: { interaction?: string }) {
         <CardHeader>
           <div className="mb-2 flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary"><ShieldCheck className="size-6" /></div>
           <CardTitle>Autorizar conexão</CardTitle>
-          <CardDescription><strong className="text-foreground">{details.clientName}</strong> poderá usar o HomePit conforme as escolhas abaixo.</CardDescription>
+          <CardDescription><strong className="text-foreground">{details.clientName}</strong> poderá usar o Organiza Club conforme as escolhas abaixo.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="rounded-[18px] border border-border/70 bg-surface-muted p-4 text-sm text-muted-foreground">
             Permissões solicitadas: {details.requestedScopes.map(scopeLabel).join(", ")}.
           </div>
           <label className="grid gap-2 text-sm font-semibold text-foreground">
-            Casa
-            <Select value={householdId} onChange={(event) => setHouseholdId(event.target.value)}>
-              {session.households.map((household) => <option key={household.id} value={household.id}>{household.name}</option>)}
+            Espaço
+            <Select value={spaceId} onChange={(event) => setSpaceId(event.target.value)}>
+              {session.spaces.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
             </Select>
           </label>
           <label className="grid gap-2 text-sm font-semibold text-foreground">
@@ -110,7 +110,7 @@ export function OAuthConsentPage({ interaction }: { interaction?: string }) {
           {error ? <p className="text-sm text-danger">{error}</p> : null}
           <div className="flex flex-wrap justify-end gap-3">
             <Button type="button" variant="secondary" disabled={submitting} onClick={() => void decide("deny")}>Recusar</Button>
-            <Button type="button" disabled={submitting || !householdId} onClick={() => void decide("approve")}>{submitting ? <Loader2 className="animate-spin" /> : null}Autorizar</Button>
+            <Button type="button" disabled={submitting || !spaceId} onClick={() => void decide("approve")}>{submitting ? <Loader2 className="animate-spin" /> : null}Autorizar</Button>
           </div>
         </CardContent>
       </Card>
@@ -129,8 +129,8 @@ function dateInputValue(days: number) {
 }
 
 function scopeLabel(scope: string) {
-  if (scope === "homepit.read") return "leitura";
-  if (scope === "homepit.write") return "leitura e escrita";
+  if (scope === "organiza.read") return "leitura";
+  if (scope === "organiza.write") return "leitura e escrita";
   if (scope === "offline_access") return "manter a conexão ativa";
   return scope;
 }

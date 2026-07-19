@@ -1,5 +1,5 @@
 services:
-  homepit-web:
+  organiza-club-web:
     build:
       context: .
       dockerfile: Dockerfile

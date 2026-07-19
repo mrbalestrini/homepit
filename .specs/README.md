@@ -1,4 +1,4 @@
-# Especificacoes do HomePit
+# Especificacoes do Organiza Club
 
 Esta pasta guarda memoria factual, regras compartilhadas e registros de mudancas para
 desenvolvimento assistido por IA.
@@ -26,7 +26,7 @@ OpenAPI ou documentacao operacional por resumos nesta pasta.
 - Ao finalizar: atualize `decisions.md`, `tasks.md` e as validacoes; mova a mudanca para
   `archive/` e ajuste `active-change.md`, ou registre explicitamente porque ela continua ativa.
 
-## Marcadores
+## Marcadares
 
 - `FATO OBSERVADO`: confirmado em codigo, configuracao, teste ou documentacao versionada.
 - `INFERÊNCIA`: conclusao derivada das evidencias que ainda requer validacao.

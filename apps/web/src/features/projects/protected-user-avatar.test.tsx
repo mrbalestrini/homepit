@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HouseholdMemberAvatar, ProtectedUserAvatar } from "./protected-user-avatar";
+import { SpaceMemberAvatar, ProtectedUserAvatar } from "./protected-user-avatar";
 
 describe("ProtectedUserAvatar", () => {
   const fetchMock = vi.fn();
@@ -28,7 +28,7 @@ describe("ProtectedUserAvatar", () => {
       <ProtectedUserAvatar
         user={{
           id: "user-1",
-          email: "ana@homepit.dev",
+          email: "ana@organiza.club",
           displayName: "Ana Teste",
           phoneNumber: null,
           systemRole: "User",
@@ -56,7 +56,7 @@ describe("ProtectedUserAvatar", () => {
 
     const user = {
       id: "user-1",
-      email: "ana@homepit.dev",
+      email: "ana@organiza.club",
       displayName: "Ana Teste",
       phoneNumber: null,
       systemRole: "User" as const,
@@ -81,7 +81,7 @@ describe("ProtectedUserAvatar", () => {
     await waitFor(() => expect(screen.getByAltText("Ana Teste")).toHaveAttribute("src", "blob:avatar-2"));
   });
 
-  it("reuses the same fetch for repeated household member avatars", async () => {
+  it("reuses the same fetch for repeated space member avatars", async () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve(
         new Response(new Blob([Uint8Array.from([1, 2, 3])], { type: "image/png" }), {
@@ -95,7 +95,7 @@ describe("ProtectedUserAvatar", () => {
       id: "member-1",
       userId: "user-cache-1",
       displayName: "Paula Teste",
-      email: "paula@homepit.dev",
+      email: "paula@organiza.club",
       phoneNumber: null,
       hasProfilePhoto: true,
       profilePhotoUpdatedAt: "2026-06-26T15:00:00Z",
@@ -105,8 +105,8 @@ describe("ProtectedUserAvatar", () => {
 
     render(
       <>
-        <HouseholdMemberAvatar member={member} token="token" householdId="household-1" className="size-10" />
-        <HouseholdMemberAvatar member={member} token="token" householdId="household-1" className="size-10" />
+        <SpaceMemberAvatar member={member} token="token" spaceId="space-1" className="size-10" />
+        <SpaceMemberAvatar member={member} token="token" spaceId="space-1" className="size-10" />
       </>,
     );
 

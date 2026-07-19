@@ -21,9 +21,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmation-dialog";
 import {
   EmptyState,
-  HomePitWorkspaceShell,
+  OrganizaClubWorkspaceShell,
   LoadingState,
-} from "@/features/workspace/homepit-workspace-shell";
+} from "@/features/workspace/organiza-club-workspace-shell";
 import type { GsmDashboardController, GsmFormInput } from "./use-gsm-dashboard";
 import {
   formatDateOnlyPtBr,
@@ -83,36 +83,36 @@ export function GsmDashboardWorkspace({ dashboard }: { dashboard: GsmDashboardCo
 
   return (
     <>
-      <HomePitWorkspaceShell
+      <OrganizaClubWorkspaceShell
         controller={{
           session: dashboard.session,
-          activeHouseholdId: dashboard.activeHouseholdId,
-          activeHousehold: dashboard.activeHousehold,
+          activeSpaceId: dashboard.activeSpaceId,
+          activeSpace: dashboard.activeSpace,
           members: dashboard.members,
           theme: dashboard.theme,
           sidebarCollapsed: dashboard.sidebarCollapsed,
           loading: dashboard.loading,
           error: dashboard.error,
-          canShareHousehold: dashboard.canShareHousehold,
-          canManageHousehold: dashboard.canManageHousehold,
-          editingHousehold: dashboard.editingHousehold,
-          isHouseholdDialogOpen: dashboard.activeModal === "household",
+          canShareSpace: dashboard.canShareSpace,
+          canManageSpace: dashboard.canManageSpace,
+          editingSpace: dashboard.editingSpace,
+          isSpaceDialogOpen: dashboard.activeModal === "space",
           isShareDialogOpen: dashboard.activeModal === "share",
           setError: dashboard.setError,
           setSidebarCollapsed: dashboard.setSidebarCollapsed,
           setTheme: dashboard.setTheme,
-          handleHouseholdChange: dashboard.handleHouseholdChange,
+          handleSpaceChange: dashboard.handleSpaceChange,
           handleLogout: dashboard.handleLogout,
-          refreshHouseholds: dashboard.refreshHouseholds,
+          refreshSpaces: dashboard.refreshSpaces,
           refreshWorkspace: dashboard.refreshWorkspace,
-          openCreateHousehold: dashboard.openCreateHousehold,
-          openEditHousehold: dashboard.openEditHousehold,
-          openShareHousehold: dashboard.openShareHousehold,
+          openCreateSpace: dashboard.openCreateSpace,
+          openEditSpace: dashboard.openEditSpace,
+          openShareSpace: dashboard.openShareSpace,
           closeCommonModal: dashboard.closeCommonModal,
-          createHousehold: dashboard.createHousehold,
-          updateHousehold: dashboard.updateHousehold,
-          deleteHousehold: dashboard.deleteHousehold,
-          shareHousehold: dashboard.shareHousehold,
+          createSpace: dashboard.createSpace,
+          updateSpace: dashboard.updateSpace,
+          deleteSpace: dashboard.deleteSpace,
+          shareSpace: dashboard.shareSpace,
         }}
         activeModule="gsm"
         subtitle={dashboard.subtitle}
@@ -126,7 +126,7 @@ export function GsmDashboardWorkspace({ dashboard }: { dashboard: GsmDashboardCo
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Gestão GSM</p>
               <h1 className="mt-2 text-2xl font-semibold text-foreground">Gerenciamento de números de telefone</h1>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Cadastre os números que são gerenciados pela casa para não se perder.
+                Cadastre os números que são gerenciados pelo espaço para não se perder.
               </p>
             </div>
 
@@ -146,14 +146,14 @@ export function GsmDashboardWorkspace({ dashboard }: { dashboard: GsmDashboardCo
         {dashboard.loading && dashboard.gsmNumbers.length === 0 ? (
           <LoadingState
             title="Carregando números GSM"
-            description="Estamos reunindo as linhas da casa e o estado das últimas recargas."
+            description="Estamos reunindo as linhas do espaço e o estado das últimas recargas."
             icon={<Radio className="size-5 animate-pulse" />}
           />
         ) : dashboard.gsmNumbers.length === 0 ? (
           <EmptyState
             icon={<Radio className="size-5" />}
             title="Nenhum número GSM cadastrado"
-            description="Cadastre a primeira linha da casa para começar a acompanhar plano, custo, aquisição e recargas."
+            description="Cadastre a primeira linha do espaço para começar a acompanhar plano, custo, aquisição e recargas."
             action={
               <Button onClick={dashboard.openCreateGsmNumber}>
                 <Plus />
@@ -376,7 +376,7 @@ export function GsmDashboardWorkspace({ dashboard }: { dashboard: GsmDashboardCo
             </Card>
           </>
         )}
-      </HomePitWorkspaceShell>
+      </OrganizaClubWorkspaceShell>
 
       <GsmNumberDialog
         key={`gsm-${dashboard.editingGsmNumber?.id ?? "new"}-${dashboard.activeModal === "gsm" ? "open" : "closed"}`}
@@ -425,12 +425,12 @@ export function GsmDashboardWorkspace({ dashboard }: { dashboard: GsmDashboardCo
         key={`gsm-delete-${deletingNumber?.id ?? "none"}`}
         open={Boolean(deletingNumber)}
         title="Excluir número GSM"
-        description="Essa ação remove o cadastro da linha da casa e não pode ser desfeita."
+        description="Essa ação remove o cadastro da linha do espaço e não pode ser desfeita."
         confirmationTarget={deletingNumber?.title}
         confirmationLabel={`Digite o título ${deletingNumber?.title ?? ""} para confirmar`}
         confirmLabel="Excluir número"
         impactItems={[
-          "O número deixa de aparecer na gestão GSM desta casa.",
+          "O número deixa de aparecer na gestão GSM deste espaço.",
           "O contexto de título, descrição, aquisição e recarga é removido.",
           "Será necessário cadastrar novamente a linha caso queira recuperá-la depois.",
         ]}

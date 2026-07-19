@@ -2,7 +2,7 @@
 
 ## Contexto
 
-O catálogo comercial já existe no banco, mas não possui um campo persistido para indicar qual plano está destacado como popular na interface.
+O catálogo comercial já existe no banco, mas não possui um campo persistido para indicar qual plano está destacada como popular na interface.
 
 ## Objetivo
 
@@ -21,14 +21,14 @@ Adicionar persistência para o destaque popular do catálogo de planos e garanti
 
 ## Arquivos ou areas envolvidas
 
-- `apps/api/src/HomePit.Domain/Plans/PlanDefinition.cs`
-- `apps/api/src/HomePit.Infrastructure/Data/HomePitDbContext.cs`
-- `apps/api/src/HomePit.Infrastructure/Migrations/*`
+- `apps/api/src/OrganizaClub.Domain/Plans/PlanDefinition.cs`
+- `apps/api/src/OrganizaClub.Infrastructure/Data/OrganizaClubDbContext.cs`
+- `apps/api/src/OrganizaClub.Infrastructure/Migrations/*`
 
 ## Modelo atual
 
 - `plan_definitions` possui campos de slug, nome, preços, limites e `SortOrder`.
-- Não existe um marcador persistido de popularidade.
+- Não existe um marcadar persistido de popularidade.
 
 ## Alteracao proposta
 
@@ -63,7 +63,7 @@ Adicionar persistência para o destaque popular do catálogo de planos e garanti
 ## Criterios de aceite
 
 - O banco registra o plano popular sem exigir mudança manual em produção.
-- O Gold vem destacado na base inicial.
+- O Gold vem destacada na base inicial.
 
 ## Decisao final
 

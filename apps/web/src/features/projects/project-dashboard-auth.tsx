@@ -1,1 +1,1 @@
-export { HomePitAuth as ProjectDashboardAuth } from "@/features/workspace/homepit-auth";
+export { OrganizaClubAuth as ProjectDashboardAuth } from "@/features/workspace/organiza-club-auth";

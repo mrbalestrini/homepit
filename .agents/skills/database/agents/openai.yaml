@@ -1,4 +1,4 @@
 interface:
-  display_name: "HomePit Database"
+  display_name: "OrganizaClub Database"
   short_description: "Planejar mudancas EF Core e PostgreSQL"
-  default_prompt: "Use a skill database para trabalhar em modelo, EF Core e migrations do HomePit."
+  default_prompt: "Use a skill database para trabalhar em modelo, EF Core e migrations do Organiza Club."

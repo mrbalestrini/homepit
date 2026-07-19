@@ -27,15 +27,15 @@ Reorganizar a tela de perfil para destacar o plano atual, abrir a solicitação 
 - `apps/web/src/features/profile/profile-page.tsx`
 - `apps/web/src/features/platform/platform-admin-page.tsx`
 - `apps/web/src/lib/api.ts`
-- `apps/api/src/HomePit.Application/Plans/*`
-- `apps/api/src/HomePit.Domain/Plans/*`
-- `apps/api/src/HomePit.Infrastructure/*`
-- `contracts/openapi/homepit.v1.yaml`
+- `apps/api/src/OrganizaClub.Application/Plans/*`
+- `apps/api/src/OrganizaClub.Domain/Plans/*`
+- `apps/api/src/OrganizaClub.Infrastructure/*`
+- `contracts/openapi/organiza-club.v1.yaml`
 
 ## Regras de negocio
 
 - O destaque popular é um booleano simples por plano.
-- O Gold começa destacado como popular.
+- O Gold começa destacada como popular.
 - O SuperAdmin pode trocar ou remover o destaque popular.
 - O plano atual do cliente continua visível no perfil, mas sem exibir preços nessa seção.
 
@@ -65,7 +65,7 @@ Reorganizar a tela de perfil para destacar o plano atual, abrir a solicitação 
 - A seção `Plano` aparece antes da assinatura na página de perfil.
 - O plano atual é mostrado sem preços.
 - A assinatura vira uma modal acionada por botão.
-- O plano popular aparece destacado na modal e pode ser alterado pelo SuperAdmin.
+- O plano popular aparece destacada na modal e pode ser alterado pelo SuperAdmin.
 - O texto de destino automático foi removido da UI.
 
 ## Decisao final

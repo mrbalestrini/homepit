@@ -1,0 +1,33 @@
+using OrganizaClub.Domain.Common;
+using OrganizaClub.Domain.Finance;
+using OrganizaClub.Domain.Gsm;
+using OrganizaClub.Domain.Notifications;
+using OrganizaClub.Domain.Prompts;
+using OrganizaClub.Domain.Projects;
+
+namespace OrganizaClub.Domain.Spaces;
+
+public sealed class Space : AuditableEntity
+{
+    public required string Name { get; set; }
+    public Guid CreatedByUserId { get; set; }
+    public AppUser? CreatedByUser { get; set; }
+
+    public ICollection<SpaceMember> Members { get; } = new List<SpaceMember>();
+    public ICollection<SpaceInvitation> Invitations { get; } = new List<SpaceInvitation>();
+    public ICollection<Core> Cores { get; } = new List<Core>();
+    public ICollection<MemberEffortAllocation> MemberEffortAllocations { get; } = new List<MemberEffortAllocation>();
+    public ICollection<Prompt> Prompts { get; } = new List<Prompt>();
+    public ICollection<PromptCategory> PromptCategories { get; } = new List<PromptCategory>();
+    public ICollection<GsmNumber> GsmNumbers { get; } = new List<GsmNumber>();
+    public ICollection<GsmRecharge> GsmRecharges { get; } = new List<GsmRecharge>();
+    public ICollection<FinanceCategory> FinanceCategories { get; } = new List<FinanceCategory>();
+    public ICollection<FinancePeriod> FinancePeriods { get; } = new List<FinancePeriod>();
+    public ICollection<FinanceRecurringTemplate> FinanceRecurringTemplates { get; } = new List<FinanceRecurringTemplate>();
+    public ICollection<FinanceEntry> FinanceEntries { get; } = new List<FinanceEntry>();
+    public ICollection<Asset> Assets { get; } = new List<Asset>();
+    public ICollection<CreditCardAccount> CreditCardAccounts { get; } = new List<CreditCardAccount>();
+    public ICollection<CreditCardTransaction> CreditCardTransactions { get; } = new List<CreditCardTransaction>();
+    public ICollection<CreditCardStatement> CreditCardStatements { get; } = new List<CreditCardStatement>();
+    public ICollection<NotificationRun> NotificationRuns { get; } = new List<NotificationRun>();
+}

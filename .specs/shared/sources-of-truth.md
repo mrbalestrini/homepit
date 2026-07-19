@@ -10,11 +10,11 @@ Use este arquivo quando houver divergencia entre memoria, documentacao, scripts 
 - A versao oficial de entrega do produto fica em `apps/web/package.json`.
 - `apps/web/package-lock.json` e a entrada mais recente de `CHANGELOG.md` devem refletir a
   mesma versao oficial do produto.
-- A versao do contrato/API fica em `contracts/openapi/homepit.v1.yaml`.
-- `/api/system/info`, implementado em `apps/api/src/HomePit.Api/Program.cs`, deve expor a
+- A versao do contrato/API fica em `contracts/openapi/organiza-club.v1.yaml`.
+- `/api/system/info`, implementado em `apps/api/src/OrganizaClub.Api/Program.cs`, deve expor a
   mesma versao do contrato/API observada no OpenAPI.
 - O endpoint local esperado pelo fluxo guiado de setup fica em
-  `infra/setup/homepit-local.ps1`, que define `NEXT_PUBLIC_API_BASE_URL`,
+  `infra/setup/organiza-club-local.ps1`, que define `NEXT_PUBLIC_API_BASE_URL`,
   `ASPNETCORE_URLS` e o healthcheck apresentado ao operador.
 - O roteamento principal de trabalho assistido por IA fica em `AGENTS.md`.
 - As responsabilidades e limites por especialidade ficam em `.agents/skills/*/SKILL.md`.

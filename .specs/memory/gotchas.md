@@ -5,10 +5,10 @@
 - A versao oficial do produto observada em `apps/web/package.json`, `package-lock.json` e
   `CHANGELOG.md` e `1.6.0`, enquanto `/api/system/info` e OpenAPI informam `0.1.1` como
   versao atual do contrato/API.
-- O OpenAPI nao lista seis operacoes implementadas: system info, update/delete de casa e
-  upload/get/delete de imagem de universo.
+- O OpenAPI nao lista seis operacoes implementadas: system info, update/delete de espaço e
+  upload/get/delete de imagem de núcleo.
 - O onboarding fala em quatro recursos e omite MinIO em listas onde o setup usa cinco.
-- `docs/architecture.md` diz que todos os recursos entram em `homepit_net`, mas o Compose da
+- `docs/architecture.md` diz que todos os recursos entram em `organiza_club_net`, mas o Compose da
   web nao declara essa rede.
 - O Compose da API usa porta host padrao `5081`; setup, web e documentacao apontam para `8080`,
   e o script nao grava `API_PORT`.
@@ -23,12 +23,12 @@
   de repeticao antes da API iniciar.
 - O setup nao sobrescreve `.env` existentes; configuracao antiga pode permanecer ativa.
 - Membro removido fica inativo para preservar autoria e historico.
-- Excluir universo remove seus projetos, mas desvincula prompts antes da exclusao.
-- Excluir casa apaga comentarios explicitamente antes da cascata da casa.
-- Excluir atividade, projeto ou universo precisa remover tambem as imagens privadas de
+- Excluir núcleo remove seus projetos, mas desvincula prompts antes da exclusao.
+- Excluir espaço apaga comentarios explicitamente antes da cascata do espaço.
+- Excluir atividade, projeto ou núcleo precisa remover tambem as imagens privadas de
   atividades no object storage para evitar arquivos orphanados.
 - Pendencias possuem somente listagem e criacao nas rotas observadas.
-- Casa, universo e projeto usam dialogs de exclusao; atividade, membro, comentario e prompt
+- Espaço, núcleo e projeto usam dialogs de exclusao; atividade, membro, comentario e prompt
   ainda usam `window.confirm`.
 
 ## INFERÊNCIA

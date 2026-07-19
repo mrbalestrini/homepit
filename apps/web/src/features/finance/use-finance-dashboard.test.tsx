@@ -68,14 +68,14 @@ function buildSession(): AuthResponse {
     expiresAt: "2026-07-06T12:00:00.000Z",
     user: {
       id: "user-1",
-      email: "owner@homepit.dev",
+      email: "owner@organiza.club",
       displayName: "Owner",
       systemRole: "User",
       phoneNumber: null,
       hasProfilePhoto: false,
       profilePhotoUpdatedAt: null,
     },
-    households: [{ id: "household-1", name: "Casa Financeira", role: "Owner" }],
+    spaces: [{ id: "space-1", name: "Espaço Financeira", role: "Owner" }],
   };
 }
 
@@ -96,8 +96,8 @@ function buildEntry(overrides: Partial<FinanceEntry> & Pick<FinanceEntry, "id" |
     creditCardStatementId: null,
     categoryId: null,
     categoryName: null,
-    universeId: null,
-    universeName: null,
+    coreId: null,
+    coreName: null,
     projectId: null,
     projectName: null,
     createdByMemberId: "member-1",
@@ -168,8 +168,8 @@ function buildTransaction(overrides: Partial<CreditCardTransaction> = {}): Credi
     notes: null,
     categoryId: "category-1",
     categoryName: "Mercado",
-    universeId: "universe-1",
-    universeName: "Casa",
+    coreId: "core-1",
+    coreName: "Espaço",
     projectId: "project-1",
     projectName: "Moradia",
     externalSource: "SMS",
@@ -252,7 +252,7 @@ describe("useFinanceDashboard", () => {
     ];
 
     mockedApiFetch.mockImplementation(async (path: string) => {
-      if (path === "/api/households/members" || path === "/api/universes" || path === "/api/projects") {
+      if (path === "/api/spaces/members" || path === "/api/cores" || path === "/api/projects") {
         return [];
       }
 
@@ -286,7 +286,7 @@ describe("useFinanceDashboard", () => {
     expect(result.current.categories).toEqual(buildCategories());
     expect(mockedApiFetch).toHaveBeenCalledWith(
       "/api/finance/periods/2026/7",
-      expect.objectContaining({ householdId: "household-1", token: "token-1" }),
+      expect.objectContaining({ spaceId: "space-1", token: "token-1" }),
     );
 
     unmount();
@@ -298,8 +298,8 @@ describe("useFinanceDashboard", () => {
     mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
 
     let statementCreated = false;
-    mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { householdId?: string }) => {
-      if (path === "/api/households/members" || path === "/api/universes" || path === "/api/projects") {
+    mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { spaceId?: string }) => {
+      if (path === "/api/spaces/members" || path === "/api/cores" || path === "/api/projects") {
         return [];
       }
 
@@ -415,8 +415,8 @@ describe("useFinanceDashboard", () => {
 
     const updateDeferred = createDeferred<FinanceEntry>();
 
-    mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { householdId?: string }) => {
-      if (path === "/api/households/members" || path === "/api/universes" || path === "/api/projects") {
+    mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { spaceId?: string }) => {
+      if (path === "/api/spaces/members" || path === "/api/cores" || path === "/api/projects") {
         return [];
       }
 
@@ -463,7 +463,7 @@ describe("useFinanceDashboard", () => {
           referenceDate: "2026-07-06",
           recurringTemplateId: null,
           categoryId: null,
-          universeId: null,
+          coreId: null,
           projectId: null,
         },
         { silentSuccess: true },
@@ -529,8 +529,8 @@ describe("useFinanceDashboard", () => {
     const updateDeferred = createDeferred<CreditCardTransaction>();
     let transactionUpdated = false;
 
-    mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { householdId?: string }) => {
-      if (path === "/api/households/members" || path === "/api/universes" || path === "/api/projects") {
+    mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { spaceId?: string }) => {
+      if (path === "/api/spaces/members" || path === "/api/cores" || path === "/api/projects") {
         return [];
       }
 
@@ -611,7 +611,7 @@ describe("useFinanceDashboard", () => {
           purchasedOn: "2026-07-06",
           notes: "",
           categoryId: "category-1",
-          universeId: "universe-1",
+          coreId: "core-1",
           projectId: "project-1",
           externalSource: "SMS",
           externalReference: "sms-1",
@@ -654,17 +654,17 @@ describe("useFinanceDashboard", () => {
     mockedReadSession.mockReturnValue(session);
     mockedSubscribeToSessionChanges.mockReturnValue(() => undefined);
 
-    mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { householdId?: string }) => {
-      if (path === "/api/households/members") {
+    mockedApiFetch.mockImplementation(async (path: string, options?: RequestInit & { spaceId?: string }) => {
+      if (path === "/api/spaces/members") {
         return [];
       }
 
-      if (path === "/api/universes") {
-        return [{ id: "universe-1", name: "Casa" }];
+      if (path === "/api/cores") {
+        return [{ id: "core-1", name: "Espaço" }];
       }
 
       if (path === "/api/projects") {
-        return [{ id: "project-1", universeId: "universe-1", universeName: "Casa", name: "Moradia" }];
+        return [{ id: "project-1", coreId: "core-1", coreName: "Espaço", name: "Moradia" }];
       }
 
       if (path === "/api/finance/categories") {
@@ -721,7 +721,7 @@ describe("useFinanceDashboard", () => {
           purchasedOn: "2026-07-06",
           notes: null,
           categoryName: "Mercado",
-          universeName: "Casa",
+          coreName: "Espaço",
           projectName: "Moradia",
           externalSource: "JSON",
           externalReference: "json-1",
@@ -736,7 +736,7 @@ describe("useFinanceDashboard", () => {
       "/api/finance/credit-cards/card-1/transactions/import",
       expect.objectContaining({
         method: "POST",
-        householdId: "household-1",
+        spaceId: "space-1",
       }),
     );
     expect(mockedToast.success).toHaveBeenCalledWith("1 compra importada no cartão.");

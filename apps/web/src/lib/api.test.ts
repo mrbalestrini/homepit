@@ -8,17 +8,17 @@ function createSession(overrides: Partial<AuthResponse> = {}): AuthResponse {
     expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     user: {
       id: "user-1",
-      email: "ana@homepit.dev",
+      email: "ana@organiza.club",
       displayName: "Ana Teste",
       phoneNumber: null,
       systemRole: "User",
       hasProfilePhoto: false,
       profilePhotoUpdatedAt: null,
     },
-    households: [
+    spaces: [
       {
         id: "house-1",
-        name: "Casa Principal",
+        name: "Espaço Principal",
         role: "Owner",
       },
     ],
@@ -71,21 +71,21 @@ describe("api session handling", () => {
         );
       }
 
-      if (url.endsWith("/api/universes")) {
+      if (url.endsWith("/api/cores")) {
         expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer access-token-2");
-        expect(new Headers(init?.headers).get("X-Household-Id")).toBe("house-1");
-        return Promise.resolve(jsonResponse([{ id: "universe-1", name: "Casa", projectCount: 0, canEdit: true, canDelete: true }]));
+        expect(new Headers(init?.headers).get("X-Space-Id")).toBe("house-1");
+        return Promise.resolve(jsonResponse([{ id: "core-1", name: "Espaço", projectCount: 0, canEdit: true, canDelete: true }]));
       }
 
       throw new Error(`Unexpected request: ${url}`);
     });
 
-    const response = await apiFetch<Array<{ id: string; name: string }>>("/api/universes", {
+    const response = await apiFetch<Array<{ id: string; name: string }>>("/api/cores", {
       token: "access-token-1",
-      householdId: "house-1",
+      spaceId: "house-1",
     });
 
-    expect(response).toEqual([{ id: "universe-1", name: "Casa", projectCount: 0, canEdit: true, canDelete: true }]);
+    expect(response).toEqual([{ id: "core-1", name: "Espaço", projectCount: 0, canEdit: true, canDelete: true }]);
     expect(readSession()?.accessToken).toBe("access-token-2");
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -121,7 +121,7 @@ describe("api session handling", () => {
 
     const response = await apiFetch<Array<{ id: string; name: string }>>("/api/projects", {
       token: "access-token-1",
-      householdId: "house-1",
+      spaceId: "house-1",
     });
 
     expect(response).toEqual([{ id: "project-1", name: "Reforma" }]);
@@ -157,7 +157,7 @@ describe("api session handling", () => {
     await expect(
       apiFetch<Array<{ id: string; name: string }>>("/api/projects", {
         token: "access-token-1",
-        householdId: "house-1",
+        spaceId: "house-1",
       }),
     ).rejects.toMatchObject({
       message: "Sessão expirada. Faça login novamente.",

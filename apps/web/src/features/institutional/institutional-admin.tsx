@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { HomePitAuth } from "@/features/workspace/homepit-auth";
+import { OrganizaClubAuth } from "@/features/workspace/organiza-club-auth";
 import {
   API_BASE_URL,
   type AuthResponse,
@@ -126,7 +126,7 @@ export function InstitutionalAdmin() {
 
   if (!session) {
     return (
-      <HomePitAuth
+      <OrganizaClubAuth
         onAuthenticated={(auth) => {
           storeSession(auth);
           setSession(auth);
@@ -178,7 +178,7 @@ export function InstitutionalAdmin() {
         }),
       });
       setPage(updated);
-      toast.success("Conteúdo salvo e publicado.");
+      toast.success("Conteúdo salvo e publicada.");
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Não foi possível publicar o conteúdo.");
     } finally {
@@ -375,7 +375,7 @@ export function InstitutionalAdmin() {
             </span>
             <div className="min-w-0">
               <p className="truncate font-display text-2xl leading-none">CMS institucional</p>
-              <p className="mt-1 text-xs text-muted-foreground">Publicação imediata da landing page HomePit</p>
+              <p className="mt-1 text-xs text-muted-foreground">Publicação imediata da landing page Organiza Club</p>
             </div>
           </div>
 
@@ -455,7 +455,14 @@ export function InstitutionalAdmin() {
                     <Input value={page.primaryCtaLabel} maxLength={80} onChange={(event) => updateField("primaryCtaLabel", event.target.value)} required />
                   </Field>
                   <Field label="URL externa">
-                    <Input type="url" value={page.primaryCtaUrl} maxLength={2000} onChange={(event) => updateField("primaryCtaUrl", event.target.value)} required />
+                    <Input
+                      type="text"
+                      value={page.primaryCtaUrl}
+                      maxLength={2000}
+                      placeholder="/projects ou https://..."
+                      onChange={(event) => updateField("primaryCtaUrl", event.target.value)}
+                      required
+                    />
                   </Field>
                 </div>
                 <Field label="Texto alternativo da imagem principal">
@@ -503,7 +510,7 @@ export function InstitutionalAdmin() {
                 onMove={(index, direction) => moveListItem("steps", index, direction)}
               />
 
-              <EditorSection title="Destaque do produto" description="Seção visual para reforçar o valor do HomePit.">
+              <EditorSection title="Destaque do produto" description="Seção visual para reforçar o valor do Organiza Club.">
                 <Field label="Destaque curto">
                   <Input value={page.highlightEyebrow} maxLength={120} onChange={(event) => updateField("highlightEyebrow", event.target.value)} required />
                 </Field>

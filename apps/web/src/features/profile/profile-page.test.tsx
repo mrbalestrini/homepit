@@ -31,12 +31,12 @@ vi.mock("@/features/workspace/account-state-gate", () => ({
   AccountStateGate: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock("@/features/workspace/homepit-auth", () => ({
-  HomePitAuth: () => <div>auth</div>,
+vi.mock("@/features/workspace/organiza-club-auth", () => ({
+  OrganizaClubAuth: () => <div>auth</div>,
 }));
 
-vi.mock("@/features/workspace/homepit-workspace-shell", () => ({
-  HomePitWorkspaceShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+vi.mock("@/features/workspace/organiza-club-workspace-shell", () => ({
+  OrganizaClubWorkspaceShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Notice: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
@@ -86,8 +86,8 @@ describe("ProfilePage", () => {
         return {
           connection: createdConnection,
           token: "hp_int_secret_once",
-          restApiUrl: "https://api.homepit.dev/api/integrations/v1",
-          mcpUrl: "https://api.homepit.dev/mcp",
+          restApiUrl: "https://api.organiza.club/api/integrations/v1",
+          mcpUrl: "https://api.organiza.club/mcp",
         };
       }
 
@@ -198,7 +198,7 @@ describe("ProfilePage", () => {
             id: "subscription-1",
             userId: "user-1",
             userDisplayName: "User",
-            userEmail: "user@homepit.dev",
+            userEmail: "user@organiza.club",
             planDefinitionId: "plan-standard",
             planSlug: "standard",
             planName: "Standard",
@@ -222,8 +222,8 @@ describe("ProfilePage", () => {
             name: "Gold",
             monthlyPrice: 39.9,
             annualPrice: 399,
-            maxOwnedHouseholds: 7,
-            maxUniverses: 15,
+            maxOwnedSpaces: 7,
+            maxCores: 15,
             maxProjects: 15,
             maxInvitedMembers: null,
             maxOriginalImages: 300,
@@ -235,9 +235,9 @@ describe("ProfilePage", () => {
 
       if (path === "/api/platform-settings") {
         return {
-          contactEmail: "contato@homepit.dev",
+          contactEmail: "contato@organiza.club",
           contactPhone: "+55 (11) 91234-5678",
-          instagram: "@homepit",
+          instagram: "@organizaclub",
           addressLine1: "Rua Principal, 100",
           addressLine2: "Sala 2",
           city: "São Paulo",
@@ -256,8 +256,8 @@ describe("ProfilePage", () => {
     expect(screen.getByRole("button", { name: "Assinatura" })).toBeInTheDocument();
     expect(screen.queryByText("Solicitar assinatura")).not.toBeInTheDocument();
     expect(screen.queryByText(/R\$ 9,90\/mês/)).not.toBeInTheDocument();
-    expect(screen.getAllByText("Casas").length).toBeGreaterThan(0);
-    expect(screen.getByText("Universos")).toBeInTheDocument();
+    expect(screen.getAllByText("Espaços").length).toBeGreaterThan(0);
+    expect(await screen.findByText("Núcleos")).toBeInTheDocument();
     expect(screen.getByText("Projetos")).toBeInTheDocument();
     expect(screen.getByText("Membros convidados")).toBeInTheDocument();
     expect(screen.getByText("Imagens originais")).toBeInTheDocument();
@@ -299,7 +299,7 @@ describe("ProfilePage", () => {
             id: "subscription-hidden",
             userId: "user-1",
             userDisplayName: "User",
-            userEmail: "user@homepit.dev",
+            userEmail: "user@organiza.club",
             planDefinitionId: "plan-hidden",
             planSlug: "hidden",
             planName: "Plano Oculto",
@@ -325,8 +325,8 @@ describe("ProfilePage", () => {
             name: "Gold",
             monthlyPrice: 39.9,
             annualPrice: 399,
-            maxOwnedHouseholds: 7,
-            maxUniverses: 15,
+            maxOwnedSpaces: 7,
+            maxCores: 15,
             maxProjects: 15,
             maxInvitedMembers: null,
             maxOriginalImages: 300,
@@ -338,9 +338,9 @@ describe("ProfilePage", () => {
 
       if (path === "/api/platform-settings") {
         return {
-          contactEmail: "contato@homepit.dev",
+          contactEmail: "contato@organiza.club",
           contactPhone: "",
-          instagram: "@homepit",
+          instagram: "@organizaclub",
           addressLine1: "Rua Principal, 100",
           addressLine2: "Sala 2",
           city: "São Paulo",
@@ -378,8 +378,8 @@ describe("ProfilePage", () => {
             name: "Gold",
             monthlyPrice: 39.9,
             annualPrice: 399,
-            maxOwnedHouseholds: 7,
-            maxUniverses: 15,
+            maxOwnedSpaces: 7,
+            maxCores: 15,
             maxProjects: 15,
             maxInvitedMembers: null,
             maxOriginalImages: 300,
@@ -400,9 +400,9 @@ describe("ProfilePage", () => {
 
       if (path === "/api/platform-settings") {
         return {
-          contactEmail: "contato@homepit.dev",
+          contactEmail: "contato@organiza.club",
           contactPhone: "",
-          instagram: "@homepit",
+          instagram: "@organizaclub",
           addressLine1: "Rua Principal, 100",
           addressLine2: "Sala 2",
           city: "São Paulo",
@@ -435,7 +435,7 @@ describe("ProfilePage", () => {
     expect(screen.getByText(/Ao confirmar, o próximo login mostrará o aviso de conta desativada/i)).toBeInTheDocument();
   });
 
-  it("opens the universes modal with the user's creations", async () => {
+  it("opens the cores modal with the user's creations", async () => {
     mockedUseProjectDashboard.mockReturnValue(buildDashboard());
     mockedApiFetch.mockImplementation(async (path) => {
       if (path === "/api/users/me/plan") {
@@ -459,9 +459,9 @@ describe("ProfilePage", () => {
 
       if (path === "/api/platform-settings") {
         return {
-          contactEmail: "contato@homepit.dev",
+          contactEmail: "contato@organiza.club",
           contactPhone: "",
-          instagram: "@homepit",
+          instagram: "@organizaclub",
           addressLine1: "Rua Principal, 100",
           addressLine2: "Sala 2",
           city: "São Paulo",
@@ -471,17 +471,17 @@ describe("ProfilePage", () => {
         };
       }
 
-      if (path === "/api/users/me/plan/creations/universes") {
+      if (path === "/api/users/me/plan/creations/cores") {
         return [
           {
-            id: "universe-1",
-            name: "Universo Alfa",
+            id: "core-1",
+            name: "Núcleo Alfa",
             createdAt: "2026-07-03T10:00:00Z",
-            householdId: "household-2",
-            householdName: "Casa Compartilhada",
+            spaceId: "space-2",
+            spaceName: "Espaço Compartilhado",
             canDelete: true,
-            universeId: null,
-            universeName: null,
+            coreId: null,
+            coreName: null,
           },
         ];
       }
@@ -492,18 +492,18 @@ describe("ProfilePage", () => {
     render(<ProfilePage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /universos/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /núcleos/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /universos/i }));
+    fireEvent.click(screen.getByRole("button", { name: /núcleos/i }));
 
-    expect(await screen.findByText("Universos criados por você")).toBeInTheDocument();
-    expect(await screen.findByText("Universo Alfa")).toBeInTheDocument();
-    expect(await screen.findByText("Casa: Casa Compartilhada")).toBeInTheDocument();
+    expect(await screen.findByText("Núcleos criados por você")).toBeInTheDocument();
+    expect(await screen.findByText("Núcleo Alfa")).toBeInTheDocument();
+    expect(await screen.findByText("Espaço: Espaço Compartilhado")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(mockedApiFetch).toHaveBeenCalledWith(
-        "/api/users/me/plan/creations/universes",
+        "/api/users/me/plan/creations/cores",
         expect.objectContaining({
           token: "access-token",
         }),
@@ -512,11 +512,11 @@ describe("ProfilePage", () => {
   });
 });
 
-function buildDashboard(options?: { selectedUniverseId?: string }) {
+function buildDashboard(options?: { selectedCoreId?: string }) {
   return buildDashboardWithOptions(options);
 }
 
-function buildDashboardWithOptions({ selectedUniverseId = "universe-1" }: { selectedUniverseId?: string } = {}) {
+function buildDashboardWithOptions({ selectedCoreId = "core-1" }: { selectedCoreId?: string } = {}) {
   return {
     session: {
       accessToken: "access-token",
@@ -524,48 +524,48 @@ function buildDashboardWithOptions({ selectedUniverseId = "universe-1" }: { sele
       expiresAt: "2026-07-09T18:00:00Z",
       user: {
         id: "user-1",
-        email: "user@homepit.dev",
+        email: "user@organiza.club",
         displayName: "User",
         phoneNumber: null,
         systemRole: "User" as const,
         hasProfilePhoto: false,
       },
-      households: [
+      spaces: [
         {
-          id: "household-1",
-          name: "Casa",
+          id: "space-1",
+          name: "Espaço",
           role: "Owner" as const,
           createdAt: "2026-07-01T00:00:00Z",
           isOwnedByCurrentUser: true,
         },
       ],
     },
-    activeHouseholdId: "household-1",
-    activeHousehold: {
-      id: "household-1",
-      name: "Casa",
+    activeSpaceId: "space-1",
+    activeSpace: {
+      id: "space-1",
+      name: "Espaço",
       role: "Owner" as const,
       isOwnedByCurrentUser: true,
     },
     members: [],
-    theme: "cozy" as const,
+    theme: "light" as const,
     sidebarCollapsed: false,
     loading: false,
     error: null,
-    canShareHousehold: false,
-    canManageHousehold: true,
-    editingHousehold: null,
+    canShareSpace: false,
+    canManageSpace: true,
+    editingSpace: null,
     activeModal: null,
-    selectedUniverseId,
+    selectedCoreId,
     selectedProjectId: "",
     projects: [
       {
         id: "project-1",
-        universeId: "universe-1",
-        universeName: "Universo",
-        universeImageUrl: null,
-        universeHasImage: false,
-        universeImageUpdatedAt: null,
+        coreId: "core-1",
+        coreName: "Núcleo",
+        coreImageUrl: null,
+        coreHasImage: false,
+        coreImageUpdatedAt: null,
         name: "Projeto 1",
         createdByMemberId: "member-1",
         activityCount: 1,
@@ -575,11 +575,11 @@ function buildDashboardWithOptions({ selectedUniverseId = "universe-1" }: { sele
       },
       {
         id: "project-2",
-        universeId: "universe-1",
-        universeName: "Universo",
-        universeImageUrl: null,
-        universeHasImage: false,
-        universeImageUpdatedAt: null,
+        coreId: "core-1",
+        coreName: "Núcleo",
+        coreImageUrl: null,
+        coreHasImage: false,
+        coreImageUpdatedAt: null,
         name: "Projeto 2",
         createdByMemberId: "member-1",
         activityCount: 0,
@@ -589,11 +589,11 @@ function buildDashboardWithOptions({ selectedUniverseId = "universe-1" }: { sele
       },
       {
         id: "project-3",
-        universeId: "universe-1",
-        universeName: "Universo",
-        universeImageUrl: null,
-        universeHasImage: false,
-        universeImageUpdatedAt: null,
+        coreId: "core-1",
+        coreName: "Núcleo",
+        coreImageUrl: null,
+        coreHasImage: false,
+        coreImageUpdatedAt: null,
         name: "Projeto 3",
         createdByMemberId: "member-1",
         activityCount: 0,
@@ -603,11 +603,11 @@ function buildDashboardWithOptions({ selectedUniverseId = "universe-1" }: { sele
       },
       {
         id: "project-4",
-        universeId: "universe-1",
-        universeName: "Universo",
-        universeImageUrl: null,
-        universeHasImage: false,
-        universeImageUpdatedAt: null,
+        coreId: "core-1",
+        coreName: "Núcleo",
+        coreImageUrl: null,
+        coreHasImage: false,
+        coreImageUpdatedAt: null,
         name: "Projeto 4",
         createdByMemberId: "member-1",
         activityCount: 0,
@@ -619,18 +619,18 @@ function buildDashboardWithOptions({ selectedUniverseId = "universe-1" }: { sele
     setError: vi.fn(),
     setSidebarCollapsed: vi.fn(),
     setTheme: vi.fn(),
-    handleHouseholdChange: vi.fn(),
+    handleSpaceChange: vi.fn(),
     handleLogout: vi.fn(),
-    refreshHouseholds: vi.fn(async () => undefined),
+    refreshSpaces: vi.fn(async () => undefined),
     loadWorkspace: vi.fn(async () => undefined),
-    openCreateHousehold: vi.fn(),
-    openEditHousehold: vi.fn(),
-    openShareHousehold: vi.fn(),
+    openCreateSpace: vi.fn(),
+    openEditSpace: vi.fn(),
+    openShareSpace: vi.fn(),
     closeModal: vi.fn(),
-    createHousehold: vi.fn(async () => undefined),
-    updateHousehold: vi.fn(async () => undefined),
-    deleteHousehold: vi.fn(async () => undefined),
-    shareHousehold: vi.fn(async () => undefined),
+    createSpace: vi.fn(async () => undefined),
+    updateSpace: vi.fn(async () => undefined),
+    deleteSpace: vi.fn(async () => undefined),
+    shareSpace: vi.fn(async () => undefined),
     handleAuthenticated: vi.fn(),
   };
 }
@@ -643,8 +643,8 @@ function buildPlanDefinition(overrides: Partial<PlanDefinition> = {}): PlanDefin
     currencyCode: "BRL",
     monthlyPrice: 9.9,
     annualPrice: 99,
-    maxOwnedHouseholds: 1,
-    maxUniverses: 3,
+    maxOwnedSpaces: 1,
+    maxCores: 3,
     maxProjects: 5,
     maxInvitedMembers: null,
     maxOriginalImages: 30,
@@ -662,8 +662,8 @@ function buildIntegrationConnection(overrides: Partial<IntegrationConnection> = 
     name: "Automação financeira",
     credentialKind: "ManualToken",
     accessMode: "ReadWrite",
-    householdId: "household-1",
-    householdName: "Casa",
+    spaceId: "space-1",
+    spaceName: "Espaço",
     tokenPrefix: "hp_int_abcd",
     expiresAt: "2026-10-12T23:59:59Z",
     revokedAt: null,
@@ -681,8 +681,8 @@ function buildCurrentUserPlanSummary(
     plan: buildPlanDefinition(),
     activeSubscription: null,
     usage: {
-      ownedHouseholdCount: 1,
-      universeCount: 2,
+      ownedSpaceCount: 1,
+      coreCount: 2,
       projectCount: 4,
       invitedMemberCount: 3,
       managedOriginalImageCount: 12,
@@ -720,9 +720,9 @@ describe("ProfilePage subscription CTA", () => {
 
       if (path === "/api/platform-settings") {
         return {
-          contactEmail: "contato@homepit.dev",
+          contactEmail: "contato@organiza.club",
           contactPhone: "",
-          instagram: "@homepit",
+          instagram: "@organizaclub",
           addressLine1: "Rua Principal, 100",
           addressLine2: "Sala 2",
           city: "São Paulo",

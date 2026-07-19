@@ -9,7 +9,7 @@ describe("buildInstitutionalMetadata", () => {
     expect(metadata.openGraph?.images).toEqual([
       {
         url: "http://localhost:8080/api/institutional-page/images/seo?v=2026-06-18T12%3A00%3A00Z",
-        alt: "HomePit",
+        alt: "Organiza Club",
       },
     ]);
     expect(metadata.twitter?.images).toEqual([
@@ -23,7 +23,7 @@ describe("buildInstitutionalMetadata", () => {
     expect(metadata.openGraph?.images).toEqual([
       {
         url: "http://localhost:8080/api/institutional-page/images/hero?v=2026-06-18T12%3A00%3A00Z",
-        alt: "HomePit",
+        alt: "Organiza Club",
       },
     ]);
   });
@@ -32,10 +32,10 @@ describe("buildInstitutionalMetadata", () => {
 function buildPage(overrides: Partial<InstitutionalPageContent>): InstitutionalPageContent {
   return {
     slug: "home",
-    seoTitle: "HomePit",
+    seoTitle: "Organiza Club",
     seoDescription: "Descrição",
-    brandName: "HomePit",
-    brandTagline: "Casa organizada",
+    brandName: "Organiza Club",
+    brandTagline: "Espaço organizado",
     heroEyebrow: "Destaque",
     heroTitle: "Título",
     heroDescription: "Descrição principal",

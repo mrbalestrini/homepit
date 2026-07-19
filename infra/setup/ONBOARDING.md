@@ -1,6 +1,6 @@
 # Onboarding local
 
-Este guia ajuda a subir o HomePit completo na maquina de desenvolvimento usando containers.
+Este guia ajuda a subir o Organiza Club completo na maquina de desenvolvimento usando containers.
 
 ## Visao geral
 
@@ -8,10 +8,10 @@ O projeto e dividido em quatro recursos Docker Compose independentes:
 
 - `infra/supabase`: Postgres/Supabase Studio local.
 - `infra/evolution`: Evolution API, Postgres e Redis para WhatsApp.
-- `apps/api`: API ASP.NET Core do HomePit.
+- `apps/api`: API ASP.NET Core do Organiza Club.
 - `apps/web`: aplicacao Next.js.
 
-Todos entram na rede externa `homepit_net`, que e criada automaticamente pelo script de setup local.
+Todos entram na rede externa `organiza_club_net`, que e criada automaticamente pelo script de setup local.
 
 ## Primeiro start
 
@@ -20,10 +20,10 @@ Todos entram na rede externa `homepit_net`, que e criada automaticamente pelo sc
 3. A partir da raiz do projeto, rode:
 
 ```powershell
-.\infra\setup\homepit-local.ps1 -Action start
+.\infra\setup\organiza-club-local.ps1 -Action start
 ```
 
-Na primeira execucao, o script cria `.env` locais com secrets de desenvolvimento, cria a rede `homepit_net`, baixa imagens de infraestrutura e constroi as imagens da API e da web.
+Na primeira execucao, o script cria `.env` locais com secrets de desenvolvimento, cria a rede `organiza_club_net`, baixa imagens de infraestrutura e constroi as imagens da API e da web.
 
 Quando terminar, acesse:
 
@@ -44,7 +44,7 @@ Os valores sao apropriados para desenvolvimento local. Caso precise alterar port
 
 Valores importantes:
 
-- `POSTGRES_PASSWORD` em `infra/supabase/.env` deve bater com a senha usada em `ConnectionStrings__HomePitDb` na API.
+- `POSTGRES_PASSWORD` em `infra/supabase/.env` deve bater com a senha usada em `ConnectionStrings__OrganizaClubDb` na API.
 - `NEXT_PUBLIC_API_BASE_URL` em `apps/web/.env` deve apontar para a API exposta no host, por padrao `http://localhost:8080`.
 - `Notifications__DailyDigestEnabled` fica desativado por padrao no setup local para evitar envio acidental de mensagens.
 
@@ -53,19 +53,19 @@ Valores importantes:
 Subir ou atualizar a stack:
 
 ```powershell
-.\infra\setup\homepit-local.ps1 -Action start
+.\infra\setup\organiza-club-local.ps1 -Action start
 ```
 
 Parar containers preservando dados:
 
 ```powershell
-.\infra\setup\homepit-local.ps1 -Action stop
+.\infra\setup\organiza-club-local.ps1 -Action stop
 ```
 
 Apagar containers e volumes locais:
 
 ```powershell
-.\infra\setup\homepit-local.ps1 -Action destroy
+.\infra\setup\organiza-club-local.ps1 -Action destroy
 ```
 
 Use `destroy` quando quiser limpar bancos e recomecar sem dados locais.
@@ -93,7 +93,7 @@ O script tenta detectar engines nesta ordem:
 Para forcar uma escolha:
 
 ```powershell
-.\infra\setup\homepit-local.ps1 -Engine podman -Action start
+.\infra\setup\organiza-club-local.ps1 -Engine podman -Action start
 ```
 
 No Podman em Windows/macOS, confirme que a machine esta iniciada antes de rodar o setup.
@@ -105,7 +105,7 @@ Se a API iniciar antes do banco ficar pronto, o container pode reiniciar algumas
 Se o PowerShell bloquear a execucao:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\infra\setup\homepit-local.ps1 -Action start
+powershell -ExecutionPolicy Bypass -File .\infra\setup\organiza-club-local.ps1 -Action start
 ```
 
 Se os containers subirem com configuracoes antigas, confira se os `.env` ja existiam. O script nao sobrescreve arquivos existentes para preservar ajustes locais.

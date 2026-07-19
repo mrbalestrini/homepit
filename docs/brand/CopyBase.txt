@@ -1,0 +1,56 @@
+## Direção de voz e conteúdo
+
+A voz do Organiza Club deve ser:
+
+- Clara
+- Direta
+- Próxima
+- Tranquila
+- Otimista
+- Levemente divertida
+- Respeitosa
+- Sem jargões empresariais desnecessários
+
+O produto não deve pressionar nem culpar o usuário por pendências.
+
+Em vez de:
+“Você possui 12 tarefas atrasadas.”
+
+Preferir algo como:
+“Temos 12 pendências para colocar em ordem.”
+
+Em vez de:
+“Erro ao processar operação.”
+
+Preferir:
+“Não conseguimos concluir isso agora. Vamos tentar novamente?”
+
+Em vez de:
+“Nenhum dado encontrado.”
+
+Preferir:
+“Ainda não há nada por aqui.”
+
+A marca pode usar pequenas expressões relacionadas ao clube, mas sem exagerar ou transformar todos os textos em brincadeiras.
+
+## Copy-base
+
+Nome:
+Organiza Club
+
+Assinatura conceitual:
+Um clube de organização.
+
+Promessa:
+Controle tranquilo.
+
+Descrição curta:
+Seu espaço para organizar finanças, projetos, estudos, vida e muito mais.
+
+Descrição ampliada:
+O Organiza Club reúne as diferentes áreas da sua vida em um só lugar. Organize suas finanças, conduza projetos, acompanhe estudos e coloque suas atividades em ordem com mais clareza e tranquilidade.
+
+Mensagem institucional:
+Organizar a vida não precisa ser complicada. O Organiza Club ajuda você a colocar as coisas no lugar, entender o que precisa de atenção e seguir em frente com mais tranquilidade.
+
+As frases acima são uma base de comunicação e podem ser refinadas durante a implementação, desde que a ideia de “controle tranquilo” seja preservada.

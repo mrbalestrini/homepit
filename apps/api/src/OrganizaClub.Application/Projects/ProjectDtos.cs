@@ -1,0 +1,121 @@
+using OrganizaClub.Domain.Projects;
+
+namespace OrganizaClub.Application.Projects;
+
+public sealed record CreateCoreRequest(string Name, string? ImageUrl);
+
+public sealed record UpdateCoreRequest(string Name, string? ImageUrl);
+
+public sealed record CoreDto(
+    Guid Id,
+    string Name,
+    string? ImageUrl,
+    bool HasImage,
+    DateTimeOffset? ImageUpdatedAt,
+    Guid? CreatedByMemberId,
+    int ProjectCount,
+    bool IsOutOfPlan,
+    bool CanEdit,
+    bool CanDelete);
+
+public sealed record CreateProjectRequest(Guid CoreId, string Name);
+
+public sealed record UpdateProjectRequest(Guid CoreId, string Name);
+
+public sealed record ProjectDto(
+    Guid Id,
+    Guid CoreId,
+    string CoreName,
+    string? CoreImageUrl,
+    bool CoreHasImage,
+    DateTimeOffset? CoreImageUpdatedAt,
+    string Name,
+    Guid? CreatedByMemberId,
+    int ActivityCount,
+    bool IsOutOfPlan,
+    bool CanEdit,
+    bool CanDelete);
+
+public sealed record CreateActivityRequest(
+    Guid ProjectId,
+    string Title,
+    string? Description,
+    DateOnly? DueDate,
+    ActivityStatus Status,
+    Priority Priority,
+    decimal? Size,
+    Guid? ResponsibleMemberId);
+
+public sealed record UpdateActivityStatusRequest(ActivityStatus Status);
+
+public sealed record UpdateActivityRequest(
+    Guid ProjectId,
+    string Title,
+    string? Description,
+    DateOnly? DueDate,
+    ActivityStatus Status,
+    Priority Priority,
+    decimal? Size,
+    Guid? ResponsibleMemberId);
+
+public sealed record ActivityDto(
+    Guid Id,
+    Guid ProjectId,
+    string ProjectName,
+    Guid CoreId,
+    string CoreName,
+    string? CoreImageUrl,
+    bool CoreHasImage,
+    DateTimeOffset? CoreImageUpdatedAt,
+    Guid? CreatedByMemberId,
+    DateTimeOffset CreatedAt,
+    string Title,
+    string? Description,
+    bool HasImage,
+    DateTimeOffset? ImageUpdatedAt,
+    DateOnly? DueDate,
+    DateTimeOffset? CompletedAt,
+    ActivityStatus Status,
+    Priority Priority,
+    decimal? Size,
+    Guid? ResponsibleMemberId,
+    string? ResponsibleName,
+    int PendingCount,
+    int CommentCount,
+    bool CanEdit,
+    bool CanDelete);
+
+public sealed record CreateActivityCommentRequest(string Body);
+
+public sealed record UpdateActivityCommentRequest(string Body);
+
+public sealed record ActivityCommentDto(
+    Guid Id,
+    Guid ActivityId,
+    Guid AuthorMemberId,
+    Guid AuthorUserId,
+    string AuthorName,
+    bool AuthorHasProfilePhoto,
+    DateTimeOffset? AuthorProfilePhotoUpdatedAt,
+    string Body,
+    DateTimeOffset CreatedAt,
+    bool IsEdited,
+    bool CanEdit,
+    bool CanDelete);
+
+public sealed record CreatePendingItemRequest(
+    string Title,
+    string? Description,
+    Priority Priority,
+    DateOnly? DueDate,
+    int? SnoozeDays);
+
+public sealed record PendingItemDto(
+    Guid Id,
+    Guid ActivityId,
+    string Title,
+    string? Description,
+    Priority Priority,
+    DateOnly? DueDate,
+    int? SnoozeDays,
+    DateTimeOffset? CompletedAt);

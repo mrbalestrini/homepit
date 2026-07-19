@@ -1,0 +1,4853 @@
+openapi: 3.1.0
+info:
+  title: Organiza Club API
+  version: 0.5.0
+servers:
+  - url: http://localhost:8080
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      security: []
+      responses:
+        "200":
+          description: API healthy
+  /api/auth/register:
+    post:
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /api/auth/login:
+    post:
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /api/auth/refresh:
+    post:
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Token refreshed
+  /api/institutional-page:
+    get:
+      security: []
+      responses:
+        "200":
+          description: Public institutional page content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstitutionalPage"
+  /api/institutional-page/images/{slot}:
+    get:
+      security: []
+      description: Public institutional image. Hero and highlight uploads are normalized to WEBP within 2000 x 2000 px; legacy reads may still return JPEG, PNG or WEBP.
+      parameters:
+        - $ref: "#/components/parameters/InstitutionalImageSlot"
+      responses:
+        "200":
+          description: Public institutional image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Image not found
+  /api/platform-settings:
+    get:
+      security: []
+      responses:
+        "200":
+          description: Public platform settings used by the landing page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPlatformSettings"
+  /api/plans:
+    get:
+      security: []
+      responses:
+        "200":
+          description: Public catalog of commercial plans. Authenticated users also receive their current plan when it is hidden from the public catalog.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanDefinition"
+  /api/admin/institutional-page:
+    get:
+      responses:
+        "200":
+          description: Institutional page content for the CMS
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstitutionalPage"
+        "403":
+          description: SuperAdmin role required
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInstitutionalPageRequest"
+      responses:
+        "200":
+          description: Institutional page saved and published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstitutionalPage"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/institutional-page/images/{slot}:
+    post:
+      description: Upload an institutional image. Hero and highlight accept JPG, PNG, WEBP, GIF or BMP and are normalized to WEBP within 2000 x 2000 px. SEO keeps its dedicated WEBP 1200 x 630 rules.
+      parameters:
+        - $ref: "#/components/parameters/InstitutionalImageSlot"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Institutional image uploaded. New common uploads are stored as WEBP.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstitutionalPage"
+        "403":
+          description: SuperAdmin role required
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/InstitutionalImageSlot"
+      responses:
+        "200":
+          description: Institutional image deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstitutionalPage"
+        "403":
+          description: SuperAdmin role required
+  /api/spaces:
+    get:
+      responses:
+        "200":
+          description: User spaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Space"
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        "201":
+          description: Space created
+  /api/spaces/members:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      responses:
+        "200":
+          description: Space members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SpaceMember"
+  /api/spaces/share:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShareSpaceRequest"
+      responses:
+        "201":
+          description: Space invitation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceInvitation"
+  /api/spaces/invitations:
+    get:
+      responses:
+        "200":
+          description: Space invitations visible to the current user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SpaceInvitation"
+  /api/spaces/invitations/{id}/accept:
+    post:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Space accepted from a pending invitation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Space"
+  /api/spaces/invitations/{id}/decline:
+    post:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Invitation declined
+  /api/spaces/members/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSpaceMemberRequest"
+      responses:
+        "200":
+          description: Space member updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaceMember"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Space member removed without deleting historical records
+  /api/users/me:
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Current user updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+    delete:
+      responses:
+        "200":
+          description: Current user deleted immediately or scheduled for deletion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteOwnAccountResult"
+  /api/users/me/profile-photo:
+    post:
+      description: Upload the current user profile photo. Common uploads accept JPG, PNG, WEBP, GIF or BMP and are normalized to WEBP within 2000 x 2000 px.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Current user profile photo updated. New uploads are stored as WEBP.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+    get:
+      description: Current user profile photo. Legacy reads may return JPEG, PNG or WEBP.
+      responses:
+        "200":
+          description: Current user profile photo
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Profile photo not found
+  /api/users/me/reactivate:
+    post:
+      responses:
+        "200":
+          description: Self-cancelled account reactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+  /api/users/me/plan:
+    get:
+      responses:
+        "200":
+          description: Current user's effective plan, active subscription and usage summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserPlanSummary"
+  /api/users/me/plan/creations/{scope}:
+    get:
+      parameters:
+        - name: scope
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [spaces, cores, projects]
+      responses:
+        "200":
+          description: Current user's creations by scope
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanCreationItem"
+  /api/users/me/tool-improvement-suggestions:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateToolImprovementSuggestionRequest"
+      responses:
+        "201":
+          description: Tool improvement suggestion submitted by the current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolImprovementSuggestion"
+  /api/admin/users:
+    get:
+      responses:
+        "200":
+          description: Global user list for superadmin
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUserListItem"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/users/{id}:
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: User and all related links deleted
+        "403":
+          description: SuperAdmin role required
+  /api/admin/users/{id}/deactivate:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: User disabled by superadmin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserListItem"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/users/{id}/reactivate:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: User reactivated by superadmin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserListItem"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/plans:
+    get:
+      responses:
+        "200":
+          description: Editable commercial plan catalog for superadmin
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanDefinition"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/plans/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanDefinitionRequest"
+      responses:
+        "200":
+          description: Commercial plan updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanDefinition"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/subscriptions:
+    get:
+      responses:
+        "200":
+          description: Manual subscription history for superadmin
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserSubscription"
+        "403":
+          description: SuperAdmin role required
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserSubscriptionRequest"
+      responses:
+        "201":
+          description: Manual subscription created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSubscription"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/subscriptions/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserSubscriptionRequest"
+      responses:
+        "200":
+          description: Manual subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSubscription"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/tool-improvement-suggestions:
+    get:
+      responses:
+        "200":
+          description: Tool improvement suggestions for superadmin triage
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ToolImprovementSuggestion"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/tool-improvement-suggestions/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateToolImprovementSuggestionRequest"
+      responses:
+        "200":
+          description: Tool improvement suggestion updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolImprovementSuggestion"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/tool-improvement-suggestions/bulk-update:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkUpdateToolImprovementSuggestionsRequest"
+      responses:
+        "200":
+          description: Tool improvement suggestions updated in bulk
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ToolImprovementSuggestion"
+        "403":
+          description: SuperAdmin role required
+  /api/admin/platform/settings:
+    get:
+      responses:
+        "200":
+          description: Platform settings for the SuperAdmin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformSettings"
+        "403":
+          description: SuperAdmin role required
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlatformSettingsRequest"
+      responses:
+        "200":
+          description: Platform settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformSettings"
+        "403":
+          description: SuperAdmin role required
+  /api/finance/periods:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      responses:
+        "200":
+          description: Financial periods for the active space
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinancePeriodListItem"
+  /api/finance/periods/{year}/{month}:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Financial period detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancePeriodDetail"
+  /api/finance/periods/{year}/{month}/generate:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateFinancePeriodRequest"
+      responses:
+        "200":
+          description: Generated or updated financial period
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancePeriodDetail"
+  /api/finance/categories:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      responses:
+        "200":
+          description: Finance categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinanceCategory"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFinanceCategoryRequest"
+      responses:
+        "201":
+          description: Finance category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceCategory"
+  /api/finance/categories/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFinanceCategoryRequest"
+      responses:
+        "200":
+          description: Finance category updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceCategory"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Finance category deleted
+  /api/finance/recurring-templates:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      responses:
+        "200":
+          description: Recurring finance templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinanceRecurringTemplate"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFinanceRecurringTemplateRequest"
+      responses:
+        "201":
+          description: Recurring finance template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceRecurringTemplate"
+  /api/finance/recurring-templates/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFinanceRecurringTemplateRequest"
+      responses:
+        "200":
+          description: Recurring finance template updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceRecurringTemplate"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Recurring finance template deleted
+  /api/finance/entries:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: year
+          in: query
+          schema:
+            type: integer
+            nullable: true
+        - name: month
+          in: query
+          schema:
+            type: integer
+            nullable: true
+      responses:
+        "200":
+          description: Finance entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinanceEntry"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFinanceEntryRequest"
+      responses:
+        "201":
+          description: Finance entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceEntry"
+  /api/finance/entries/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFinanceEntryRequest"
+      responses:
+        "200":
+          description: Finance entry updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceEntry"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Finance entry deleted
+  /api/finance/assets:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      responses:
+        "200":
+          description: Registered assets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Asset"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetRequest"
+      responses:
+        "201":
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+  /api/finance/assets/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetRequest"
+      responses:
+        "200":
+          description: Asset updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Asset deleted
+  /api/finance/assets/{id}/valuations:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Asset valuations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetValuation"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetValuationRequest"
+      responses:
+        "201":
+          description: Asset valuation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetValuation"
+  /api/finance/assets/{id}/valuations/{valuationId}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: valuationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetValuationRequest"
+      responses:
+        "200":
+          description: Asset valuation updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetValuation"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: valuationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Asset valuation deleted
+  /api/finance/credit-cards:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      responses:
+        "200":
+          description: Credit card accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CreditCardAccount"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditCardAccountRequest"
+      responses:
+        "201":
+          description: Credit card account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardAccount"
+  /api/finance/credit-cards/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCreditCardAccountRequest"
+      responses:
+        "200":
+          description: Credit card account updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardAccount"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Credit card account deleted
+  /api/finance/credit-cards/{id}/transactions:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Credit card transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CreditCardTransaction"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditCardTransactionRequest"
+      responses:
+        "201":
+          description: Credit card transaction created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardTransaction"
+  /api/finance/credit-cards/{id}/transactions/import:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportCreditCardTransactionsRequest"
+      responses:
+        "200":
+          description: Credit card transactions imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportCreditCardTransactionsResponse"
+  /api/finance/credit-cards/{id}/transactions/{transactionId}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCreditCardTransactionRequest"
+      responses:
+        "200":
+          description: Credit card transaction updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardTransaction"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Credit card transaction deleted
+  /api/finance/credit-cards/{id}/statements:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Credit card statements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CreditCardStatement"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditCardStatementRequest"
+      responses:
+        "201":
+          description: Credit card statement created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardStatement"
+  /api/finance/credit-cards/{id}/statements/{statementId}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: statementId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCreditCardStatementRequest"
+      responses:
+        "200":
+          description: Credit card statement updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCardStatement"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: statementId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Credit card statement deleted
+  /api/gsm-numbers:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      responses:
+        "200":
+          description: GSM numbers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GsmNumber"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGsmNumberRequest"
+      responses:
+        "201":
+          description: GSM number created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GsmNumber"
+  /api/gsm-numbers/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGsmNumberRequest"
+      responses:
+        "200":
+          description: GSM number updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GsmNumber"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: GSM number deleted
+  /api/gsm-numbers/{id}/recharges:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: GSM recharge history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GsmRecharge"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGsmRechargeRequest"
+      responses:
+        "201":
+          description: GSM recharge recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GsmRecharge"
+  /api/gsm-numbers/{id}/recharges/{rechargeId}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/RechargeIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGsmRechargeRequest"
+      responses:
+        "200":
+          description: GSM recharge updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GsmRecharge"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/RechargeIdPath"
+      responses:
+        "204":
+          description: GSM recharge deleted
+  /api/cores:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      responses:
+        "200":
+          description: Cores
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCoreRequest"
+      responses:
+        "201":
+          description: Core created
+  /api/cores/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCoreRequest"
+      responses:
+        "200":
+          description: Core updated
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Core deleted
+  /api/cores/{id}/image:
+    post:
+      description: Upload a core image. Common uploads accept JPG, PNG, WEBP, GIF or BMP and are normalized to WEBP within 2000 x 2000 px.
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Core image updated. New uploads are stored as WEBP.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Core"
+    get:
+      description: Core image. Legacy reads may return JPEG, PNG or WEBP.
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Core image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Core image not found
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Core image removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Core"
+  /api/projects:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: coreId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Projects
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "201":
+          description: Project created
+  /api/projects/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: Project updated
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Project deleted
+  /api/prompts:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: search
+          in: query
+          schema:
+            type: string
+            nullable: true
+        - name: coreId
+          in: query
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+        - name: withoutCore
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: archivedOnly
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: categoryId
+          in: query
+          description: Repeat the query parameter to filter by one or more categories using OR semantics.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 48
+            default: 12
+      responses:
+        "200":
+          description: Prompt cards
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptListResponse"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePromptRequest"
+      responses:
+        "201":
+          description: Prompt created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+  /api/prompts/{id}:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Prompt detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePromptRequest"
+      responses:
+        "200":
+          description: Prompt updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Prompt deleted
+  /api/prompts/{id}/archive:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Prompt archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Prompt unarchived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+  /api/prompts/{id}/image:
+    post:
+      description: Upload a prompt image. Common uploads accept JPG, PNG, WEBP, GIF or BMP and are normalized to WEBP within 2000 x 2000 px.
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Prompt image updated. New uploads are stored as WEBP.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+    get:
+      description: Prompt image. Legacy reads may return JPEG, PNG or WEBP.
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Prompt image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Prompt image not found
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Prompt image removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptDetail"
+  /api/prompt-categories:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      responses:
+        "200":
+          description: Prompt categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PromptCategory"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePromptCategoryRequest"
+      responses:
+        "201":
+          description: Prompt category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptCategory"
+  /api/prompt-categories/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePromptCategoryRequest"
+      responses:
+        "200":
+          description: Prompt category updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptCategory"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+        - name: replacementCategoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+      responses:
+        "204":
+          description: Prompt category deleted
+  /api/effort-plan:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      responses:
+        "200":
+          description: Personal weekly effort plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffortPlan"
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEffortPlanRequest"
+      responses:
+        "200":
+          description: Updated personal weekly effort plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffortPlan"
+  /api/activities/relevance:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: utcOffsetMinutes
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: -840
+            maximum: 840
+      responses:
+        "200":
+          description: Personal relevance queue for the requested local date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityRelevanceResponse"
+  /api/activities:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: projectId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActivityStatus"
+      responses:
+        "200":
+          description: Activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Activity"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityRequest"
+      responses:
+        "201":
+          description: Activity created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+  /api/activities/{id}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActivityRequest"
+      responses:
+        "200":
+          description: Activity updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Activity deleted
+  /api/activities/{id}/status:
+    patch:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: "#/components/schemas/ActivityStatus"
+      responses:
+        "200":
+          description: Activity status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+  /api/activities/{id}/image:
+    post:
+      description: Upload an activity image. Common uploads accept JPG, PNG, WEBP, GIF or BMP and are normalized to WEBP within 2000 x 2000 px.
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Activity image updated. New uploads are stored as WEBP.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+    get:
+      description: Activity image. Legacy reads may return JPEG, PNG or WEBP.
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Activity image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Activity image not found
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Activity image removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+  /api/activities/{id}/comments:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Activity comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityComment"
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityCommentRequest"
+      responses:
+        "201":
+          description: Activity comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityComment"
+  /api/activities/{activityId}/comments/{commentId}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActivityCommentRequest"
+      responses:
+        "200":
+          description: Activity comment updated
+    delete:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Activity comment deleted
+  /api/activities/{id}/pending-items:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Pending items
+    post:
+      parameters:
+        - $ref: "#/components/parameters/SpaceHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePendingItemRequest"
+      responses:
+        "201":
+          description: Pending item created
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    SpaceHeader:
+      name: X-Space-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RechargeIdPath:
+      name: rechargeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    InstitutionalImageSlot:
+      name: slot
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [hero, highlight, seo]
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, displayName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        displayName:
+          type: string
+        phoneNumber:
+          type: string
+          nullable: true
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+    InstitutionalContentItem:
+      type: object
+      required: [position, title, description]
+      properties:
+        position:
+          type: integer
+          minimum: 0
+        title:
+          type: string
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 600
+    InstitutionalContentItemRequest:
+      type: object
+      required: [title, description]
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 600
+    InstitutionalPage:
+      type: object
+      required:
+        - slug
+        - seoTitle
+        - seoDescription
+        - brandName
+        - brandTagline
+        - heroEyebrow
+        - heroTitle
+        - heroDescription
+        - primaryCtaLabel
+        - primaryCtaUrl
+        - benefitsTitle
+        - benefitsDescription
+        - benefits
+        - stepsTitle
+        - stepsDescription
+        - steps
+        - highlightEyebrow
+        - highlightTitle
+        - highlightDescription
+        - finalCtaTitle
+        - finalCtaDescription
+        - footerText
+        - heroImageAlt
+        - hasHeroImage
+        - highlightImageAlt
+        - hasHighlightImage
+        - hasSeoImage
+      properties:
+        slug:
+          type: string
+        seoTitle:
+          type: string
+        seoDescription:
+          type: string
+        hasSeoImage:
+          type: boolean
+        seoImageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        brandName:
+          type: string
+        brandTagline:
+          type: string
+        heroEyebrow:
+          type: string
+        heroTitle:
+          type: string
+        heroDescription:
+          type: string
+        primaryCtaLabel:
+          type: string
+        primaryCtaUrl:
+          type: string
+          format: uri
+        benefitsTitle:
+          type: string
+        benefitsDescription:
+          type: string
+        benefits:
+          type: array
+          minItems: 1
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/InstitutionalContentItem"
+        stepsTitle:
+          type: string
+        stepsDescription:
+          type: string
+        steps:
+          type: array
+          minItems: 1
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/InstitutionalContentItem"
+        highlightEyebrow:
+          type: string
+        highlightTitle:
+          type: string
+        highlightDescription:
+          type: string
+        finalCtaTitle:
+          type: string
+        finalCtaDescription:
+          type: string
+        footerText:
+          type: string
+        heroImageAlt:
+          type: string
+        hasHeroImage:
+          type: boolean
+        heroImageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        highlightImageAlt:
+          type: string
+        hasHighlightImage:
+          type: boolean
+        highlightImageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    UpdateInstitutionalPageRequest:
+      type: object
+      required:
+        - seoTitle
+        - seoDescription
+        - brandName
+        - brandTagline
+        - heroEyebrow
+        - heroTitle
+        - heroDescription
+        - primaryCtaLabel
+        - primaryCtaUrl
+        - benefitsTitle
+        - benefitsDescription
+        - benefits
+        - stepsTitle
+        - stepsDescription
+        - steps
+        - highlightEyebrow
+        - highlightTitle
+        - highlightDescription
+        - finalCtaTitle
+        - finalCtaDescription
+        - footerText
+        - heroImageAlt
+        - highlightImageAlt
+      properties:
+        seoTitle:
+          type: string
+          maxLength: 160
+        seoDescription:
+          type: string
+          maxLength: 320
+        brandName:
+          type: string
+          maxLength: 80
+        brandTagline:
+          type: string
+          maxLength: 200
+        heroEyebrow:
+          type: string
+          maxLength: 120
+        heroTitle:
+          type: string
+          maxLength: 240
+        heroDescription:
+          type: string
+          maxLength: 1200
+        primaryCtaLabel:
+          type: string
+          maxLength: 80
+        primaryCtaUrl:
+          type: string
+          format: uri
+          maxLength: 2000
+        benefitsTitle:
+          type: string
+          maxLength: 200
+        benefitsDescription:
+          type: string
+          maxLength: 600
+        benefits:
+          type: array
+          minItems: 1
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/InstitutionalContentItemRequest"
+        stepsTitle:
+          type: string
+          maxLength: 200
+        stepsDescription:
+          type: string
+          maxLength: 600
+        steps:
+          type: array
+          minItems: 1
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/InstitutionalContentItemRequest"
+        highlightEyebrow:
+          type: string
+          maxLength: 120
+        highlightTitle:
+          type: string
+          maxLength: 240
+        highlightDescription:
+          type: string
+          maxLength: 1200
+        finalCtaTitle:
+          type: string
+          maxLength: 240
+        finalCtaDescription:
+          type: string
+          maxLength: 1200
+        footerText:
+          type: string
+          maxLength: 600
+        heroImageAlt:
+          type: string
+          maxLength: 300
+        highlightImageAlt:
+          type: string
+          maxLength: 300
+    PublicPlatformSettings:
+      type: object
+      required:
+        [contactEmail, contactPhone, instagram, addressLine1, addressLine2, city, state, postalCode, canShowAddressOnLanding]
+      properties:
+        contactEmail:
+          type: string
+        contactPhone:
+          type: string
+        instagram:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
+        canShowAddressOnLanding:
+          type: boolean
+    PlatformSettings:
+      type: object
+      required:
+        [adminName, contactEmail, contactPhone, managementPhone, instagram, addressLine1, addressLine2, city, state, postalCode, canShowAddressOnLanding]
+      properties:
+        adminName:
+          type: string
+        contactEmail:
+          type: string
+        contactPhone:
+          type: string
+        managementPhone:
+          type: string
+        instagram:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
+        canShowAddressOnLanding:
+          type: boolean
+    UpdatePlatformSettingsRequest:
+      type: object
+      required:
+        [adminName, contactEmail, contactPhone, managementPhone, instagram, addressLine1, addressLine2, city, state, postalCode]
+      properties:
+        adminName:
+          type: string
+        contactEmail:
+          type: string
+        contactPhone:
+          type: string
+        managementPhone:
+          type: string
+        instagram:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
+    ToolImprovementSuggestionStatus:
+      type: string
+      enum: [NaoLido, EmExecucao, Postergado, Feito]
+    ToolImprovementSuggestionPriority:
+      type: string
+      enum: [Baixa, Media, Alta, Urgente]
+    CreateToolImprovementSuggestionRequest:
+      type: object
+      required: [suggestionText]
+      properties:
+        suggestionText:
+          type: string
+          maxLength: 8000
+    UpdateToolImprovementSuggestionRequest:
+      type: object
+      required: [status, priority]
+      properties:
+        status:
+          $ref: "#/components/schemas/ToolImprovementSuggestionStatus"
+        priority:
+          $ref: "#/components/schemas/ToolImprovementSuggestionPriority"
+        internalComment:
+          type: string
+          nullable: true
+          maxLength: 4000
+    BulkUpdateToolImprovementSuggestionsRequest:
+      type: object
+      required: [suggestionIds]
+      properties:
+        suggestionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        status:
+          $ref: "#/components/schemas/ToolImprovementSuggestionStatus"
+          nullable: true
+        priority:
+          $ref: "#/components/schemas/ToolImprovementSuggestionPriority"
+          nullable: true
+    ToolImprovementSuggestion:
+      type: object
+      required: [id, userId, userDisplayName, userEmail, submittedAt, suggestionText, status, priority]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        userDisplayName:
+          type: string
+        userEmail:
+          type: string
+          format: email
+        submittedAt:
+          type: string
+          format: date-time
+        suggestionText:
+          type: string
+        status:
+          $ref: "#/components/schemas/ToolImprovementSuggestionStatus"
+        priority:
+          $ref: "#/components/schemas/ToolImprovementSuggestionPriority"
+        internalComment:
+          type: string
+          nullable: true
+        lastReviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastReviewedByUserId:
+          type: string
+          format: uuid
+          nullable: true
+        lastReviewedByDisplayName:
+          type: string
+          nullable: true
+    AuthResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresAt, user, spaces]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/UserProfile"
+        spaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/Space"
+    AccountState:
+      type: string
+      enum: [Active, PendingSelfDeletion, DisabledBySuperAdmin]
+    BillingCycle:
+      type: string
+      enum: [Monthly, Annual, Custom]
+    UserSubscriptionStatus:
+      type: string
+      enum: [Scheduled, Active, Expired, Cancelled]
+    DeleteOwnAccountResult:
+      type: object
+      required: [deletedImmediately]
+      properties:
+        deletedImmediately:
+          type: boolean
+        scheduledDeletionAt:
+          type: string
+          format: date-time
+          nullable: true
+    AdminUserListItem:
+      type: object
+      required:
+        [id, email, displayName, systemRole, accountState, ownedSpaceCount, membershipCount, isProtected, effectivePlanSlug, effectivePlanName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        phoneNumber:
+          type: string
+          nullable: true
+        systemRole:
+          enum: [User, Admin, SuperAdmin]
+        accountState:
+          $ref: "#/components/schemas/AccountState"
+        scheduledDeletionAt:
+          type: string
+          format: date-time
+          nullable: true
+        deactivatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        ownedSpaceCount:
+          type: integer
+        membershipCount:
+          type: integer
+        isProtected:
+          type: boolean
+        effectivePlanSlug:
+          type: string
+        effectivePlanName:
+          type: string
+        activeSubscriptionStartsAt:
+          type: string
+          format: date-time
+          nullable: true
+        activeSubscriptionEndsAt:
+          type: string
+          format: date-time
+          nullable: true
+        activeSubscriptionBillingCycle:
+          $ref: "#/components/schemas/BillingCycle"
+          nullable: true
+        activeSubscriptionAmountPaid:
+          type: number
+          nullable: true
+        activeSubscriptionCurrencyCode:
+          type: string
+          nullable: true
+        activeSubscriptionStatus:
+          $ref: "#/components/schemas/UserSubscriptionStatus"
+          nullable: true
+    PlanDefinition:
+      type: object
+      required:
+        [id, slug, name, currencyCode, monthlyPrice, annualPrice, maxOwnedSpaces, maxCores, maxProjects, maxOriginalImages, showInCatalog, isPopular, imagePolicyDescription]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        currencyCode:
+          type: string
+        monthlyPrice:
+          type: number
+        annualPrice:
+          type: number
+        maxOwnedSpaces:
+          type: integer
+        maxCores:
+          type: integer
+        maxProjects:
+          type: integer
+        maxInvitedMembers:
+          type: integer
+          nullable: true
+        maxOriginalImages:
+          type: integer
+        showInCatalog:
+          type: boolean
+        isPopular:
+          type: boolean
+        imagePolicyDescription:
+          type: string
+    UpdatePlanDefinitionRequest:
+      type: object
+      required:
+        [monthlyPrice, annualPrice, maxOwnedSpaces, maxCores, maxProjects, maxOriginalImages, showInCatalog]
+      properties:
+        monthlyPrice:
+          type: number
+        annualPrice:
+          type: number
+        maxOwnedSpaces:
+          type: integer
+        maxCores:
+          type: integer
+        maxProjects:
+          type: integer
+        maxInvitedMembers:
+          type: integer
+          nullable: true
+        maxOriginalImages:
+          type: integer
+        showInCatalog:
+          type: boolean
+    UserSubscription:
+      type: object
+      required:
+        [id, userId, userDisplayName, userEmail, planDefinitionId, planSlug, planName, billingCycle, startsAt, endsAt, amountPaid, currencyCode, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        userDisplayName:
+          type: string
+        userEmail:
+          type: string
+          format: email
+        planDefinitionId:
+          type: string
+          format: uuid
+        planSlug:
+          type: string
+        planName:
+          type: string
+        billingCycle:
+          $ref: "#/components/schemas/BillingCycle"
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        amountPaid:
+          type: number
+        currencyCode:
+          type: string
+        status:
+          $ref: "#/components/schemas/UserSubscriptionStatus"
+        adminNote:
+          type: string
+          nullable: true
+    CreateUserSubscriptionRequest:
+      type: object
+      required:
+        [userId, planDefinitionId, billingCycle, startsAt, endsAt, amountPaid, currencyCode, status]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        planDefinitionId:
+          type: string
+          format: uuid
+        billingCycle:
+          $ref: "#/components/schemas/BillingCycle"
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        amountPaid:
+          type: number
+        currencyCode:
+          type: string
+        status:
+          $ref: "#/components/schemas/UserSubscriptionStatus"
+        adminNote:
+          type: string
+          nullable: true
+    UpdateUserSubscriptionRequest:
+      type: object
+      required:
+        [userId, planDefinitionId, billingCycle, startsAt, endsAt, amountPaid, currencyCode, status]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        planDefinitionId:
+          type: string
+          format: uuid
+        billingCycle:
+          $ref: "#/components/schemas/BillingCycle"
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        amountPaid:
+          type: number
+        currencyCode:
+          type: string
+        status:
+          $ref: "#/components/schemas/UserSubscriptionStatus"
+        adminNote:
+          type: string
+          nullable: true
+    PlanUsageSummary:
+      type: object
+      required: [ownedSpaceCount, coreCount, projectCount, invitedMemberCount, managedOriginalImageCount]
+      properties:
+        ownedSpaceCount:
+          type: integer
+        coreCount:
+          type: integer
+        projectCount:
+          type: integer
+        invitedMemberCount:
+          type: integer
+        managedOriginalImageCount:
+          type: integer
+    CurrentUserPlanSummary:
+      type: object
+      required: [plan, usage]
+      properties:
+        plan:
+          $ref: "#/components/schemas/PlanDefinition"
+        activeSubscription:
+          $ref: "#/components/schemas/UserSubscription"
+          nullable: true
+        usage:
+          $ref: "#/components/schemas/PlanUsageSummary"
+    PlanCreationItem:
+      type: object
+      required: [id, name, createdAt, spaceId, spaceName, canDelete]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        spaceId:
+          type: string
+          format: uuid
+        spaceName:
+          type: string
+        canDelete:
+          type: boolean
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        coreName:
+          type: string
+          nullable: true
+    Space:
+      type: object
+      required: [id, name, role, createdAt, isOwnedByCurrentUser]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          enum: [Owner, Admin, Member]
+        createdAt:
+          type: string
+          format: date-time
+        isOwnedByCurrentUser:
+          type: boolean
+    SpaceInvitationStatus:
+      type: string
+      enum: [Pending, Accepted, Declined]
+    SpaceInvitation:
+      type: object
+      required:
+        [id, spaceId, spaceName, inviteeEmail, inviterUserId, inviterDisplayName, role, status, invitedAt, isIncoming]
+      properties:
+        id:
+          type: string
+          format: uuid
+        spaceId:
+          type: string
+          format: uuid
+        spaceName:
+          type: string
+        inviteeEmail:
+          type: string
+          format: email
+        inviterUserId:
+          type: string
+          format: uuid
+        inviterDisplayName:
+          type: string
+        role:
+          enum: [Owner, Admin, Member]
+        status:
+          $ref: "#/components/schemas/SpaceInvitationStatus"
+        invitedAt:
+          type: string
+          format: date-time
+        respondedAt:
+          type: string
+          format: date-time
+          nullable: true
+        isIncoming:
+          type: boolean
+    SpaceMember:
+      type: object
+      required: [id, userId, displayName, email, hasProfilePhoto, role, isCurrentUser]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        email:
+          type: string
+          format: email
+        phoneNumber:
+          type: string
+          nullable: true
+        hasProfilePhoto:
+          type: boolean
+        profilePhotoUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        role:
+          enum: [Owner, Admin, Member]
+        isCurrentUser:
+          type: boolean
+    ShareSpaceRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          enum: [Admin, Member]
+    UpdateSpaceMemberRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          enum: [Admin, Member]
+    FinanceEntryType:
+      type: string
+      enum: [Entrada, Saida]
+    FinanceEntryOrigin:
+      type: string
+      enum: [Manual, RecurringTemplate, CreditCardStatement]
+    FinanceRecurrence:
+      type: string
+      enum: [Monthly, Annual]
+    AssetType:
+      type: string
+      enum: [Property, Vehicle, Other]
+    CreateFinanceCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    UpdateFinanceCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    FinanceCategory:
+      type: object
+      required: [id, name, isDefault, sortOrder, usageCount, canEdit, canDelete]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        isDefault:
+          type: boolean
+        sortOrder:
+          type: integer
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        usageCount:
+          type: integer
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    GenerateFinancePeriodRequest:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [missingOnly, duplicateAll]
+    FinancePeriodListItem:
+      type: object
+      required: [id, year, month, totalIncome, totalExpense, cashBalance, entryCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        year:
+          type: integer
+        month:
+          type: integer
+        totalIncome:
+          type: number
+          format: decimal
+        totalExpense:
+          type: number
+          format: decimal
+        cashBalance:
+          type: number
+          format: decimal
+        entryCount:
+          type: integer
+    FinancePeriodSummary:
+      type: object
+      required:
+        [
+          totalIncome,
+          totalExpense,
+          cashBalance,
+          analyticalExpenseTotal,
+          verifiedEntries,
+          pendingVerificationEntries,
+          cardPurchaseCount
+        ]
+      properties:
+        totalIncome:
+          type: number
+          format: decimal
+        totalExpense:
+          type: number
+          format: decimal
+        cashBalance:
+          type: number
+          format: decimal
+        analyticalExpenseTotal:
+          type: number
+          format: decimal
+        verifiedEntries:
+          type: integer
+        pendingVerificationEntries:
+          type: integer
+        cardPurchaseCount:
+          type: integer
+    FinancePeriodDetail:
+      type: object
+      required: [year, month, exists, summary, entries, cardTransactions, statements]
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+        year:
+          type: integer
+        month:
+          type: integer
+        exists:
+          type: boolean
+        summary:
+          $ref: "#/components/schemas/FinancePeriodSummary"
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/FinanceEntry"
+        cardTransactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditCardTransaction"
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditCardStatement"
+    CreateFinanceRecurringTemplateRequest:
+      type: object
+      required: [title, type, defaultAmount, recurrence, isActive]
+      properties:
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        defaultAmount:
+          type: number
+          format: decimal
+        recurrence:
+          $ref: "#/components/schemas/FinanceRecurrence"
+        dayOfMonth:
+          type: integer
+          nullable: true
+        monthOfYear:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+    UpdateFinanceRecurringTemplateRequest:
+      type: object
+      required: [title, type, defaultAmount, recurrence, isActive]
+      properties:
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        defaultAmount:
+          type: number
+          format: decimal
+        recurrence:
+          $ref: "#/components/schemas/FinanceRecurrence"
+        dayOfMonth:
+          type: integer
+          nullable: true
+        monthOfYear:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+    FinanceRecurringTemplate:
+      type: object
+      required:
+        [
+          id,
+          title,
+          type,
+          defaultAmount,
+          recurrence,
+          isActive,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        defaultAmount:
+          type: number
+          format: decimal
+        recurrence:
+          $ref: "#/components/schemas/FinanceRecurrence"
+        dayOfMonth:
+          type: integer
+          nullable: true
+        monthOfYear:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        categoryName:
+          type: string
+          nullable: true
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        coreName:
+          type: string
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        projectName:
+          type: string
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateFinanceEntryRequest:
+      type: object
+      required: [year, month, title, amount, type, verified, referenceDate]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        verified:
+          type: boolean
+        referenceDate:
+          type: string
+          format: date
+        recurringTemplateId:
+          type: string
+          format: uuid
+          nullable: true
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+    UpdateFinanceEntryRequest:
+      type: object
+      required: [year, month, title, amount, type, verified, referenceDate]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        verified:
+          type: boolean
+        referenceDate:
+          type: string
+          format: date
+        recurringTemplateId:
+          type: string
+          format: uuid
+          nullable: true
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+    FinanceEntry:
+      type: object
+      required:
+        [
+          id,
+          periodId,
+          year,
+          month,
+          title,
+          amount,
+          type,
+          verified,
+          referenceDate,
+          origin,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        periodId:
+          type: string
+          format: uuid
+        year:
+          type: integer
+        month:
+          type: integer
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        type:
+          $ref: "#/components/schemas/FinanceEntryType"
+        verified:
+          type: boolean
+        referenceDate:
+          type: string
+          format: date
+        origin:
+          $ref: "#/components/schemas/FinanceEntryOrigin"
+        recurringTemplateId:
+          type: string
+          format: uuid
+          nullable: true
+        creditCardStatementId:
+          type: string
+          format: uuid
+          nullable: true
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        categoryName:
+          type: string
+          nullable: true
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        coreName:
+          type: string
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        projectName:
+          type: string
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    AssetPropertyDetailsRequest:
+      type: object
+      properties:
+        registryNumber:
+          type: string
+          nullable: true
+        propertyInscription:
+          type: string
+          nullable: true
+        privateAreaSquareMeters:
+          type: number
+          format: decimal
+          nullable: true
+        debtCheckOn:
+          type: string
+          format: date
+          nullable: true
+    AssetVehicleDetailsRequest:
+      type: object
+      properties:
+        brand:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        yearModel:
+          type: string
+          nullable: true
+        renavam:
+          type: string
+          nullable: true
+    CreateAssetRequest:
+      type: object
+      required: [title, type, isPaidOff]
+      properties:
+        title:
+          type: string
+        type:
+          $ref: "#/components/schemas/AssetType"
+        currentValue:
+          type: number
+          format: decimal
+          nullable: true
+        remainingDebt:
+          type: number
+          format: decimal
+          nullable: true
+        isPaidOff:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        propertyDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetPropertyDetailsRequest"
+          nullable: true
+        vehicleDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetVehicleDetailsRequest"
+          nullable: true
+    UpdateAssetRequest:
+      type: object
+      required: [title, type, isPaidOff]
+      properties:
+        title:
+          type: string
+        type:
+          $ref: "#/components/schemas/AssetType"
+        currentValue:
+          type: number
+          format: decimal
+          nullable: true
+        remainingDebt:
+          type: number
+          format: decimal
+          nullable: true
+        isPaidOff:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        propertyDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetPropertyDetailsRequest"
+          nullable: true
+        vehicleDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetVehicleDetailsRequest"
+          nullable: true
+    AssetPropertyDetails:
+      type: object
+      properties:
+        registryNumber:
+          type: string
+          nullable: true
+        propertyInscription:
+          type: string
+          nullable: true
+        privateAreaSquareMeters:
+          type: number
+          format: decimal
+          nullable: true
+        debtCheckOn:
+          type: string
+          format: date
+          nullable: true
+    AssetVehicleDetails:
+      type: object
+      properties:
+        brand:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        yearModel:
+          type: string
+          nullable: true
+        renavam:
+          type: string
+          nullable: true
+    Asset:
+      type: object
+      required:
+        [id, title, type, isPaidOff, createdAt, updatedAt, canEdit, canDelete]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        type:
+          $ref: "#/components/schemas/AssetType"
+        currentValue:
+          type: number
+          format: decimal
+          nullable: true
+        remainingDebt:
+          type: number
+          format: decimal
+          nullable: true
+        isPaidOff:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        propertyDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetPropertyDetails"
+          nullable: true
+        vehicleDetails:
+          allOf:
+            - $ref: "#/components/schemas/AssetVehicleDetails"
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateAssetValuationRequest:
+      type: object
+      required: [referenceYear, label, amount]
+      properties:
+        referenceYear:
+          type: integer
+        label:
+          type: string
+        amount:
+          type: number
+          format: decimal
+        notes:
+          type: string
+          nullable: true
+    UpdateAssetValuationRequest:
+      type: object
+      required: [referenceYear, label, amount]
+      properties:
+        referenceYear:
+          type: integer
+        label:
+          type: string
+        amount:
+          type: number
+          format: decimal
+        notes:
+          type: string
+          nullable: true
+    AssetValuation:
+      type: object
+      required: [id, assetId, referenceYear, label, amount, createdAt, updatedAt, canEdit, canDelete]
+      properties:
+        id:
+          type: string
+          format: uuid
+        assetId:
+          type: string
+          format: uuid
+        referenceYear:
+          type: integer
+        label:
+          type: string
+        amount:
+          type: number
+          format: decimal
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateCreditCardAccountRequest:
+      type: object
+      required: [name, closingDay, dueDay, isActive]
+      properties:
+        name:
+          type: string
+        brand:
+          type: string
+          nullable: true
+        lastFourDigits:
+          type: string
+          nullable: true
+        closingDay:
+          type: integer
+        dueDay:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+    UpdateCreditCardAccountRequest:
+      type: object
+      required: [name, closingDay, dueDay, isActive]
+      properties:
+        name:
+          type: string
+        brand:
+          type: string
+          nullable: true
+        lastFourDigits:
+          type: string
+          nullable: true
+        closingDay:
+          type: integer
+        dueDay:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+    CreditCardAccount:
+      type: object
+      required:
+        [
+          id,
+          name,
+          closingDay,
+          dueDay,
+          isActive,
+          openTransactionCount,
+          openTransactionTotal,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        brand:
+          type: string
+          nullable: true
+        lastFourDigits:
+          type: string
+          nullable: true
+        closingDay:
+          type: integer
+        dueDay:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        openTransactionCount:
+          type: integer
+        openTransactionTotal:
+          type: number
+          format: decimal
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateCreditCardTransactionRequest:
+      type: object
+      required: [title, amount, purchasedOn]
+      properties:
+        title:
+          type: string
+        merchant:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        purchasedOn:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ImportCreditCardTransactionItem:
+      type: object
+      required: [title, amount, purchasedOn]
+      properties:
+        title:
+          type: string
+        merchant:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        purchasedOn:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        categoryName:
+          type: string
+          nullable: true
+        coreName:
+          type: string
+          nullable: true
+        projectName:
+          type: string
+          nullable: true
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ImportCreditCardTransactionsRequest:
+      type: object
+      required: [transactions]
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportCreditCardTransactionItem"
+    UpdateCreditCardTransactionRequest:
+      type: object
+      required: [title, amount, purchasedOn]
+      properties:
+        title:
+          type: string
+        merchant:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        purchasedOn:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+    CreditCardTransaction:
+      type: object
+      required:
+        [
+          id,
+          creditCardAccountId,
+          creditCardAccountName,
+          title,
+          amount,
+          purchasedOn,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        creditCardAccountId:
+          type: string
+          format: uuid
+        creditCardAccountName:
+          type: string
+        creditCardStatementId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        merchant:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        purchasedOn:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+        categoryName:
+          type: string
+          nullable: true
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        coreName:
+          type: string
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        projectName:
+          type: string
+          nullable: true
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    ImportCreditCardTransactionsResponse:
+      type: object
+      required: [totalCount, totalAmount, createdCategoryCount, createdTransactions]
+      properties:
+        totalCount:
+          type: integer
+        totalAmount:
+          type: number
+          format: decimal
+        createdCategoryCount:
+          type: integer
+        createdTransactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditCardTransaction"
+    CreateCreditCardStatementRequest:
+      type: object
+      required: [closingDate, dueDate, transactionIds]
+      properties:
+        closingDate:
+          type: string
+          format: date
+        dueDate:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        transactionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+    UpdateCreditCardStatementRequest:
+      type: object
+      required: [closingDate, dueDate, transactionIds]
+      properties:
+        closingDate:
+          type: string
+          format: date
+        dueDate:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        transactionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+    CreditCardStatement:
+      type: object
+      required:
+        [
+          id,
+          creditCardAccountId,
+          creditCardAccountName,
+          closingDate,
+          dueDate,
+          totalAmount,
+          transactionCount,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        creditCardAccountId:
+          type: string
+          format: uuid
+        creditCardAccountName:
+          type: string
+        closingDate:
+          type: string
+          format: date
+        dueDate:
+          type: string
+          format: date
+        totalAmount:
+          type: number
+          format: decimal
+        notes:
+          type: string
+          nullable: true
+        transactionCount:
+          type: integer
+        financeEntryId:
+          type: string
+          format: uuid
+          nullable: true
+        externalSource:
+          type: string
+          nullable: true
+        externalReference:
+          type: string
+          nullable: true
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    GsmNumberStatus:
+      type: string
+      enum: [Ativo, Inativo, Abandonado]
+    CreateGsmNumberRequest:
+      type: object
+      required: [title, number, plan, acquiredOn, status]
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        number:
+          type: string
+        description:
+          type: string
+          maxLength: 4000
+          nullable: true
+        plan:
+          $ref: "#/components/schemas/GsmNumberPlan"
+        monthlyCost:
+          type: number
+          format: decimal
+          nullable: true
+        daysWithoutRecharge:
+          type: integer
+          nullable: true
+        acquiredOn:
+          type: string
+          format: date
+        status:
+          $ref: "#/components/schemas/GsmNumberStatus"
+    UpdateGsmNumberRequest:
+      type: object
+      required: [title, number, plan, acquiredOn, status]
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        number:
+          type: string
+        description:
+          type: string
+          maxLength: 4000
+          nullable: true
+        plan:
+          $ref: "#/components/schemas/GsmNumberPlan"
+        monthlyCost:
+          type: number
+          format: decimal
+          nullable: true
+        daysWithoutRecharge:
+          type: integer
+          nullable: true
+        acquiredOn:
+          type: string
+          format: date
+        status:
+          $ref: "#/components/schemas/GsmNumberStatus"
+    GsmNumber:
+      type: object
+      required:
+        [
+          id,
+          title,
+          number,
+          plan,
+          acquiredOn,
+          status,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        number:
+          type: string
+        description:
+          type: string
+          nullable: true
+        plan:
+          $ref: "#/components/schemas/GsmNumberPlan"
+        monthlyCost:
+          type: number
+          format: decimal
+          nullable: true
+        daysWithoutRecharge:
+          type: integer
+          nullable: true
+        acquiredOn:
+          type: string
+          format: date
+        lastRechargeOn:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: "#/components/schemas/GsmNumberStatus"
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateGsmRechargeRequest:
+      type: object
+      required: [rechargedOn, amount]
+      properties:
+        rechargedOn:
+          type: string
+          format: date
+        amount:
+          type: number
+          format: decimal
+        note:
+          type: string
+          maxLength: 4000
+          nullable: true
+    UpdateGsmRechargeRequest:
+      type: object
+      required: [rechargedOn, amount]
+      properties:
+        rechargedOn:
+          type: string
+          format: date
+        amount:
+          type: number
+          format: decimal
+        note:
+          type: string
+          maxLength: 4000
+          nullable: true
+    GsmRecharge:
+      type: object
+      required:
+        [
+          id,
+          gsmNumberId,
+          rechargedOn,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        gsmNumberId:
+          type: string
+          format: uuid
+        rechargedOn:
+          type: string
+          format: date
+        amount:
+          type: number
+          format: decimal
+          nullable: true
+        note:
+          type: string
+          maxLength: 4000
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateCoreRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+    UpdateCoreRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+    GsmNumberPlan:
+      type: string
+      enum: [PrePago, PosPago]
+    UpdateProfileRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+        phoneNumber:
+          type: string
+          nullable: true
+    UserProfile:
+      type: object
+      required: [id, email, displayName, systemRole, accountState, hasProfilePhoto]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        phoneNumber:
+          type: string
+          nullable: true
+        systemRole:
+          enum: [User, Admin, SuperAdmin]
+        accountState:
+          $ref: "#/components/schemas/AccountState"
+        scheduledDeletionAt:
+          type: string
+          format: date-time
+          nullable: true
+        supportEmail:
+          type: string
+          format: email
+          nullable: true
+        hasProfilePhoto:
+          type: boolean
+        profilePhotoUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    CreateProjectRequest:
+      type: object
+      required: [coreId, name]
+      properties:
+        coreId:
+          type: string
+          format: uuid
+        name:
+          type: string
+    UpdateProjectRequest:
+      type: object
+      required: [coreId, name]
+      properties:
+        coreId:
+          type: string
+          format: uuid
+        name:
+          type: string
+    CreatePromptRequest:
+      type: object
+      required: [title, promptText, categoryIds]
+      properties:
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        promptText:
+          type: string
+          maxLength: 20000
+        categoryIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+        linkUrl:
+          type: string
+          format: uri
+          nullable: true
+        linkTitle:
+          type: string
+          nullable: true
+    UpdatePromptRequest:
+      type: object
+      required: [title, promptText, categoryIds]
+      properties:
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        promptText:
+          type: string
+          maxLength: 20000
+        categoryIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+        linkUrl:
+          type: string
+          format: uri
+          nullable: true
+        linkTitle:
+          type: string
+          nullable: true
+    PromptCategoryReference:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    PromptListItem:
+      type: object
+      required:
+        [
+          id,
+          coreHasImage,
+          title,
+          promptText,
+          categories,
+          isArchived,
+          hasImage,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        coreName:
+          type: string
+          nullable: true
+        coreImageUrl:
+          type: string
+          nullable: true
+        coreHasImage:
+          type: boolean
+        coreImageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        promptText:
+          type: string
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/PromptCategoryReference"
+        linkUrl:
+          type: string
+          format: uri
+          nullable: true
+        linkTitle:
+          type: string
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        isArchived:
+          type: boolean
+        hasImage:
+          type: boolean
+        imageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    PromptListResponse:
+      type: object
+      required: [items, page, pageSize, totalCount]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PromptListItem"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+    PromptDetail:
+      type: object
+      required:
+        [
+          id,
+          coreHasImage,
+          title,
+          promptText,
+          categories,
+          isArchived,
+          hasImage,
+          createdAt,
+          updatedAt,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        coreId:
+          type: string
+          format: uuid
+          nullable: true
+        coreName:
+          type: string
+          nullable: true
+        coreImageUrl:
+          type: string
+          nullable: true
+        coreHasImage:
+          type: boolean
+        coreImageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        promptText:
+          type: string
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/PromptCategoryReference"
+        linkUrl:
+          type: string
+          format: uri
+          nullable: true
+        linkTitle:
+          type: string
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        isArchived:
+          type: boolean
+        hasImage:
+          type: boolean
+        imageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreatePromptCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    UpdatePromptCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    PromptCategory:
+      type: object
+      required:
+        [
+          id,
+          name,
+          usageCount,
+          replacementRequiredCount,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        usageCount:
+          type: integer
+        replacementRequiredCount:
+          type: integer
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    ActivityStatus:
+      type: string
+      enum: [NaoIniciada, EmAndamento, Concluido]
+    Priority:
+      type: string
+      enum: [Baixa, Media, Alta, Urgente]
+    EffortScopeType:
+      type: string
+      enum: [Space, Core, Project]
+    EffortWeekday:
+      type: string
+      enum: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+    EffortPlanDay:
+      type: object
+      required: [weekday, effectivePoints, sharedPoints]
+      properties:
+        weekday:
+          $ref: "#/components/schemas/EffortWeekday"
+        explicitPoints:
+          type: number
+          nullable: true
+        effectivePoints:
+          type: number
+        sharedPoints:
+          type: number
+    EffortPlanScope:
+      type: object
+      required: [scopeType, name, days]
+      properties:
+        scopeType:
+          $ref: "#/components/schemas/EffortScopeType"
+        scopeId:
+          type: string
+          format: uuid
+          nullable: true
+        parentScopeId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/EffortPlanDay"
+    EffortPlan:
+      type: object
+      required: [spaceId, spaceMemberId, scopes]
+      properties:
+        spaceId:
+          type: string
+          format: uuid
+        spaceMemberId:
+          type: string
+          format: uuid
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/EffortPlanScope"
+    EffortAllocationInput:
+      type: object
+      required: [scopeType, weekday, points]
+      properties:
+        scopeType:
+          $ref: "#/components/schemas/EffortScopeType"
+        scopeId:
+          type: string
+          format: uuid
+          nullable: true
+        weekday:
+          $ref: "#/components/schemas/EffortWeekday"
+        points:
+          type: number
+          minimum: 0
+    UpdateEffortPlanRequest:
+      type: object
+      required: [allocations]
+      properties:
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/EffortAllocationInput"
+    ActivityRelevanceQueueState:
+      type: string
+      enum: [Scheduled, Overflow, MissingEstimate]
+    ActivityRelevance:
+      type: object
+      required: [activityId, position, score, priorityScore, dueDateScore, ageScore, assignmentScore, queueState]
+      properties:
+        activityId:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        score:
+          type: integer
+        priorityScore:
+          type: integer
+        dueDateScore:
+          type: integer
+        ageScore:
+          type: integer
+        assignmentScore:
+          type: integer
+        queueState:
+          $ref: "#/components/schemas/ActivityRelevanceQueueState"
+    ActivityRelevanceResponse:
+      type: object
+      required: [date, weekday, capacityPoints, scheduledPoints, items]
+      properties:
+        date:
+          type: string
+          format: date
+        weekday:
+          $ref: "#/components/schemas/EffortWeekday"
+        capacityPoints:
+          type: number
+        scheduledPoints:
+          type: number
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityRelevance"
+    Activity:
+      type: object
+      required:
+        [
+          id,
+          projectId,
+          projectName,
+          coreId,
+          coreName,
+          coreHasImage,
+          createdAt,
+          title,
+          status,
+          priority,
+          hasImage,
+          pendingCount,
+          commentCount,
+          canEdit,
+          canDelete
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        projectName:
+          type: string
+        coreId:
+          type: string
+          format: uuid
+        coreName:
+          type: string
+        coreImageUrl:
+          type: string
+          nullable: true
+        coreHasImage:
+          type: boolean
+        coreImageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdByMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        hasImage:
+          type: boolean
+        imageUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ActivityStatus"
+        priority:
+          $ref: "#/components/schemas/Priority"
+        size:
+          type: number
+          nullable: true
+        responsibleMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        responsibleName:
+          type: string
+          nullable: true
+        pendingCount:
+          type: integer
+        commentCount:
+          type: integer
+        canEdit:
+          type: boolean
+        canDelete:
+          type: boolean
+    CreateActivityRequest:
+      type: object
+      required: [projectId, title, status, priority]
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ActivityStatus"
+        priority:
+          $ref: "#/components/schemas/Priority"
+        size:
+          type: number
+          nullable: true
+        responsibleMemberId:
+          type: string
+          format: uuid
+          nullable: true
+    UpdateActivityRequest:
+      type: object
+      required: [projectId, title, status, priority]
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ActivityStatus"
+        priority:
+          $ref: "#/components/schemas/Priority"
+        size:
+          type: number
+          nullable: true
+        responsibleMemberId:
+          type: string
+          format: uuid
+          nullable: true
+    CreateActivityCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+    UpdateActivityCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+    ActivityComment:
+      type: object
+      required: [id, activityId, authorMemberId, authorName, body, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        authorMemberId:
+          type: string
+          format: uuid
+        authorName:
+          type: string
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    CreatePendingItemRequest:
+      type: object
+      required: [title, priority]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        priority:
+          $ref: "#/components/schemas/Priority"
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        snoozeDays:
+          type: integer
+          nullable: true

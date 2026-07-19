@@ -1,4 +1,4 @@
 interface:
-  display_name: "HomePit DevOps"
+  display_name: "OrganizaClub DevOps"
   short_description: "Trabalhar com Docker, Coolify e ambientes"
-  default_prompt: "Use a skill devops para trabalhar na infraestrutura e configuracao do HomePit."
+  default_prompt: "Use a skill devops para trabalhar na infraestrutura e configuracao do Organiza Club."

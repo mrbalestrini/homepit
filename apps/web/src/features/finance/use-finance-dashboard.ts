@@ -17,12 +17,12 @@ import type {
   FinancePeriodListItem,
   FinanceRecurringTemplate,
   FinanceRecurrence,
-  Household,
-  HouseholdMember,
+  Space,
+  SpaceMember,
   ImportCreditCardTransactionItem,
   ImportCreditCardTransactionsResponse,
   Project,
-  Universe,
+  Core,
 } from "@/lib/api";
 import {
   apiFetch,
@@ -33,11 +33,11 @@ import {
   updateStoredSession,
 } from "@/lib/api";
 import {
-  clearStoredActiveHouseholdId,
-  readStoredActiveHouseholdId,
-  resolveActiveHouseholdSelection,
-  storeActiveHouseholdId,
-} from "@/lib/household-selection";
+  clearStoredActiveSpaceId,
+  readStoredActiveSpaceId,
+  resolveActiveSpaceSelection,
+  storeActiveSpaceId,
+} from "@/lib/space-selection";
 import { defaultAppTheme, uiStorageKeys } from "@/features/projects/project-dashboard.constants";
 import type { AppTheme } from "@/features/projects/project-dashboard.types";
 import { getErrorMessage } from "@/features/projects/project-dashboard.utils";
@@ -69,7 +69,7 @@ export type FinanceEntryFormInput = {
   referenceDate: string;
   recurringTemplateId?: string | null;
   categoryId?: string | null;
-  universeId?: string | null;
+  coreId?: string | null;
   projectId?: string | null;
 };
 
@@ -83,7 +83,7 @@ export type FinanceRecurringTemplateFormInput = {
   monthOfYear?: number | null;
   isActive: boolean;
   categoryId?: string | null;
-  universeId?: string | null;
+  coreId?: string | null;
   projectId?: string | null;
 };
 
@@ -136,7 +136,7 @@ export type CreditCardTransactionFormInput = {
   purchasedOn: string;
   notes?: string;
   categoryId?: string | null;
-  universeId?: string | null;
+  coreId?: string | null;
   projectId?: string | null;
   externalSource?: string;
   externalReference?: string;
@@ -157,7 +157,7 @@ export type ImportedCreditCardTransactionDraftError = {
     | "amount"
     | "purchasedOn"
     | "categoryName"
-    | "universeName"
+    | "coreName"
     | "projectName"
     | "externalSource"
     | "externalReference"
@@ -174,7 +174,7 @@ export type ImportedCreditCardTransactionDraft = {
   purchasedOn: string;
   notes: string;
   categoryName: string;
-  universeName: string;
+  coreName: string;
   projectName: string;
   externalSource: string;
   externalReference: string;
@@ -191,11 +191,15 @@ export type CreditCardTransactionImportSummary = {
 };
 
 function isAppTheme(value: string | null): value is WorkspaceTheme {
-  return value === "cozy" || value === "earthy" || value === "dark";
+  return value === "light" || value === "system" || value === "dark";
 }
 
 function applyDocumentTheme(theme: WorkspaceTheme) {
-  document.documentElement.dataset.theme = theme;
+  const resolved = theme === "system"
+    ? window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+    : theme;
+  document.documentElement.dataset.themePreference = theme;
+  document.documentElement.dataset.theme = resolved;
 }
 
 function sortFinancePeriods(periods: FinancePeriodListItem[]) {
@@ -361,9 +365,9 @@ function summarizeOpenCardTransactions(transactions: CreditCardTransaction[]) {
 export function useFinanceDashboard() {
   const currentPeriod = getCurrentPeriodParts();
   const [session, setSession] = useState<AuthResponse | null>(null);
-  const [activeHouseholdId, setActiveHouseholdId] = useState("");
-  const [members, setMembers] = useState<HouseholdMember[]>([]);
-  const [universes, setUniverses] = useState<Universe[]>([]);
+  const [activeSpaceId, setActiveSpaceId] = useState("");
+  const [members, setMembers] = useState<SpaceMember[]>([]);
+  const [cores, setCores] = useState<Core[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [categories, setCategories] = useState<FinanceCategory[]>([]);
   const [financePeriods, setFinancePeriods] = useState<FinancePeriodListItem[]>([]);
@@ -379,20 +383,20 @@ export function useFinanceDashboard() {
   const [creditCardTransactions, setCreditCardTransactions] = useState<CreditCardTransaction[]>([]);
   const [creditCardStatements, setCreditCardStatements] = useState<CreditCardStatement[]>([]);
   const [cardDetailsLoading, setCardDetailsLoading] = useState(false);
-  const [activeCommonModal, setActiveCommonModal] = useState<"household" | "share" | null>(null);
-  const [editingHousehold, setEditingHousehold] = useState<Household | null>(null);
+  const [activeCommonModal, setActiveCommonModal] = useState<"space" | "share" | null>(null);
+  const [editingSpace, setEditingSpace] = useState<Space | null>(null);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
   const [theme, setThemeState] = useState<WorkspaceTheme>(defaultAppTheme);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncCounts, setSyncCounts] = useState(initialSyncCounts);
   const sessionUserIdRef = useRef<string | null>(null);
-  const activeHouseholdIdRef = useRef("");
+  const activeSpaceIdRef = useRef("");
   const selectedCreditCardIdRef = useRef("");
 
   const resetWorkspaceState = useCallback(() => {
     setMembers([]);
-    setUniverses([]);
+    setCores([]);
     setProjects([]);
     setCategories([]);
     setFinancePeriods([]);
@@ -407,7 +411,7 @@ export function useFinanceDashboard() {
     setCreditCardStatements([]);
     setCardDetailsLoading(false);
     setActiveCommonModal(null);
-    setEditingHousehold(null);
+    setEditingSpace(null);
     setLoading(false);
     setError(null);
     setSyncCounts(initialSyncCounts);
@@ -425,23 +429,23 @@ export function useFinanceDashboard() {
 
       setSession(nextSession);
       if (!nextSession) {
-        setActiveHouseholdId("");
+        setActiveSpaceId("");
         return;
       }
 
-      const storedHouseholdId = readStoredActiveHouseholdId(nextSession.user.id);
-      const { householdId, shouldClearStoredHouseholdId } = resolveActiveHouseholdSelection(
-        nextSession.households,
-        activeHouseholdIdRef.current,
-        storedHouseholdId,
+      const storedSpaceId = readStoredActiveSpaceId(nextSession.user.id);
+      const { spaceId, shouldClearStoredSpaceId } = resolveActiveSpaceSelection(
+        nextSession.spaces,
+        activeSpaceIdRef.current,
+        storedSpaceId,
       );
 
-      if (shouldClearStoredHouseholdId) {
-        clearStoredActiveHouseholdId(nextSession.user.id);
+      if (shouldClearStoredSpaceId) {
+        clearStoredActiveSpaceId(nextSession.user.id);
       }
 
-      setActiveHouseholdId(householdId);
-      setLoading(Boolean(nextSession.households.length > 0));
+      setActiveSpaceId(spaceId);
+      setLoading(Boolean(nextSession.spaces.length > 0));
     },
     [resetWorkspaceState],
   );
@@ -483,8 +487,8 @@ export function useFinanceDashboard() {
   }, [theme]);
 
   useEffect(() => {
-    activeHouseholdIdRef.current = activeHouseholdId;
-  }, [activeHouseholdId]);
+    activeSpaceIdRef.current = activeSpaceId;
+  }, [activeSpaceId]);
 
   useEffect(() => {
     selectedCreditCardIdRef.current = selectedCreditCardId;
@@ -496,21 +500,21 @@ export function useFinanceDashboard() {
       return;
     }
 
-    if (activeHouseholdId) {
-      storeActiveHouseholdId(userId, activeHouseholdId);
+    if (activeSpaceId) {
+      storeActiveSpaceId(userId, activeSpaceId);
       return;
     }
 
-    clearStoredActiveHouseholdId(userId);
-  }, [activeHouseholdId, session?.user.id]);
+    clearStoredActiveSpaceId(userId);
+  }, [activeSpaceId, session?.user.id]);
 
-  const activeHousehold = useMemo(() => {
-    return session?.households.find((household) => household.id === activeHouseholdId) ?? null;
-  }, [activeHouseholdId, session?.households]);
+  const activeSpace = useMemo(() => {
+    return session?.spaces.find((space) => space.id === activeSpaceId) ?? null;
+  }, [activeSpaceId, session?.spaces]);
   const isAccountActive = (session?.user.accountState ?? "Active") === "Active";
 
-  const canShareHousehold = activeHousehold?.role === "Owner" || activeHousehold?.role === "Admin";
-  const canManageHousehold = activeHousehold?.role === "Owner";
+  const canShareSpace = activeSpace?.role === "Owner" || activeSpace?.role === "Admin";
+  const canManageSpace = activeSpace?.role === "Owner";
 
   const reportError = useCallback((exception: unknown, fallback: string) => {
     const message = getErrorMessage(exception, fallback);
@@ -569,8 +573,8 @@ export function useFinanceDashboard() {
   }, []);
 
   const loadCardDetails = useCallback(
-    async (cardId: string, token = session?.accessToken, householdId = activeHouseholdId) => {
-      if (!cardId || !token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
+    async (cardId: string, token = session?.accessToken, spaceId = activeSpaceId) => {
+      if (!cardId || !token || !spaceId || (session?.user.accountState ?? "Active") !== "Active") {
         setCreditCardTransactions([]);
         setCreditCardStatements([]);
         return;
@@ -579,8 +583,8 @@ export function useFinanceDashboard() {
       setCardDetailsLoading(true);
       try {
         const [transactions, statements] = await Promise.all([
-          apiFetch<CreditCardTransaction[]>(`/api/finance/credit-cards/${cardId}/transactions`, { token, householdId }),
-          apiFetch<CreditCardStatement[]>(`/api/finance/credit-cards/${cardId}/statements`, { token, householdId }),
+          apiFetch<CreditCardTransaction[]>(`/api/finance/credit-cards/${cardId}/transactions`, { token, spaceId }),
+          apiFetch<CreditCardStatement[]>(`/api/finance/credit-cards/${cardId}/statements`, { token, spaceId }),
         ]);
         startTransition(() => {
           setCreditCardTransactions(sortCreditCardTransactions(transactions));
@@ -592,18 +596,18 @@ export function useFinanceDashboard() {
         setCardDetailsLoading(false);
       }
     },
-    [activeHouseholdId, session?.accessToken, session?.user],
+    [activeSpaceId, session?.accessToken, session?.user],
   );
 
   const loadWorkspace = useCallback(
     async (
       token = session?.accessToken,
-      householdId = activeHouseholdId,
+      spaceId = activeSpaceId,
       year = activeYear,
       month = activeMonth,
       preferredCardId = selectedCreditCardIdRef.current,
     ) => {
-      if (!token || !householdId || (session?.user.accountState ?? "Active") !== "Active") {
+      if (!token || !spaceId || (session?.user.accountState ?? "Active") !== "Active") {
         return;
       }
 
@@ -611,22 +615,22 @@ export function useFinanceDashboard() {
       setError(null);
 
       try {
-        const [nextMembers, nextUniverses, nextProjects, nextCategories, nextPeriods, nextPeriodDetail, nextTemplates, nextAssets, nextCards] =
+        const [nextMembers, nextCores, nextProjects, nextCategories, nextPeriods, nextPeriodDetail, nextTemplates, nextAssets, nextCards] =
           await Promise.all([
-            apiFetch<HouseholdMember[]>("/api/households/members", { token, householdId }),
-            apiFetch<Universe[]>("/api/universes", { token, householdId }),
-            apiFetch<Project[]>("/api/projects", { token, householdId }),
-            apiFetch<FinanceCategory[]>("/api/finance/categories", { token, householdId }),
-            apiFetch<FinancePeriodListItem[]>("/api/finance/periods", { token, householdId }),
-            apiFetch<FinancePeriodDetail>(`/api/finance/periods/${year}/${month}`, { token, householdId }),
-            apiFetch<FinanceRecurringTemplate[]>("/api/finance/recurring-templates", { token, householdId }),
-            apiFetch<Asset[]>("/api/finance/assets", { token, householdId }),
-            apiFetch<CreditCardAccount[]>("/api/finance/credit-cards", { token, householdId }),
+            apiFetch<SpaceMember[]>("/api/spaces/members", { token, spaceId }),
+            apiFetch<Core[]>("/api/cores", { token, spaceId }),
+            apiFetch<Project[]>("/api/projects", { token, spaceId }),
+            apiFetch<FinanceCategory[]>("/api/finance/categories", { token, spaceId }),
+            apiFetch<FinancePeriodListItem[]>("/api/finance/periods", { token, spaceId }),
+            apiFetch<FinancePeriodDetail>(`/api/finance/periods/${year}/${month}`, { token, spaceId }),
+            apiFetch<FinanceRecurringTemplate[]>("/api/finance/recurring-templates", { token, spaceId }),
+            apiFetch<Asset[]>("/api/finance/assets", { token, spaceId }),
+            apiFetch<CreditCardAccount[]>("/api/finance/credit-cards", { token, spaceId }),
           ]);
 
         startTransition(() => {
           setMembers(nextMembers);
-          setUniverses(nextUniverses);
+          setCores(nextCores);
           setProjects(nextProjects);
           setCategories(sortCategories(nextCategories));
           setFinancePeriods(sortFinancePeriods(nextPeriods));
@@ -643,7 +647,7 @@ export function useFinanceDashboard() {
         });
 
         if (nextSelectedCardId) {
-          await loadCardDetails(nextSelectedCardId, token, householdId);
+          await loadCardDetails(nextSelectedCardId, token, spaceId);
         } else {
           startTransition(() => {
             setCreditCardTransactions([]);
@@ -656,40 +660,40 @@ export function useFinanceDashboard() {
         setLoading(false);
       }
     },
-    [activeHouseholdId, activeMonth, activeYear, loadCardDetails, session?.accessToken, session?.user],
+    [activeSpaceId, activeMonth, activeYear, loadCardDetails, session?.accessToken, session?.user],
   );
 
   useEffect(() => {
-    if (!session || !activeHouseholdId || !isAccountActive) {
+    if (!session || !activeSpaceId || !isAccountActive) {
       return;
     }
 
     const timer = window.setTimeout(() => {
-      void loadWorkspace(session.accessToken, activeHouseholdId, activeYear, activeMonth);
+      void loadWorkspace(session.accessToken, activeSpaceId, activeYear, activeMonth);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeHouseholdId, activeMonth, activeYear, isAccountActive, loadWorkspace, session]);
+  }, [activeSpaceId, activeMonth, activeYear, isAccountActive, loadWorkspace, session]);
 
   const setSelectedCreditCardId = useCallback(
     (cardId: string) => {
       setSelectedCreditCardIdState(cardId);
-      if (cardId && session?.accessToken && activeHouseholdId) {
-        void loadCardDetails(cardId, session.accessToken, activeHouseholdId);
+      if (cardId && session?.accessToken && activeSpaceId) {
+        void loadCardDetails(cardId, session.accessToken, activeSpaceId);
       }
     },
-    [activeHouseholdId, loadCardDetails, session],
+    [activeSpaceId, loadCardDetails, session],
   );
 
   const reconcileActivePeriod = useCallback(
-    async (token = session?.accessToken, householdId = activeHouseholdId, year = activeYear, month = activeMonth) => {
-      if (!token || !householdId) {
+    async (token = session?.accessToken, spaceId = activeSpaceId, year = activeYear, month = activeMonth) => {
+      if (!token || !spaceId) {
         return;
       }
 
       const [nextPeriods, nextDetail] = await Promise.all([
-        apiFetch<FinancePeriodListItem[]>("/api/finance/periods", { token, householdId }),
-        apiFetch<FinancePeriodDetail>(`/api/finance/periods/${year}/${month}`, { token, householdId }),
+        apiFetch<FinancePeriodListItem[]>("/api/finance/periods", { token, spaceId }),
+        apiFetch<FinancePeriodDetail>(`/api/finance/periods/${year}/${month}`, { token, spaceId }),
       ]);
 
       startTransition(() => {
@@ -697,19 +701,19 @@ export function useFinanceDashboard() {
         setPeriodDetail(normalizePeriodDetail(nextDetail));
       });
     },
-    [activeHouseholdId, activeMonth, activeYear, session?.accessToken],
+    [activeSpaceId, activeMonth, activeYear, session?.accessToken],
   );
 
   const reconcileSelectedCard = useCallback(
-    async (preferredCardId = selectedCreditCardIdRef.current, token = session?.accessToken, householdId = activeHouseholdId) => {
-      if (!token || !householdId) {
+    async (preferredCardId = selectedCreditCardIdRef.current, token = session?.accessToken, spaceId = activeSpaceId) => {
+      if (!token || !spaceId) {
         return;
       }
 
       const nextCards = sortCreditCardAccounts(
         await apiFetch<CreditCardAccount[]>("/api/finance/credit-cards", {
           token,
-          householdId,
+          spaceId,
         }),
       );
       const nextSelectedCardId = nextCards.find((card) => card.id === preferredCardId)?.id ?? nextCards[0]?.id ?? "";
@@ -725,8 +729,8 @@ export function useFinanceDashboard() {
       }
 
       const [nextTransactions, nextStatements] = await Promise.all([
-        apiFetch<CreditCardTransaction[]>(`/api/finance/credit-cards/${nextSelectedCardId}/transactions`, { token, householdId }),
-        apiFetch<CreditCardStatement[]>(`/api/finance/credit-cards/${nextSelectedCardId}/statements`, { token, householdId }),
+        apiFetch<CreditCardTransaction[]>(`/api/finance/credit-cards/${nextSelectedCardId}/transactions`, { token, spaceId }),
+        apiFetch<CreditCardStatement[]>(`/api/finance/credit-cards/${nextSelectedCardId}/statements`, { token, spaceId }),
       ]);
 
       startTransition(() => {
@@ -736,7 +740,7 @@ export function useFinanceDashboard() {
         setCreditCardStatements(sortCreditCardStatements(nextStatements));
       });
     },
-    [activeHouseholdId, session?.accessToken],
+    [activeSpaceId, session?.accessToken],
   );
 
   const reconcileCardFinanceSections = useCallback(
@@ -757,10 +761,10 @@ export function useFinanceDashboard() {
     toast.success("Sessão iniciada com sucesso.");
   }, []);
 
-  const handleHouseholdChange = useCallback((householdId: string) => {
+  const handleSpaceChange = useCallback((spaceId: string) => {
     setLoading(true);
     setMembers([]);
-    setUniverses([]);
+    setCores([]);
     setProjects([]);
     setCategories([]);
     setFinancePeriods([]);
@@ -773,7 +777,7 @@ export function useFinanceDashboard() {
     setCreditCardTransactions([]);
     setCreditCardStatements([]);
     setCardDetailsLoading(false);
-    setActiveHouseholdId(householdId);
+    setActiveSpaceId(spaceId);
     setError(null);
   }, []);
 
@@ -782,34 +786,34 @@ export function useFinanceDashboard() {
     toast.success("Sessão encerrada.");
   }, []);
 
-  const openCreateHousehold = useCallback(() => {
-    setEditingHousehold(null);
-    setActiveCommonModal("household");
+  const openCreateSpace = useCallback(() => {
+    setEditingSpace(null);
+    setActiveCommonModal("space");
   }, []);
 
-  const openEditHousehold = useCallback(() => {
-    if (!activeHousehold) {
+  const openEditSpace = useCallback(() => {
+    if (!activeSpace) {
       return;
     }
 
-    setEditingHousehold(activeHousehold);
-    setActiveCommonModal("household");
-  }, [activeHousehold]);
+    setEditingSpace(activeSpace);
+    setActiveCommonModal("space");
+  }, [activeSpace]);
 
-  const openShareHousehold = useCallback(() => {
+  const openShareSpace = useCallback(() => {
     setActiveCommonModal("share");
   }, []);
 
   const closeCommonModal = useCallback(() => {
     setActiveCommonModal(null);
-    setEditingHousehold(null);
+    setEditingSpace(null);
   }, []);
 
-  const updateSessionHouseholds = useCallback(
-    (nextHouseholds: Household[], preferredHouseholdId?: string) => {
+  const updateSessionSpaces = useCallback(
+    (nextSpaces: Space[], preferredSpaceId?: string) => {
       const nextSession = updateStoredSession((currentSession) => ({
         ...currentSession,
-        households: nextHouseholds,
+        spaces: nextSpaces,
       }));
 
       if (!nextSession) {
@@ -818,19 +822,19 @@ export function useFinanceDashboard() {
 
       setSession(nextSession);
 
-      const storedHouseholdId = readStoredActiveHouseholdId(nextSession.user.id);
-      const { householdId, shouldClearStoredHouseholdId } = resolveActiveHouseholdSelection(
-        nextHouseholds,
-        activeHouseholdIdRef.current,
-        storedHouseholdId,
-        preferredHouseholdId,
+      const storedSpaceId = readStoredActiveSpaceId(nextSession.user.id);
+      const { spaceId, shouldClearStoredSpaceId } = resolveActiveSpaceSelection(
+        nextSpaces,
+        activeSpaceIdRef.current,
+        storedSpaceId,
+        preferredSpaceId,
       );
 
-      if (shouldClearStoredHouseholdId) {
-        clearStoredActiveHouseholdId(nextSession.user.id);
+      if (shouldClearStoredSpaceId) {
+        clearStoredActiveSpaceId(nextSession.user.id);
       }
 
-      setActiveHouseholdId(householdId);
+      setActiveSpaceId(spaceId);
     },
     [],
   );
@@ -860,7 +864,7 @@ export function useFinanceDashboard() {
     );
   }, []);
 
-  const refreshHouseholds = useCallback(async () => {
+  const refreshSpaces = useCallback(async () => {
     if (!session) {
       return;
     }
@@ -868,16 +872,16 @@ export function useFinanceDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const nextHouseholds = await apiFetch<Household[]>("/api/households", { token: session.accessToken });
-      updateSessionHouseholds(nextHouseholds);
-      toast.success("Casas atualizadas.");
+      const nextSpaces = await apiFetch<Space[]>("/api/spaces", { token: session.accessToken });
+      updateSessionSpaces(nextSpaces);
+      toast.success("Espaços atualizados.");
     } catch (exception) {
-      setError(getErrorMessage(exception, "Falha ao carregar casas."));
-      toast.error(getErrorMessage(exception, "Falha ao carregar casas."));
+      setError(getErrorMessage(exception, "Falha ao carregar espaços."));
+      toast.error(getErrorMessage(exception, "Falha ao carregar espaços."));
     } finally {
       setLoading(false);
     }
-  }, [session, updateSessionHouseholds]);
+  }, [session, updateSessionSpaces]);
 
   const refreshWorkspace = useCallback(async () => {
     if (!isAccountActive) {
@@ -893,19 +897,19 @@ export function useFinanceDashboard() {
   );
 
   const resolveClassification = useCallback(
-    (universeId?: string | null, projectId?: string | null) => {
+    (coreId?: string | null, projectId?: string | null) => {
       const project = projectId ? projects.find((item) => item.id === projectId) ?? null : null;
-      const resolvedUniverseId = project?.universeId ?? universeId ?? null;
-      const universe = resolvedUniverseId ? universes.find((item) => item.id === resolvedUniverseId) ?? null : null;
+      const resolvedCoreId = project?.coreId ?? coreId ?? null;
+      const core = resolvedCoreId ? cores.find((item) => item.id === resolvedCoreId) ?? null : null;
 
       return {
-        universeId: resolvedUniverseId,
-        universeName: project?.universeName ?? universe?.name ?? null,
+        coreId: resolvedCoreId,
+        coreName: project?.coreName ?? core?.name ?? null,
         projectId: project?.id ?? projectId ?? null,
         projectName: project?.name ?? null,
       };
     },
-    [projects, universes],
+    [projects, cores],
   );
 
   function notifyMutationSuccess(message: string, options?: FinanceMutationOptions) {
@@ -914,88 +918,88 @@ export function useFinanceDashboard() {
     }
   }
 
-  async function createHousehold(name: string) {
+  async function createSpace(name: string) {
     if (!session) {
       return;
     }
 
     try {
-      const created = await apiFetch<Household>("/api/households", {
+      const created = await apiFetch<Space>("/api/spaces", {
         method: "POST",
         token: session.accessToken,
         body: JSON.stringify({ name }),
       });
-      updateSessionHouseholds(
-        [...session.households, created].sort((a, b) => a.name.localeCompare(b.name)),
+      updateSessionSpaces(
+        [...session.spaces, created].sort((a, b) => a.name.localeCompare(b.name)),
         created.id,
       );
-      toast.success("Casa criada.");
+      toast.success("Espaço criado.");
     } catch (exception) {
-      reportError(exception, "Não foi possível criar a casa.");
+      reportError(exception, "Não foi possível criar o espaço.");
     }
   }
 
-  async function updateHousehold(householdId: string, name: string) {
+  async function updateSpace(spaceId: string, name: string) {
     if (!session) {
       return;
     }
 
     try {
-      const updated = await apiFetch<Household>(`/api/households/${householdId}`, {
+      const updated = await apiFetch<Space>(`/api/spaces/${spaceId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId,
+        spaceId,
         body: JSON.stringify({ name }),
       });
-      updateSessionHouseholds(
-        session.households
-          .map((household) => (household.id === updated.id ? updated : household))
+      updateSessionSpaces(
+        session.spaces
+          .map((space) => (space.id === updated.id ? updated : space))
           .sort((a, b) => a.name.localeCompare(b.name)),
         updated.id,
       );
-      toast.success("Casa atualizada.");
+      toast.success("Espaço atualizado.");
     } catch (exception) {
-      reportError(exception, "Não foi possível salvar a casa.");
+      reportError(exception, "Não foi possível salvar o espaço.");
     }
   }
 
-  async function deleteHousehold(household: Household) {
+  async function deleteSpace(space: Space) {
     if (!session) {
       return;
     }
 
     try {
-      await apiFetch<void>(`/api/households/${household.id}`, {
+      await apiFetch<void>(`/api/spaces/${space.id}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: household.id,
+        spaceId: space.id,
       });
 
-      const nextHouseholds = session.households.filter((item) => item.id !== household.id);
+      const nextSpaces = session.spaces.filter((item) => item.id !== space.id);
       resetWorkspaceState();
-      updateSessionHouseholds(nextHouseholds);
-      toast.success("Casa excluida.");
+      updateSessionSpaces(nextSpaces);
+      toast.success("Espaço excluida.");
     } catch (exception) {
-      reportError(exception, "Não foi possível excluir a casa.");
+      reportError(exception, "Não foi possível excluir o espaço.");
     }
   }
 
-  async function shareHousehold(input: { email: string; role: "Admin" | "Member" }) {
-    if (!session || !activeHouseholdId) {
+  async function shareSpace(input: { email: string; role: "Admin" | "Member" }) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
     try {
-      const created = await apiFetch<HouseholdMember>("/api/households/share", {
+      const created = await apiFetch<SpaceMember>("/api/spaces/share", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       setMembers((current) => [...current, created].sort((a, b) => a.displayName.localeCompare(b.displayName)));
-      toast.success("Pessoa adicionada a casa.");
+      toast.success("Pessoa adicionada o espaço.");
     } catch (exception) {
-      reportError(exception, "Não foi possível compartilhar a casa.");
+      reportError(exception, "Não foi possível compartilhar o espaço.");
     }
   }
 
@@ -1041,7 +1045,7 @@ export function useFinanceDashboard() {
   }
 
   async function generatePeriod(mode: "missingOnly" | "duplicateAll") {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1051,7 +1055,7 @@ export function useFinanceDashboard() {
         await apiFetch<FinancePeriodDetail>(`/api/finance/periods/${activeYear}/${activeMonth}/generate`, {
           method: "POST",
           token: session.accessToken,
-          householdId: activeHouseholdId,
+          spaceId: activeSpaceId,
           body: JSON.stringify({ mode }),
         }),
       );
@@ -1063,7 +1067,7 @@ export function useFinanceDashboard() {
         try {
           const periods = await apiFetch<FinancePeriodListItem[]>("/api/finance/periods", {
             token: session.accessToken,
-            householdId: activeHouseholdId,
+            spaceId: activeSpaceId,
           });
           startTransition(() => {
             setFinancePeriods(sortFinancePeriods(periods));
@@ -1082,7 +1086,7 @@ export function useFinanceDashboard() {
   }
 
   async function createEntry(input: FinanceEntryFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1090,7 +1094,7 @@ export function useFinanceDashboard() {
       await apiFetch<FinanceEntry>("/api/finance/entries", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
@@ -1101,7 +1105,7 @@ export function useFinanceDashboard() {
   }
 
   async function updateEntry(entryId: string, input: FinanceEntryFormInput, options?: FinanceMutationOptions) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1116,7 +1120,7 @@ export function useFinanceDashboard() {
         currentEntry.year === previousPeriodDetail.year &&
         currentEntry.month === previousPeriodDetail.month,
     );
-    const classification = resolveClassification(input.universeId, input.projectId);
+    const classification = resolveClassification(input.coreId, input.projectId);
     const optimisticEntry: FinanceEntry | null = currentEntry
       ? {
           ...currentEntry,
@@ -1154,7 +1158,7 @@ export function useFinanceDashboard() {
       const updatedEntry = await apiFetch<FinanceEntry>(`/api/finance/entries/${entryId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
 
@@ -1211,7 +1215,7 @@ export function useFinanceDashboard() {
       referenceDate: entry.referenceDate,
       recurringTemplateId: entry.recurringTemplateId ?? null,
         categoryId: entry.categoryId ?? null,
-        universeId: entry.universeId ?? null,
+        coreId: entry.coreId ?? null,
         projectId: entry.projectId ?? null,
       },
       { silentSuccess: true },
@@ -1219,7 +1223,7 @@ export function useFinanceDashboard() {
   }
 
   async function createCategory(input: FinanceCategoryFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1227,7 +1231,7 @@ export function useFinanceDashboard() {
       await apiFetch<FinanceCategory>("/api/finance/categories", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
@@ -1238,7 +1242,7 @@ export function useFinanceDashboard() {
   }
 
   async function updateCategory(categoryId: string, input: FinanceCategoryFormInput, options?: FinanceMutationOptions) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1311,7 +1315,7 @@ export function useFinanceDashboard() {
       const updatedCategory = await apiFetch<FinanceCategory>(`/api/finance/categories/${categoryId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       startTransition(() => {
@@ -1334,7 +1338,7 @@ export function useFinanceDashboard() {
   }
 
   async function deleteCategory(categoryId: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1342,7 +1346,7 @@ export function useFinanceDashboard() {
       await apiFetch<void>(`/api/finance/categories/${categoryId}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       await refreshWorkspace();
       toast.success("Categoria excluída.");
@@ -1352,7 +1356,7 @@ export function useFinanceDashboard() {
   }
 
   async function deleteEntry(entryId: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1360,7 +1364,7 @@ export function useFinanceDashboard() {
       await apiFetch<void>(`/api/finance/entries/${entryId}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       await refreshWorkspace();
       toast.success("Lançamento excluído.");
@@ -1370,7 +1374,7 @@ export function useFinanceDashboard() {
   }
 
   async function deleteEntries(entryIds: string[]) {
-    if (!session || !activeHouseholdId || entryIds.length === 0) {
+    if (!session || !activeSpaceId || entryIds.length === 0) {
       return;
     }
 
@@ -1380,7 +1384,7 @@ export function useFinanceDashboard() {
           apiFetch<void>(`/api/finance/entries/${entryId}`, {
             method: "DELETE",
             token: session.accessToken,
-            householdId: activeHouseholdId,
+            spaceId: activeSpaceId,
           }),
         ),
       );
@@ -1392,7 +1396,7 @@ export function useFinanceDashboard() {
   }
 
   async function createRecurringTemplate(input: FinanceRecurringTemplateFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1400,7 +1404,7 @@ export function useFinanceDashboard() {
       await apiFetch<FinanceRecurringTemplate>("/api/finance/recurring-templates", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
@@ -1411,12 +1415,12 @@ export function useFinanceDashboard() {
   }
 
   async function updateRecurringTemplate(templateId: string, input: FinanceRecurringTemplateFormInput, options?: FinanceMutationOptions) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
     const previousTemplates = recurringTemplates;
-    const classification = resolveClassification(input.universeId, input.projectId);
+    const classification = resolveClassification(input.coreId, input.projectId);
     const optimisticTemplates = sortRecurringTemplates(
       recurringTemplates.map((template) =>
         template.id === templateId
@@ -1447,7 +1451,7 @@ export function useFinanceDashboard() {
       const updatedTemplate = await apiFetch<FinanceRecurringTemplate>(`/api/finance/recurring-templates/${templateId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       startTransition(() => {
@@ -1467,7 +1471,7 @@ export function useFinanceDashboard() {
   }
 
   async function deleteRecurringTemplate(templateId: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1475,7 +1479,7 @@ export function useFinanceDashboard() {
       await apiFetch<void>(`/api/finance/recurring-templates/${templateId}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       await refreshWorkspace();
       toast.success("Recorrência excluída.");
@@ -1485,7 +1489,7 @@ export function useFinanceDashboard() {
   }
 
   async function createAsset(input: AssetFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1493,7 +1497,7 @@ export function useFinanceDashboard() {
       await apiFetch<Asset>("/api/finance/assets", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
@@ -1504,7 +1508,7 @@ export function useFinanceDashboard() {
   }
 
   async function updateAsset(assetId: string, input: AssetFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1512,7 +1516,7 @@ export function useFinanceDashboard() {
       await apiFetch<Asset>(`/api/finance/assets/${assetId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
@@ -1523,7 +1527,7 @@ export function useFinanceDashboard() {
   }
 
   async function deleteAsset(assetId: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1531,7 +1535,7 @@ export function useFinanceDashboard() {
       await apiFetch<void>(`/api/finance/assets/${assetId}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       await refreshWorkspace();
       toast.success("Bem excluido.");
@@ -1541,7 +1545,7 @@ export function useFinanceDashboard() {
   }
 
   async function loadAssetValuations(assetId: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1549,7 +1553,7 @@ export function useFinanceDashboard() {
     try {
       const valuations = await apiFetch<AssetValuation[]>(`/api/finance/assets/${assetId}/valuations`, {
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       setAssetValuations((current) => ({
         ...current,
@@ -1563,7 +1567,7 @@ export function useFinanceDashboard() {
   }
 
   async function createAssetValuation(assetId: string, input: AssetValuationFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1571,7 +1575,7 @@ export function useFinanceDashboard() {
       await apiFetch<AssetValuation>(`/api/finance/assets/${assetId}/valuations`, {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       await loadAssetValuations(assetId);
@@ -1582,7 +1586,7 @@ export function useFinanceDashboard() {
   }
 
   async function updateAssetValuation(assetId: string, valuationId: string, input: AssetValuationFormInput, options?: FinanceMutationOptions) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1613,7 +1617,7 @@ export function useFinanceDashboard() {
       const updatedValuation = await apiFetch<AssetValuation>(`/api/finance/assets/${assetId}/valuations/${valuationId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       startTransition(() => {
@@ -1639,7 +1643,7 @@ export function useFinanceDashboard() {
   }
 
   async function deleteAssetValuation(assetId: string, valuationId: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1647,7 +1651,7 @@ export function useFinanceDashboard() {
       await apiFetch<void>(`/api/finance/assets/${assetId}/valuations/${valuationId}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       await loadAssetValuations(assetId);
       toast.success("Referência anual excluída.");
@@ -1657,7 +1661,7 @@ export function useFinanceDashboard() {
   }
 
   async function createCreditCardAccount(input: CreditCardAccountFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1665,7 +1669,7 @@ export function useFinanceDashboard() {
       await apiFetch<CreditCardAccount>("/api/finance/credit-cards", {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
@@ -1676,7 +1680,7 @@ export function useFinanceDashboard() {
   }
 
   async function updateCreditCardAccount(cardId: string, input: CreditCardAccountFormInput) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1684,7 +1688,7 @@ export function useFinanceDashboard() {
       await apiFetch<CreditCardAccount>(`/api/finance/credit-cards/${cardId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
@@ -1695,7 +1699,7 @@ export function useFinanceDashboard() {
   }
 
   async function deleteCreditCardAccount(cardId: string) {
-    if (!session || !activeHouseholdId) {
+    if (!session || !activeSpaceId) {
       return;
     }
 
@@ -1703,7 +1707,7 @@ export function useFinanceDashboard() {
       await apiFetch<void>(`/api/finance/credit-cards/${cardId}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       await refreshWorkspace();
       toast.success("Cartão excluído.");
@@ -1713,7 +1717,7 @@ export function useFinanceDashboard() {
   }
 
   async function createCreditCardTransaction(input: CreditCardTransactionFormInput) {
-    if (!session || !activeHouseholdId || !selectedCreditCardId) {
+    if (!session || !activeSpaceId || !selectedCreditCardId) {
       return;
     }
 
@@ -1721,7 +1725,7 @@ export function useFinanceDashboard() {
       await apiFetch<CreditCardTransaction>(`/api/finance/credit-cards/${selectedCreditCardId}/transactions`, {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
@@ -1732,7 +1736,7 @@ export function useFinanceDashboard() {
   }
 
   async function importCreditCardTransactions(items: ImportCreditCardTransactionItem[]) {
-    if (!session || !activeHouseholdId || !selectedCreditCardId || items.length === 0) {
+    if (!session || !activeSpaceId || !selectedCreditCardId || items.length === 0) {
       return null;
     }
 
@@ -1742,7 +1746,7 @@ export function useFinanceDashboard() {
         {
           method: "POST",
           token: session.accessToken,
-          householdId: activeHouseholdId,
+          spaceId: activeSpaceId,
           body: JSON.stringify({ transactions: items }),
         },
       );
@@ -1760,7 +1764,7 @@ export function useFinanceDashboard() {
   }
 
   async function updateCreditCardTransaction(transactionId: string, input: CreditCardTransactionFormInput, options?: FinanceMutationOptions) {
-    if (!session || !activeHouseholdId || !selectedCreditCardId) {
+    if (!session || !activeSpaceId || !selectedCreditCardId) {
       return;
     }
 
@@ -1773,7 +1777,7 @@ export function useFinanceDashboard() {
       creditCardTransactions.find((transaction) => transaction.id === transactionId) ??
       previousPeriodDetail?.cardTransactions.find((transaction) => transaction.id === transactionId) ??
       null;
-    const classification = resolveClassification(input.universeId, input.projectId);
+    const classification = resolveClassification(input.coreId, input.projectId);
     const optimisticTransaction: CreditCardTransaction | null = previousTransaction
       ? {
           ...previousTransaction,
@@ -1888,7 +1892,7 @@ export function useFinanceDashboard() {
         {
           method: "PUT",
           token: session.accessToken,
-          householdId: activeHouseholdId,
+          spaceId: activeSpaceId,
           body: JSON.stringify(input),
         },
       );
@@ -1932,7 +1936,7 @@ export function useFinanceDashboard() {
   }
 
   async function deleteCreditCardTransaction(transactionId: string) {
-    if (!session || !activeHouseholdId || !selectedCreditCardId) {
+    if (!session || !activeSpaceId || !selectedCreditCardId) {
       return;
     }
 
@@ -1940,7 +1944,7 @@ export function useFinanceDashboard() {
       await apiFetch<void>(`/api/finance/credit-cards/${selectedCreditCardId}/transactions/${transactionId}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       await refreshWorkspace();
       toast.success("Compra no cartão excluída.");
@@ -1950,7 +1954,7 @@ export function useFinanceDashboard() {
   }
 
   async function deleteCreditCardTransactions(transactionIds: string[]) {
-    if (!session || !activeHouseholdId || !selectedCreditCardId || transactionIds.length === 0) {
+    if (!session || !activeSpaceId || !selectedCreditCardId || transactionIds.length === 0) {
       return;
     }
 
@@ -1960,7 +1964,7 @@ export function useFinanceDashboard() {
           apiFetch<void>(`/api/finance/credit-cards/${selectedCreditCardId}/transactions/${transactionId}`, {
             method: "DELETE",
             token: session.accessToken,
-            householdId: activeHouseholdId,
+            spaceId: activeSpaceId,
           }),
         ),
       );
@@ -1972,7 +1976,7 @@ export function useFinanceDashboard() {
   }
 
   async function createCreditCardStatement(input: CreditCardStatementFormInput) {
-    if (!session || !activeHouseholdId || !selectedCreditCardId) {
+    if (!session || !activeSpaceId || !selectedCreditCardId) {
       return;
     }
 
@@ -1980,7 +1984,7 @@ export function useFinanceDashboard() {
       await apiFetch<CreditCardStatement>(`/api/finance/credit-cards/${selectedCreditCardId}/statements`, {
         method: "POST",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       await refreshWorkspace();
@@ -1991,7 +1995,7 @@ export function useFinanceDashboard() {
   }
 
   async function updateCreditCardStatement(statementId: string, input: CreditCardStatementFormInput, options?: FinanceMutationOptions) {
-    if (!session || !activeHouseholdId || !selectedCreditCardId) {
+    if (!session || !activeSpaceId || !selectedCreditCardId) {
       return;
     }
 
@@ -2050,7 +2054,7 @@ export function useFinanceDashboard() {
       const updatedStatement = await apiFetch<CreditCardStatement>(`/api/finance/credit-cards/${selectedCreditCardId}/statements/${statementId}`, {
         method: "PUT",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
         body: JSON.stringify(input),
       });
       startTransition(() => {
@@ -2072,7 +2076,7 @@ export function useFinanceDashboard() {
   }
 
   async function deleteCreditCardStatement(statementId: string) {
-    if (!session || !activeHouseholdId || !selectedCreditCardId) {
+    if (!session || !activeSpaceId || !selectedCreditCardId) {
       return;
     }
 
@@ -2080,7 +2084,7 @@ export function useFinanceDashboard() {
       await apiFetch<void>(`/api/finance/credit-cards/${selectedCreditCardId}/statements/${statementId}`, {
         method: "DELETE",
         token: session.accessToken,
-        householdId: activeHouseholdId,
+        spaceId: activeSpaceId,
       });
       await refreshWorkspace();
       toast.success("Fatura excluída.");
@@ -2091,10 +2095,10 @@ export function useFinanceDashboard() {
 
   return {
     session,
-    activeHouseholdId,
-    activeHousehold,
+    activeSpaceId,
+    activeSpace,
     members,
-    universes,
+    cores,
     projects,
     categories,
     financePeriods,
@@ -2110,17 +2114,17 @@ export function useFinanceDashboard() {
     creditCardTransactions,
     creditCardStatements,
     cardDetailsLoading,
-    editingHousehold,
-    isHouseholdDialogOpen: activeCommonModal === "household",
+    editingSpace,
+    isSpaceDialogOpen: activeCommonModal === "space",
     isShareDialogOpen: activeCommonModal === "share",
     sidebarCollapsed,
     theme,
     loading,
     error,
     syncingSections,
-    subtitle: "Fluxo mensal, recorrências, cartões e patrimônio da casa",
-    canShareHousehold,
-    canManageHousehold,
+    subtitle: "Fluxo mensal, recorrências, cartões e patrimônio do espaço",
+    canShareSpace,
+    canManageSpace,
     setError,
     setSidebarCollapsed: (collapsed: boolean) => {
       setSidebarCollapsedState(collapsed);
@@ -2137,18 +2141,18 @@ export function useFinanceDashboard() {
     },
     setSelectedCreditCardId,
     handleAuthenticated,
-    handleHouseholdChange,
+    handleSpaceChange,
     handleLogout,
-    refreshHouseholds,
+    refreshSpaces,
     refreshWorkspace,
-    openCreateHousehold,
-    openEditHousehold,
-    openShareHousehold,
+    openCreateSpace,
+    openEditSpace,
+    openShareSpace,
     closeCommonModal,
-    createHousehold,
-    updateHousehold,
-    deleteHousehold,
-    shareHousehold,
+    createSpace,
+    updateSpace,
+    deleteSpace,
+    shareSpace,
     updateProfile,
     generatePeriod,
     createCategory,

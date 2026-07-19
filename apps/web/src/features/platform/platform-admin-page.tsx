@@ -41,8 +41,8 @@ import {
 import { uiStorageKeys } from "@/features/projects/project-dashboard.constants";
 import { AccountStateGate } from "@/features/workspace/account-state-gate";
 import { DeleteConfirmationDialog } from "@/features/workspace/delete-confirmation-dialog";
-import { HomePitAuth } from "@/features/workspace/homepit-auth";
-import { HomePitWorkspaceShell, Notice } from "@/features/workspace/homepit-workspace-shell";
+import { OrganizaClubAuth } from "@/features/workspace/organiza-club-auth";
+import { OrganizaClubWorkspaceShell, Notice } from "@/features/workspace/organiza-club-workspace-shell";
 import { useProjectDashboard } from "@/features/projects/use-project-dashboard";
 import { cn } from "@/lib/utils";
 
@@ -167,7 +167,7 @@ export function PlatformAdminPage() {
   const dashboard = useProjectDashboard();
 
   if (!dashboard.session) {
-    return <HomePitAuth onAuthenticated={dashboard.handleAuthenticated} />;
+    return <OrganizaClubAuth onAuthenticated={dashboard.handleAuthenticated} />;
   }
 
   return (
@@ -185,46 +185,46 @@ function PlatformWorkspace({ dashboard }: { dashboard: ReturnType<typeof useProj
   }
 
   return (
-      <HomePitWorkspaceShell
+      <OrganizaClubWorkspaceShell
       controller={{
         session,
-        activeHouseholdId: dashboard.activeHouseholdId,
-        activeHousehold: dashboard.activeHousehold,
+        activeSpaceId: dashboard.activeSpaceId,
+        activeSpace: dashboard.activeSpace,
         members: dashboard.members,
         theme: dashboard.theme,
         sidebarCollapsed: dashboard.sidebarCollapsed,
         loading: dashboard.loading,
         error: dashboard.error,
-        canShareHousehold: dashboard.canShareHousehold,
-        canManageHousehold: dashboard.canManageHousehold,
-        editingHousehold: dashboard.editingHousehold,
-        isHouseholdDialogOpen: dashboard.activeModal === "household",
+        canShareSpace: dashboard.canShareSpace,
+        canManageSpace: dashboard.canManageSpace,
+        editingSpace: dashboard.editingSpace,
+        isSpaceDialogOpen: dashboard.activeModal === "space",
         isShareDialogOpen: dashboard.activeModal === "share",
         setError: dashboard.setError,
         setSidebarCollapsed: dashboard.setSidebarCollapsed,
         setTheme: dashboard.setTheme,
-        handleHouseholdChange: dashboard.handleHouseholdChange,
+        handleSpaceChange: dashboard.handleSpaceChange,
         handleLogout: dashboard.handleLogout,
-        refreshHouseholds: dashboard.refreshHouseholds,
+        refreshSpaces: dashboard.refreshSpaces,
         refreshWorkspace: async () => dashboard.loadWorkspace(),
-        openCreateHousehold: dashboard.openCreateHousehold,
-        openEditHousehold: dashboard.openEditHousehold,
-        openShareHousehold: dashboard.openShareHousehold,
+        openCreateSpace: dashboard.openCreateSpace,
+        openEditSpace: dashboard.openEditSpace,
+        openShareSpace: dashboard.openShareSpace,
         closeCommonModal: dashboard.closeModal,
-        createHousehold: dashboard.createHousehold,
-        updateHousehold: dashboard.updateHousehold,
-        deleteHousehold: dashboard.deleteHousehold,
-        shareHousehold: dashboard.shareHousehold,
+        createSpace: dashboard.createSpace,
+        updateSpace: dashboard.updateSpace,
+        deleteSpace: dashboard.deleteSpace,
+        shareSpace: dashboard.shareSpace,
       }}
       activeModule="platform"
       subtitle="Usuários, planos, assinaturas e configurações globais em um hub do SuperAdmin"
-      visibleCount={session.households.length}
-      visibleLabel="casas visíveis"
-      headerStats={[{ label: "casas", value: session.households.length }]}
-      requireHousehold={false}
+      visibleCount={session.spaces.length}
+      visibleLabel="espaços visíveis"
+      headerStats={[{ label: "espaços", value: session.spaces.length }]}
+      requireSpace={false}
     >
       <PlatformAdminPanel token={session.accessToken} />
-    </HomePitWorkspaceShell>
+    </OrganizaClubWorkspaceShell>
   );
 }
 
@@ -354,8 +354,8 @@ function PlatformAdminPanel({ token }: { token: string }) {
     field:
       | "monthlyPrice"
       | "annualPrice"
-      | "maxOwnedHouseholds"
-      | "maxUniverses"
+      | "maxOwnedSpaces"
+      | "maxCores"
       | "maxProjects"
       | "maxInvitedMembers"
       | "maxOriginalImages",
@@ -416,8 +416,8 @@ function PlatformAdminPanel({ token }: { token: string }) {
         body: JSON.stringify({
           monthlyPrice: draft.monthlyPrice,
           annualPrice: draft.annualPrice,
-          maxOwnedHouseholds: draft.maxOwnedHouseholds,
-          maxUniverses: draft.maxUniverses,
+          maxOwnedSpaces: draft.maxOwnedSpaces,
+          maxCores: draft.maxCores,
           maxProjects: draft.maxProjects,
           maxInvitedMembers: draft.maxInvitedMembers ?? null,
           maxOriginalImages: draft.maxOriginalImages,
@@ -711,7 +711,7 @@ function PlatformAdminPanel({ token }: { token: string }) {
         <CardContent className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">SuperAdmin</p>
-            <h1 className="mt-2 text-3xl font-semibold text-foreground">Plataforma HomePit</h1>
+            <h1 className="mt-2 text-3xl font-semibold text-foreground">Plataforma Organiza Club</h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Centralize a gestão global de contas, catálogo comercial e histórico manual de assinaturas com uma visão
               única da plataforma.
@@ -748,7 +748,7 @@ function PlatformAdminPanel({ token }: { token: string }) {
           </div>
 
           <Notice tone="warning">
-            O superadmin protegido segue somente leitura. Excluir um proprietário apaga suas casas próprias e os dados
+            O superadmin protegido segue somente leitura. Excluir um proprietário apaga seus espaços próprios e os dados
             vinculados a elas.
           </Notice>
 
@@ -850,18 +850,18 @@ function PlatformAdminPanel({ token }: { token: string }) {
                         onChange={(event) => updatePlanDraft(plan.id, "annualPrice", event.target.value)}
                       />
                     </Field>
-                    <Field label="Casas próprias">
+                    <Field label="Espaços próprios">
                       <Input
                         type="number"
-                        value={draft.maxOwnedHouseholds}
-                        onChange={(event) => updatePlanDraft(plan.id, "maxOwnedHouseholds", event.target.value)}
+                        value={draft.maxOwnedSpaces}
+                        onChange={(event) => updatePlanDraft(plan.id, "maxOwnedSpaces", event.target.value)}
                       />
                     </Field>
-                    <Field label="Universos totais">
+                    <Field label="Núcleos totais">
                       <Input
                         type="number"
-                        value={draft.maxUniverses}
-                        onChange={(event) => updatePlanDraft(plan.id, "maxUniverses", event.target.value)}
+                        value={draft.maxCores}
+                        onChange={(event) => updatePlanDraft(plan.id, "maxCores", event.target.value)}
                       />
                     </Field>
                     <Field label="Projetos totais">
@@ -1414,14 +1414,14 @@ function PlatformAdminPanel({ token }: { token: string }) {
       <DeleteConfirmationDialog
         open={Boolean(userToDelete)}
         title="Excluir usuário"
-        description="Essa ação remove a conta e todos os vínculos do usuário. Se ele possuir casas próprias, elas também serão apagadas com seus dados vinculados."
+        description="Essa ação remove a conta e todos os vínculos do usuário. Se ele possuir espaços próprios, elas também serão apagadas com seus dados vinculados."
         confirmationTarget={userToDelete?.email}
         confirmationLabel={`Digite o e-mail ${userToDelete?.email ?? ""} para confirmar`}
         confirmLabel="Excluir usuário"
         impactItems={[
           "A conta, os tokens e os vínculos ativos do usuário.",
-          "Comentários autorados por ele em outras casas.",
-          "Casas próprias do usuário e todos os vínculos dessas casas, quando existirem.",
+          "Comentários autorados por ele em outros espaços.",
+          "Espaços próprios do usuário e todos os vínculos desses espaços, quando existirem.",
         ]}
         onOpenChange={(open) => {
           if (!open) {
@@ -1521,7 +1521,7 @@ function UserRow({
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span>{user.email}</span>
             <span>{user.membershipCount} vínculo(s)</span>
-            <span>{user.ownedHouseholdCount} casa(s) própria(s)</span>
+            <span>{user.ownedSpaceCount} espaço(s) própria(s)</span>
           </div>
           <p className="text-xs text-muted-foreground">
             {user.activeSubscriptionStatus

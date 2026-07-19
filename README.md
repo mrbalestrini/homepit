@@ -1,6 +1,6 @@
-# HomePit
+# Organiza Club
 
-HomePit é um ambiente pessoal para organizar projetos de casa, demandas familiares, financeiro, automações domésticas e armazenamento de prompts da família. O MVP começa pelo módulo de projetos, inspirado na estrutura que já existe no Notion: `Universo > Projeto > Atividade > Pendência`.
+Organiza Club é um ambiente pessoal para organizar finanças, projetos, estudos, vida e muito mais. A estrutura compartilhada do produto segue `Espaço > Núcleo > Projeto > Atividade > Pendência`.
 
 ## Stack
 

@@ -72,22 +72,22 @@ function buildSession(systemRole: AuthResponse["user"]["systemRole"]): AuthRespo
     expiresAt: "2026-06-15T18:00:00Z",
     user: {
       id: "user-1",
-      email: "admin@homepit.dev",
+      email: "admin@organiza.club",
       displayName: "Admin",
       systemRole,
       hasProfilePhoto: false,
     },
-    households: [],
+    spaces: [],
   };
 }
 
 function buildPage(): InstitutionalPageContent {
   return {
     slug: "home",
-    seoTitle: "HomePit",
+    seoTitle: "Organiza Club",
     seoDescription: "Descrição",
-    brandName: "HomePit",
-    brandTagline: "Casa organizada",
+    brandName: "Organiza Club",
+    brandTagline: "Espaço organizado",
     heroEyebrow: "Destaque",
     heroTitle: "Título inicial",
     heroDescription: "Descrição principal",

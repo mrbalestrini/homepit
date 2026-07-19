@@ -2,42 +2,42 @@
 
 ## FATO OBSERVADO
 
-- Um usuario pode pertencer a varias casas; com mais de uma, a API exige `X-Household-Id`.
+- Um usuario pode pertencer a varios espaços; com mais de uma, a API exige `X-Space-Id`.
 - O primeiro usuario comum cadastrado recebe `SystemRole.Admin`; os seguintes recebem `User`.
-- Cadastro pode criar uma casa inicial opcional e tornar o usuario `Owner`.
-- Casa deve manter ao menos um proprietario ativo.
-- Somente `Owner` edita/exclui casa e gerencia papel ou remocao de membros.
-- `Owner` e `Admin` compartilham casa; compartilhamento aceita apenas `Admin` ou `Member`.
+- Cadastro pode criar um espaço inicial opcional e tornar o usuario `Owner`.
+- Espaço deve manter ao menos um proprietario ativo.
+- Somente `Owner` edita/exclui espaço e gerencia papel ou remocao de membros.
+- `Owner` e `Admin` compartilham espaço; compartilhamento aceita apenas `Admin` ou `Member`.
 - Remover membro marca o vinculo como inativo e preserva historico.
-- `Owner` e `Admin` gerenciam conteudo da casa; `Member` gerencia apenas conteudo criado por ele.
+- `Owner` e `Admin` gerenciam conteudo do espaço; `Member` gerencia apenas conteudo criado por ele.
 - Comentario so pode ser editado pelo autor; `Owner` e `Admin` podem excluir comentarios de
   outras pessoas.
-- Hierarquia de projetos: `Universe > Project > Activity > PendingItem`.
+- Hierarquia de projetos: `Core > Project > Activity > PendingItem`.
 - `Activity` expõe `CreatedAt` auditavel e pode ter `DueDate` opcional como prazo esperado.
 - `Activity` pode ter no maximo uma imagem privada; o upload substitui o anexo anterior e
-  a exclusao de atividade, projeto ou universo deve limpar o binario correspondente.
+  a exclusao de atividade, projeto ou núcleo deve limpar o binario correspondente.
 - Contagem de atividades do projeto considera apenas atividades nao concluidas.
-- Responsavel de atividade deve ser membro ativo da mesma casa.
+- Responsavel de atividade deve ser membro ativo da mesmo espaço.
 - Status: `NaoIniciada`, `EmAndamento`, `Concluido`.
 - Ao entrar em `Concluido`, a atividade registra `CompletedAt`; ao sair, esse valor é
   limpo. Permanecer concluída preserva a data registrada.
 - Prioridade: `Baixa`, `Media`, `Alta`, `Urgente`.
-- Cada membro ativo pode configurar esforço recorrente de segunda a domingo para Casa, Universo e Projeto.
+- Cada membro ativo pode configurar esforço recorrente de segunda a domingo para Espaço, Núcleo e Projeto.
 - Esforço de filhos reserva capacidade do pai; campo vazio herda ou deriva a capacidade e zero bloqueia o escopo no dia.
 - A fila pessoal inclui atividades abertas atribuídas ao membro e sem responsável; atividades atribuídas a outros membros não entram.
 - Atividades sem pontos permanecem no fim da fila relevante e não consomem capacidade.
-- Todo prompt pertence a uma casa, exige titulo, texto e ao menos uma categoria valida.
+- Todo prompt pertence a um espaço, exige titulo, texto e ao menos uma categoria valida.
 - Texto do prompt aceita no maximo 20000 caracteres.
 - Titulo e URL do link devem existir juntos; URL deve ser HTTP ou HTTPS.
-- Universo do prompt e opcional; excluir universo limpa o vinculo sem excluir o prompt.
+- Núcleo do prompt e opcional; excluir núcleo limpa o vinculo sem excluir o prompt.
 - Prompt pode ser arquivado de forma reversível; a listagem padrão mostra apenas prompts ativos e a visão arquivada mostra apenas itens com `IsArchived = true`.
-- Categoria e unica por nome dentro da casa.
+- Categoria e unica por nome dentro do espaço.
 - Excluir categoria exige substituta quando algum prompt ficaria sem categoria.
-- Numero GSM pertence a uma casa, exige titulo, numero valido com 11 ou 13 digitos e data
+- Numero GSM pertence a um espaço, exige titulo, numero valido com 11 ou 13 digitos e data
   de aquisicao.
 - Numero GSM com 11 digitos recebe DDI `55` por padrao; com 13 digitos preserva o DDI
   explicito informado.
-- O mesmo numero GSM normalizado nao pode se repetir na mesma casa.
+- O mesmo numero GSM normalizado nao pode se repetir na mesmo espaço.
 - Numero GSM possui `Plan` com os valores `PrePago` e `PosPago`.
 - `MonthlyCost` e opcional e representa o custo mensal da linha quando aplicavel.
 - `DaysWithoutRecharge` e opcional e deve ser um inteiro positivo quando informado.
@@ -48,9 +48,9 @@
   podem gerenciar tudo, `Member` apenas o que criou, e `SuperAdmin` permanece somente
   leitura.
 - Status de numero GSM: `Ativo`, `Inativo`, `Abandonado`.
-- Imagens privadas pertencem ao usuario, universo ou prompt correspondente.
-- SuperAdmin lista casas e conteudo globalmente, mas operacoes de escrita nos modulos das
-  casas sao proibidas.
+- Imagens privadas pertencem ao usuario, núcleo ou prompt correspondente.
+- SuperAdmin listo espaços e conteudo globalmente, mas operacoes de escrita nos modulos das
+  espaços sao proibidas.
 - SuperAdmin e o unico perfil que pode escrever no CMS institucional global.
 - A pagina institucional possui entre 1 e 6 beneficios e entre 1 e 6 etapas ordenadas.
 - Resumo diario considera atividades abertas atribuidas ao membro e ate tres pendencias
@@ -58,12 +58,12 @@
 
 ## INFERÊNCIA
 
-- Regras de autoria e casa sao invariantes centrais e devem ser testadas em qualquer novo
+- Regras de autoria e espaço sao invariantes centrais e devem ser testadas em qualquer novo
   modulo que armazene dados compartilhados.
 
 ## NÃO IDENTIFICADO
 
 - Regras de conclusao, edicao e exclusao de pendencias alem das rotas atuais.
 - Configuracao por interface das preferencias de notificacao.
-- Regras implementadas para financeiro e supermercado.
-- Transferencia explicita de propriedade de uma casa.
+- Regras implementadas para financeiro e supermercada.
+- Transferencia explicita de propriedade de um espaço.

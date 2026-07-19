@@ -14,7 +14,7 @@ export function ProtectedActivityImageFrame({
   hasImage,
   imageUpdatedAt,
   token,
-  householdId,
+  spaceId,
   className,
   previewUrl,
   onOpenImage,
@@ -24,7 +24,7 @@ export function ProtectedActivityImageFrame({
   hasImage: boolean;
   imageUpdatedAt?: string | null;
   token?: string;
-  householdId?: string;
+  spaceId?: string;
   className?: string;
   previewUrl?: string | null;
   onOpenImage?: (imageUrl: string) => void;
@@ -34,7 +34,7 @@ export function ProtectedActivityImageFrame({
     hasImage,
     imageUpdatedAt,
     token,
-    householdId,
+    spaceId,
   });
   const imageUrl = previewUrl ?? protectedImageUrl;
 
@@ -85,13 +85,13 @@ export function useProtectedActivityImage({
   hasImage,
   imageUpdatedAt,
   token,
-  householdId,
+  spaceId,
 }: {
   activityId: string;
   hasImage: boolean;
   imageUpdatedAt?: string | null;
   token?: string;
-  householdId?: string;
+  spaceId?: string;
 }) {
   const [fetchedImage, setFetchedImage] = useState<{ cacheKey: string; imageUrl: string | null } | null>(null);
   const cacheKey = hasImage ? `${activityId}:${imageUpdatedAt ?? ""}` : null;
@@ -99,7 +99,7 @@ export function useProtectedActivityImage({
   useEffect(() => {
     let cancelled = false;
 
-    if (!activityId || !hasImage || !token || !householdId || !cacheKey) {
+    if (!activityId || !hasImage || !token || !spaceId || !cacheKey) {
       return () => {
         cancelled = true;
       };
@@ -114,7 +114,7 @@ export function useProtectedActivityImage({
 
     const pendingRequest =
       activityImageRequests.get(cacheKey) ??
-      apiFetchBlob(`/api/activities/${activityId}/image`, { token, householdId })
+      apiFetchBlob(`/api/activities/${activityId}/image`, { token, spaceId })
         .then((blob) => {
           const objectUrl = URL.createObjectURL(blob);
           activityImageCache.set(cacheKey, objectUrl);
@@ -148,7 +148,7 @@ export function useProtectedActivityImage({
     return () => {
       cancelled = true;
     };
-  }, [activityId, cacheKey, hasImage, householdId, token]);
+  }, [activityId, cacheKey, hasImage, spaceId, token]);
 
   if (!cacheKey) {
     return null;

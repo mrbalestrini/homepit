@@ -1,4 +1,4 @@
 interface:
-  display_name: "HomePit QA"
+  display_name: "OrganizaClub QA"
   short_description: "Executar validacoes e avaliar regressoes"
-  default_prompt: "Use a skill qa para validar mudancas e registrar evidencias de teste no HomePit."
+  default_prompt: "Use a skill qa para validar mudancas e registrar evidencias de teste no Organiza Club."

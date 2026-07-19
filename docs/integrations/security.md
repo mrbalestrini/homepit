@@ -7,7 +7,7 @@ Para ativar REST, configure `Integrations:Enabled=true` e forneça `Integrations
 ## Ciclo de vida da conexão
 
 - A validade é obrigatória, sugere 90 dias e nunca pode ultrapassar 365 dias.
-- Revogar uma conexão OAuth, desativar a conta ou perder o vínculo ativo com a Casa bloqueia imediatamente o MCP e seus tokens de referência.
+- Revogar uma conexão OAuth, desativar a conta ou perder o vínculo ativo com o Espaço bloqueia imediatamente o MCP e seus tokens de referência.
 - O segredo é mostrado apenas uma vez. Guarde-o em um cofre e crie uma nova conexão em vez de tentar recuperar uma chave perdida.
 - A auditoria guarda operação, superfície (REST/MCP), resultado, data e `traceId` por 90 dias; não guarda token, segredo ou payload financeiro.
 

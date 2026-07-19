@@ -38,7 +38,7 @@ export function activityMatchesSearch(activity: Activity, query: string) {
   return (
     activity.title.toLowerCase().includes(normalizedSearch) ||
     activity.projectName.toLowerCase().includes(normalizedSearch) ||
-    activity.universeName.toLowerCase().includes(normalizedSearch) ||
+    activity.coreName.toLowerCase().includes(normalizedSearch) ||
     (activity.description ?? "").toLowerCase().includes(normalizedSearch)
   );
 }
@@ -117,7 +117,7 @@ export function sortActivities(items: Activity[], sort: ActivitySortState) {
         return sizeDifference || priorityDifference || statusDifference || left.title.localeCompare(right.title);
       case "project":
         return (
-          left.universeName.localeCompare(right.universeName) ||
+          left.coreName.localeCompare(right.coreName) ||
           left.projectName.localeCompare(right.projectName) ||
           priorityDifference ||
           left.title.localeCompare(right.title)

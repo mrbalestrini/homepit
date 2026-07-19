@@ -11,14 +11,14 @@
 | `npm run lint` | `apps/web` | `apps/web/package.json` | Executar ESLint. |
 | `npm test` | `apps/web` | `apps/web/package.json` | Executar `vitest run`. |
 | `npm ci` | `apps/web` | Dockerfile web | Instalar dependencias pelo lockfile na imagem. |
-| `dotnet restore HomePit.sln` | `apps/api` | Dockerfile API | Restaurar a solucao durante o build da imagem. |
-| `dotnet publish src/HomePit.Api/HomePit.Api.csproj -c Release -o /app/publish /p:UseAppHost=false` | `apps/api` | Dockerfile API | Publicar a API na imagem. |
-| `.\infra\setup\homepit-local.ps1` | raiz | setup README/script | Abrir menu local. |
-| `.\infra\setup\homepit-local.ps1 -Action start` | raiz | setup README/script | Preparar ambiente, construir API/web e subir cinco recursos. |
-| `.\infra\setup\homepit-local.ps1 -Action stop` | raiz | setup README/script | Parar containers preservando volumes. |
-| `.\infra\setup\homepit-local.ps1 -Action destroy` | raiz | setup README/script | Remover containers, volumes e a rede local. |
+| `dotnet restore OrganizaClub.sln` | `apps/api` | Dockerfile API | Restaurar a solucao durante o build da imagem. |
+| `dotnet publish src/OrganizaClub.Api/OrganizaClub.Api.csproj -c Release -o /app/publish /p:UseAppHost=false` | `apps/api` | Dockerfile API | Publicar a API na imagem. |
+| `.\infra\setup\organiza-club-local.ps1` | raiz | setup README/script | Abrir menu local. |
+| `.\infra\setup\organiza-club-local.ps1 -Action start` | raiz | setup README/script | Preparar ambiente, construir API/web e subir cinco recursos. |
+| `.\infra\setup\organiza-club-local.ps1 -Action stop` | raiz | setup README/script | Parar containers preservando volumes. |
+| `.\infra\setup\organiza-club-local.ps1 -Action destroy` | raiz | setup README/script | Remover containers, volumes e a rede local. |
 | `.\scripts\validate-ai-workflow.ps1` | raiz | workflow IA local | Validar estrutura de `.specs/`, skills, versoes e consistencia documental minima. |
-| `docker network create homepit_net` | host de deploy | `docs/coolify.md` | Criar a rede externa de deploy. |
+| `docker network create organiza_club_net` | host de deploy | `docs/coolify.md` | Criar a rede externa de deploy. |
 
 - `start` aceita `-Engine docker|podman` e `-NoBuild`.
 - O script tambem pode ser executado por `pwsh` ou com `-ExecutionPolicy Bypass`.

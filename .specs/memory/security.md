@@ -10,20 +10,20 @@
 - `appsettings*.json` versionados possuem valores nao vazios em alguns campos sensiveis.
 - Senhas de usuarios usam PBKDF2-SHA256 com salt; refresh tokens sao armazenados como hash.
 - O refresh token e revogado e substituido ao renovar a sessao.
-- JWT inclui identidade, perfil do sistema, casas e papeis por casa.
+- JWT inclui identidade, perfil do sistema, espaços e papeis por espaço.
 - O frontend guarda access token e refresh token em `localStorage`.
 - SuperAdmin e habilitado por configuracao e bloqueado para escrita nos servicos observados.
 - A unica excecao de escrita do SuperAdmin e o CMS institucional global; a verificacao
   ocorre no servico de Application.
 - `Owner`, `Admin` e `Member` possuem autorizacao adicional aplicada nos servicos.
 - CORS aceita qualquer origem quando a lista configurada esta vazia.
-- Uploads comuns de perfil, universo, prompt, atividade e imagens institucionais nao SEO
+- Uploads comuns de perfil, núcleo, prompt, atividade e imagens institucionais nao SEO
   aceitam JPG, PNG, WEBP, GIF e BMP com limite bruto de 5 MB, rejeitam animacoes e sao
   normalizados para WEBP com no maximo 2000 px por lado.
 - Imagens institucionais possuem leitura publica intencional e cache por URL versionada;
   a imagem de SEO permanece com regra separada em WEBP e dimensoes fixas.
 - Dados com indicio de sensibilidade: e-mail, hash de senha, telefone/WhatsApp, tokens,
-  objetos privados e identificadores de mensagens.
+  objetos privados e identificadares de mensagens.
 
 ## INFERÊNCIA
 

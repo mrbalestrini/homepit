@@ -8,7 +8,7 @@ da plataforma.
 
 ## Objetivo
 
-Adicionar uma aba de configuracoes na tela da Plataforma HomePit para manter dados de
+Adicionar uma aba de configuracoes na tela da Plataforma Organiza Club para manter dados de
 contato, telefone de gestao, instagram e endereco institucional que podera alimentar a
 landing page no futuro.
 
@@ -28,14 +28,14 @@ landing page no futuro.
 
 ## Arquivos ou areas envolvidas
 
-- `apps/api/src/HomePit.Domain/*`
-- `apps/api/src/HomePit.Application/*`
-- `apps/api/src/HomePit.Infrastructure/*`
-- `apps/api/src/HomePit.Api/*`
+- `apps/api/src/OrganizaClub.Domain/*`
+- `apps/api/src/OrganizaClub.Application/*`
+- `apps/api/src/OrganizaClub.Infrastructure/*`
+- `apps/api/src/OrganizaClub.Api/*`
 - `apps/api/tests/*`
 - `apps/web/src/features/platform/*`
 - `apps/web/src/lib/api.ts`
-- `contracts/openapi/homepit.v1.yaml`
+- `contracts/openapi/organiza-club.v1.yaml`
 - `CHANGELOG.md`
 
 ## Regras de negocio
@@ -77,7 +77,7 @@ landing page no futuro.
 - O `SuperAdmin` ve uma nova aba `Configuracoes` no hub `/admin/platform`.
 - Os campos pedidos sao exibidos e agrupados por assunto.
 - Os dados podem ser carregados e salvos pela API.
-- O endereco fica marcado como visivel somente quando todos os campos obrigatorios estao
+- O endereco fica marcada como visivel somente quando todos os campos obrigatorios estao
   preenchidos.
 
 ## Decisao final

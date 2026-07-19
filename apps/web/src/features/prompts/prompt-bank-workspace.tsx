@@ -53,11 +53,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   EmptyState,
   Field,
-  HomePitWorkspaceShell,
+  OrganizaClubWorkspaceShell,
   LoadingState,
   Notice,
-} from "@/features/workspace/homepit-workspace-shell";
-import { ProtectedUniverseAvatar } from "@/features/workspace/protected-universe-avatar";
+} from "@/features/workspace/organiza-club-workspace-shell";
+import { ProtectedCoreAvatar } from "@/features/workspace/protected-core-avatar";
 import { cn } from "@/lib/utils";
 import type { PromptBankController, PromptFormInput } from "./use-prompt-bank";
 
@@ -77,43 +77,43 @@ export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
   const headerStats = [
     { label: "Prompts", value: bank.promptPage.totalCount },
     { label: "Categorias", value: bank.categories.length },
-    { label: "Universos", value: bank.universes.length },
+    { label: "Núcleos", value: bank.cores.length },
     { label: "Com imagem", value: bank.imageCount },
     { label: "Pessoas", value: bank.members.length },
   ];
 
   return (
     <>
-      <HomePitWorkspaceShell
+      <OrganizaClubWorkspaceShell
         controller={{
           session: bank.session,
-          activeHouseholdId: bank.activeHouseholdId,
-          activeHousehold: bank.activeHousehold,
+          activeSpaceId: bank.activeSpaceId,
+          activeSpace: bank.activeSpace,
           members: bank.members,
           theme: bank.theme,
           sidebarCollapsed: bank.sidebarCollapsed,
           loading: bank.loading,
           error: bank.error,
-          canShareHousehold: bank.canShareHousehold,
-          canManageHousehold: bank.canManageHousehold,
-          editingHousehold: bank.editingHousehold,
-          isHouseholdDialogOpen: bank.activeModal === "household",
+          canShareSpace: bank.canShareSpace,
+          canManageSpace: bank.canManageSpace,
+          editingSpace: bank.editingSpace,
+          isSpaceDialogOpen: bank.activeModal === "space",
           isShareDialogOpen: bank.activeModal === "share",
           setError: bank.setError,
           setSidebarCollapsed: bank.setSidebarCollapsed,
           setTheme: bank.setTheme,
-          handleHouseholdChange: bank.handleHouseholdChange,
+          handleSpaceChange: bank.handleSpaceChange,
           handleLogout: bank.handleLogout,
-          refreshHouseholds: bank.refreshHouseholds,
+          refreshSpaces: bank.refreshSpaces,
           refreshWorkspace: bank.refreshWorkspace,
-          openCreateHousehold: bank.openCreateHousehold,
-          openEditHousehold: bank.openEditHousehold,
-          openShareHousehold: bank.openShareHousehold,
+          openCreateSpace: bank.openCreateSpace,
+          openEditSpace: bank.openEditSpace,
+          openShareSpace: bank.openShareSpace,
           closeCommonModal: bank.closeCommonModal,
-          createHousehold: bank.createHousehold,
-          updateHousehold: bank.updateHousehold,
-          deleteHousehold: bank.deleteHousehold,
-          shareHousehold: bank.shareHousehold,
+          createSpace: bank.createSpace,
+          updateSpace: bank.updateSpace,
+          deleteSpace: bank.deleteSpace,
+          shareSpace: bank.shareSpace,
         }}
         activeModule="prompts"
         subtitle={bank.subtitle}
@@ -125,13 +125,13 @@ export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
           <CategoryManager bank={bank} />
           <PromptBoard bank={bank} />
         </div>
-      </HomePitWorkspaceShell>
+      </OrganizaClubWorkspaceShell>
 
       <PromptDialog
         key={`prompt-${bank.editingPrompt?.id ?? "new"}-${bank.activeModal === "prompt" ? "open" : "closed"}`}
         open={bank.activeModal === "prompt"}
         prompt={bank.editingPrompt}
-        universes={bank.universes}
+        cores={bank.cores}
         categories={bank.categories}
         onOpenChange={(open) => !open && bank.closeModuleModal()}
         onSave={(input) =>
@@ -155,7 +155,7 @@ export function PromptBankWorkspace({ bank }: { bank: PromptBankController }) {
         prompt={bank.selectedPromptDetail}
         loading={bank.detailLoading}
         token={bank.session?.accessToken ?? ""}
-        householdId={bank.activeHouseholdId}
+        spaceId={bank.activeSpaceId}
         showImages={bank.showImages}
         onOpenChange={(open) => !open && bank.closePrompt()}
         onEdit={(promptId) => void bank.openEditPrompt(promptId)}
@@ -189,7 +189,7 @@ export function CategoryManager({ bank }: { bank: PromptBankController }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Categorias</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Gerencie a taxonomia compartilhada da casa.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Gerencie a taxonomia compartilhada do espaço.</p>
             <p className="mt-1 text-xs text-muted-foreground">Clique em uma categoria para aplicar ou remover o filtro.</p>
           </div>
           <Button variant="secondary" size="icon" onClick={bank.openCreateCategory} aria-label="Nova categoria">
@@ -342,12 +342,12 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
               />
             </div>
 
-            <Select className="min-w-[12rem] xl:w-[12rem]" value={bank.universeFilter} onChange={(event) => bank.setUniverseFilterValue(event.target.value)}>
-              <option value="all">Todos os universos</option>
-              <option value="none">Sem universo</option>
-              {bank.universes.map((universe) => (
-                <option key={universe.id} value={universe.id}>
-                  {universe.name}
+            <Select className="min-w-[12rem] xl:w-[12rem]" value={bank.coreFilter} onChange={(event) => bank.setCoreFilterValue(event.target.value)}>
+              <option value="all">Todos os núcleos</option>
+              <option value="none">Sem núcleo</option>
+              {bank.cores.map((core) => (
+                <option key={core.id} value={core.id}>
+                  {core.name}
                 </option>
               ))}
             </Select>
@@ -408,7 +408,7 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
                     key={prompt.id}
                     prompt={prompt}
                     token={bank.session?.accessToken ?? ""}
-                    householdId={bank.activeHouseholdId}
+                    spaceId={bank.activeSpaceId}
                     showImages={bank.showImages}
                     layout="list"
                     onOpen={() => void bank.openPrompt(prompt.id)}
@@ -428,7 +428,7 @@ function PromptBoard({ bank }: { bank: PromptBankController }) {
                     key={prompt.id}
                     prompt={prompt}
                     token={bank.session?.accessToken ?? ""}
-                    householdId={bank.activeHouseholdId}
+                    spaceId={bank.activeSpaceId}
                     showImages={bank.showImages}
                     layout="grid"
                     onOpen={() => void bank.openPrompt(prompt.id)}
@@ -757,33 +757,33 @@ function CategoryFilterDropdown({ bank }: { bank: PromptBankController }) {
   );
 }
 
-function PromptUniverseBadge({
-  universeId,
+function PromptCoreBadge({
+  coreId,
   name,
   imageUrl,
   hasImage,
   imageUpdatedAt,
   token,
-  householdId,
+  spaceId,
 }: {
-  universeId?: string | null;
+  coreId?: string | null;
   name: string;
   imageUrl?: string | null;
   hasImage?: boolean;
   imageUpdatedAt?: string | null;
   token?: string;
-  householdId?: string;
+  spaceId?: string;
 }) {
   return (
     <Badge variant="outline" className="gap-1.5 pl-1">
-      <ProtectedUniverseAvatar
-        universeId={universeId}
+      <ProtectedCoreAvatar
+        coreId={coreId}
         name={name}
         imageUrl={imageUrl}
         hasImage={hasImage}
         imageUpdatedAt={imageUpdatedAt}
         token={token}
-        householdId={householdId}
+        spaceId={spaceId}
         className="size-4 text-[8px]"
       />
       <span className="truncate">{name}</span>
@@ -794,7 +794,7 @@ function PromptUniverseBadge({
 export function PromptCard({
   prompt,
   token,
-  householdId,
+  spaceId,
   showImages = true,
   layout = "grid",
   onOpen,
@@ -804,7 +804,7 @@ export function PromptCard({
 }: {
   prompt: PromptListItem;
   token: string;
-  householdId?: string;
+  spaceId?: string;
   showImages?: boolean;
   layout?: PromptCardLayout;
   onOpen: () => void;
@@ -870,7 +870,7 @@ export function PromptCard({
                 hasImage={prompt.hasImage}
                 imageUpdatedAt={prompt.imageUpdatedAt}
                 token={token}
-                householdId={householdId}
+                spaceId={spaceId}
                 className="rounded-[20px]"
               />
             ) : (
@@ -892,18 +892,18 @@ export function PromptCard({
 
           <div className="min-w-0 flex-1 space-y-4">
             <div className="flex flex-wrap items-center gap-2 pr-12">
-              {prompt.universeName ? (
-                <PromptUniverseBadge
-                  universeId={prompt.universeId}
-                  name={prompt.universeName}
-                  imageUrl={prompt.universeImageUrl}
-                  hasImage={prompt.universeHasImage}
-                  imageUpdatedAt={prompt.universeImageUpdatedAt}
+              {prompt.coreName ? (
+                <PromptCoreBadge
+                  coreId={prompt.coreId}
+                  name={prompt.coreName}
+                  imageUrl={prompt.coreImageUrl}
+                  hasImage={prompt.coreHasImage}
+                  imageUpdatedAt={prompt.coreImageUpdatedAt}
                   token={token}
-                  householdId={householdId}
+                  spaceId={spaceId}
                 />
               ) : (
-                <Badge variant="neutral">Sem universo</Badge>
+                <Badge variant="neutral">Sem núcleo</Badge>
               )}
               {prompt.isArchived ? <Badge variant="neutral">Arquivado</Badge> : null}
               {prompt.hasImage && !showImages ? <Badge variant="neutral">Imagem oculta</Badge> : null}
@@ -951,7 +951,7 @@ export function PromptCard({
                 hasImage={prompt.hasImage}
                 imageUpdatedAt={prompt.imageUpdatedAt}
                 token={token}
-                householdId={householdId}
+                spaceId={spaceId}
                 className="rounded-t-[24px]"
               />
               <div className="absolute right-3 top-3">{actionsMenu}</div>
@@ -972,18 +972,18 @@ export function PromptCard({
 
           <div className="space-y-3 p-4">
             <div className="flex flex-wrap items-center gap-2">
-              {prompt.universeName ? (
-                <PromptUniverseBadge
-                  universeId={prompt.universeId}
-                  name={prompt.universeName}
-                  imageUrl={prompt.universeImageUrl}
-                  hasImage={prompt.universeHasImage}
-                  imageUpdatedAt={prompt.universeImageUpdatedAt}
+              {prompt.coreName ? (
+                <PromptCoreBadge
+                  coreId={prompt.coreId}
+                  name={prompt.coreName}
+                  imageUrl={prompt.coreImageUrl}
+                  hasImage={prompt.coreHasImage}
+                  imageUpdatedAt={prompt.coreImageUpdatedAt}
                   token={token}
-                  householdId={householdId}
+                  spaceId={spaceId}
                 />
               ) : (
-                <Badge variant="neutral">Sem universo</Badge>
+                <Badge variant="neutral">Sem núcleo</Badge>
               )}
               {prompt.isArchived ? <Badge variant="neutral">Arquivado</Badge> : null}
               {prompt.hasImage && !showImages ? <Badge variant="neutral">Imagem oculta</Badge> : null}
@@ -1067,7 +1067,7 @@ function PaginationControls({
 function PromptDialog({
   open,
   prompt,
-  universes,
+  cores,
   categories,
   onOpenChange,
   onSave,
@@ -1075,13 +1075,13 @@ function PromptDialog({
 }: {
   open: boolean;
   prompt: PromptDetail | null;
-  universes: Array<{ id: string; name: string }>;
+  cores: Array<{ id: string; name: string }>;
   categories: PromptCategory[];
   onOpenChange: (open: boolean) => void;
   onSave: (input: PromptFormInput) => Promise<void>;
   token: string;
 }) {
-  const [universeId, setUniverseId] = useState(prompt?.universeId ?? "");
+  const [coreId, setCoreId] = useState(prompt?.coreId ?? "");
   const [title, setTitle] = useState(prompt?.title ?? "");
   const [description, setDescription] = useState(prompt?.description ?? "");
   const [promptText, setPromptText] = useState(prompt?.promptText ?? "");
@@ -1109,7 +1109,7 @@ function PromptDialog({
 
     try {
       await onSave({
-        universeId,
+        coreId,
         title,
         description,
         promptText,
@@ -1202,12 +1202,12 @@ function PromptDialog({
                 <Field label="Título">
                   <Input value={title} onChange={(event) => setTitle(event.target.value)} autoFocus required />
                 </Field>
-                <Field label="Universo">
-                  <Select value={universeId} onChange={(event) => setUniverseId(event.target.value)}>
-                    <option value="">Sem universo</option>
-                    {universes.map((universe) => (
-                      <option key={universe.id} value={universe.id}>
-                        {universe.name}
+                <Field label="Núcleo">
+                  <Select value={coreId} onChange={(event) => setCoreId(event.target.value)}>
+                    <option value="">Sem núcleo</option>
+                    {cores.map((core) => (
+                      <option key={core.id} value={core.id}>
+                        {core.name}
                       </option>
                     ))}
                   </Select>
@@ -1451,7 +1451,7 @@ export function PromptDetailDialog({
   prompt,
   loading,
   token,
-  householdId,
+  spaceId,
   showImages = true,
   onOpenChange,
   onEdit,
@@ -1462,7 +1462,7 @@ export function PromptDetailDialog({
   prompt: PromptDetail | null;
   loading: boolean;
   token: string;
-  householdId?: string;
+  spaceId?: string;
   showImages?: boolean;
   onOpenChange: (open: boolean) => void;
   onEdit: (promptId: string) => void;
@@ -1484,18 +1484,18 @@ export function PromptDetailDialog({
               <div className="flex flex-wrap items-start justify-between gap-3 pr-10">
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    {prompt.universeName ? (
-                      <PromptUniverseBadge
-                        universeId={prompt.universeId}
-                        name={prompt.universeName}
-                        imageUrl={prompt.universeImageUrl}
-                        hasImage={prompt.universeHasImage}
-                        imageUpdatedAt={prompt.universeImageUpdatedAt}
+                    {prompt.coreName ? (
+                      <PromptCoreBadge
+                        coreId={prompt.coreId}
+                        name={prompt.coreName}
+                        imageUrl={prompt.coreImageUrl}
+                        hasImage={prompt.coreHasImage}
+                        imageUpdatedAt={prompt.coreImageUpdatedAt}
                         token={token}
-                        householdId={householdId}
+                        spaceId={spaceId}
                       />
                     ) : (
-                      <Badge variant="neutral">Sem universo</Badge>
+                      <Badge variant="neutral">Sem núcleo</Badge>
                     )}
                     {prompt.isArchived ? <Badge variant="neutral">Arquivado</Badge> : null}
                     {prompt.hasImage && !showImages ? <Badge variant="neutral">Imagem oculta</Badge> : null}
@@ -1538,7 +1538,7 @@ export function PromptDetailDialog({
                   hasImage={prompt.hasImage}
                   imageUpdatedAt={prompt.imageUpdatedAt}
                   token={token}
-                  householdId={householdId}
+                  spaceId={spaceId}
                   className="rounded-[24px]"
                 />
               ) : null}
@@ -1653,7 +1653,7 @@ function PromptImageFrame({
   hasImage,
   imageUpdatedAt,
   token,
-  householdId,
+  spaceId,
   className,
   previewUrl,
 }: {
@@ -1662,11 +1662,11 @@ function PromptImageFrame({
   hasImage: boolean;
   imageUpdatedAt?: string | null;
   token: string;
-  householdId?: string;
+  spaceId?: string;
   className?: string;
   previewUrl?: string | null;
 }) {
-  const protectedImageUrl = useProtectedPromptImage(promptId, hasImage, imageUpdatedAt, token, householdId);
+  const protectedImageUrl = useProtectedPromptImage(promptId, hasImage, imageUpdatedAt, token, spaceId);
   const imageUrl = previewUrl ?? protectedImageUrl;
 
   return (
@@ -1699,20 +1699,20 @@ function useProtectedPromptImage(
   hasImage: boolean,
   imageUpdatedAt: string | null | undefined,
   token: string,
-  householdId?: string,
+  spaceId?: string,
 ) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!hasImage || !token || !householdId) {
+    if (!hasImage || !token || !spaceId) {
       return () => {
         cancelled = true;
       };
     }
 
-    void apiFetchBlob(`/api/prompts/${promptId}/image`, { token, householdId })
+    void apiFetchBlob(`/api/prompts/${promptId}/image`, { token, spaceId })
       .then((blob) => {
         if (cancelled) {
           return;
@@ -1734,7 +1734,7 @@ function useProtectedPromptImage(
     return () => {
       cancelled = true;
     };
-  }, [hasImage, householdId, imageUpdatedAt, promptId, token]);
+  }, [hasImage, spaceId, imageUpdatedAt, promptId, token]);
 
   useEffect(() => {
     return () => {
